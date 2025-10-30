@@ -21,6 +21,29 @@ print_message() {
     echo -e "${color}$@${NC}"
 }
 
+# Function to get test duration from user
+get_test_duration() {
+    local test_name=$1
+    local default_duration=$2
+    local duration
+
+    echo ""
+    read -p "Enter test duration in hours (default: $default_duration, press Enter for default): " duration
+
+    # If user just pressed Enter, use default
+    if [ -z "$duration" ]; then
+        duration=$default_duration
+    fi
+
+    # Validate that it's a number (integer or decimal)
+    if ! [[ "$duration" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+        print_message "$RED" "Invalid duration. Using default: $default_duration hours"
+        duration=$default_duration
+    fi
+
+    echo "$duration"
+}
+
 # Function to display the menu
 display_menu() {
     clear
@@ -30,21 +53,25 @@ display_menu() {
     echo ""
     echo "Select a test to run:"
     echo ""
-    echo "  1. CPU Test"
-    echo "  2. GPU Test"
-    echo "  3. RAM Test"
-    echo "  4. Storage Test"
-    echo "  5. Combined Test (All Tests)"
+    echo "  1. CPU Test          (default: 1 hour)"
+    echo "  2. GPU Test          (default: 2 hours)"
+    echo "  3. RAM Test          (default: 1 hour)"
+    echo "  4. Storage Test      (default: 2 hours)"
+    echo "  5. Combined Test     (All tests with defaults)"
     echo "  0. Exit"
+    echo ""
+    echo "Note: You will be prompted for duration when"
+    echo "      selecting individual tests (1-4)."
     echo ""
     echo "=============================================="
 }
 
 # Function to run CPU test
 run_cpu_test() {
-    print_message "$BLUE" "\nStarting CPU Test..."
+    local duration=${1:-$(get_test_duration "CPU" "1")}
+    print_message "$BLUE" "\nStarting CPU Test (Duration: $duration hours)..."
     if [ -f "$SCRIPT_DIR/jetson_cpu_test.sh" ]; then
-        bash "$SCRIPT_DIR/jetson_cpu_test.sh"
+        bash "$SCRIPT_DIR/jetson_cpu_test.sh" "" "" "" "$duration"
         local exit_code=$?
         if [ $exit_code -eq 0 ]; then
             print_message "$GREEN" "CPU Test completed successfully!"
@@ -60,9 +87,10 @@ run_cpu_test() {
 
 # Function to run GPU test
 run_gpu_test() {
-    print_message "$BLUE" "\nStarting GPU Test..."
+    local duration=${1:-$(get_test_duration "GPU" "2")}
+    print_message "$BLUE" "\nStarting GPU Test (Duration: $duration hours)..."
     if [ -f "$SCRIPT_DIR/jetson_gpu_test.sh" ]; then
-        bash "$SCRIPT_DIR/jetson_gpu_test.sh"
+        bash "$SCRIPT_DIR/jetson_gpu_test.sh" "" "" "" "$duration"
         local exit_code=$?
         if [ $exit_code -eq 0 ]; then
             print_message "$GREEN" "GPU Test completed successfully!"
@@ -78,9 +106,10 @@ run_gpu_test() {
 
 # Function to run RAM test
 run_ram_test() {
-    print_message "$BLUE" "\nStarting RAM Test..."
+    local duration=${1:-$(get_test_duration "RAM" "1")}
+    print_message "$BLUE" "\nStarting RAM Test (Duration: $duration hours)..."
     if [ -f "$SCRIPT_DIR/ram/complete_ram_test.sh" ]; then
-        bash "$SCRIPT_DIR/ram/complete_ram_test.sh"
+        bash "$SCRIPT_DIR/ram/complete_ram_test.sh" "" "" "" "$duration"
         local exit_code=$?
         if [ $exit_code -eq 0 ]; then
             print_message "$GREEN" "RAM Test completed successfully!"
@@ -96,9 +125,10 @@ run_ram_test() {
 
 # Function to run Storage test
 run_storage_test() {
-    print_message "$BLUE" "\nStarting Storage Test..."
+    local duration=${1:-$(get_test_duration "Storage" "2")}
+    print_message "$BLUE" "\nStarting Storage Test (Duration: $duration hours)..."
     if [ -f "$SCRIPT_DIR/jetson_storage_test.sh" ]; then
-        bash "$SCRIPT_DIR/jetson_storage_test.sh"
+        bash "$SCRIPT_DIR/jetson_storage_test.sh" "" "" "" "$duration"
         local exit_code=$?
         if [ $exit_code -eq 0 ]; then
             print_message "$GREEN" "Storage Test completed successfully!"
@@ -117,37 +147,42 @@ run_combined_test() {
     print_message "$BLUE" "\n=========================================="
     print_message "$BLUE" "Starting Combined Test (All Tests)"
     print_message "$BLUE" "=========================================="
+    print_message "$YELLOW" "Using default durations for all tests:"
+    print_message "$YELLOW" "  • CPU: 1 hour"
+    print_message "$YELLOW" "  • GPU: 2 hours"
+    print_message "$YELLOW" "  • RAM: 1 hour"
+    print_message "$YELLOW" "  • Storage: 2 hours"
 
     local failed_tests=()
     local passed_tests=()
 
-    # Run CPU Test
+    # Run CPU Test with default duration
     print_message "$YELLOW" "\n[1/4] Running CPU Test..."
-    if run_cpu_test; then
+    if run_cpu_test 1; then
         passed_tests+=("CPU")
     else
         failed_tests+=("CPU")
     fi
 
-    # Run GPU Test
+    # Run GPU Test with default duration
     print_message "$YELLOW" "\n[2/4] Running GPU Test..."
-    if run_gpu_test; then
+    if run_gpu_test 2; then
         passed_tests+=("GPU")
     else
         failed_tests+=("GPU")
     fi
 
-    # Run RAM Test
+    # Run RAM Test with default duration
     print_message "$YELLOW" "\n[3/4] Running RAM Test..."
-    if run_ram_test; then
+    if run_ram_test 1; then
         passed_tests+=("RAM")
     else
         failed_tests+=("RAM")
     fi
 
-    # Run Storage Test
+    # Run Storage Test with default duration
     print_message "$YELLOW" "\n[4/4] Running Storage Test..."
-    if run_storage_test; then
+    if run_storage_test 2; then
         passed_tests+=("Storage")
     else
         failed_tests+=("Storage")
