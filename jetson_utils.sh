@@ -474,54 +474,64 @@ process_temperature_results() {
 ################################################################################
 
 # Calculate realistic performance expectations based on Jetson model and cores
+# NOTE: This function now accepts test_duration to scale expectations properly
 calculate_performance_expectations() {
     local cores="$1"
     local model="$2"
-    
-    # Base performance for different Jetson models (single-core)
+    local test_duration="${3:-3600}"  # Default 1 hour if not provided
+
+    # Base performance rates for different Jetson models (per 60 seconds for single-core)
+    # Single-core primes: primes found in 60 seconds
+    # Multi-core matrix: operations per second
     case "$model" in
         *"Orin AGX"*|*"AGX Orin"*)
-            base_single_core_primes=60000
+            base_single_core_primes_per_60s=60000
             # AGX Orin has high-performance cores but matrix ops are memory-bound
             case "$cores" in
-                [1-4])   base_matrix_ops=8 ;;
-                [5-8])   base_matrix_ops=12 ;;
-                [9-12])  base_matrix_ops=18 ;;  # Realistic for 10-12 cores
-                *)       base_matrix_ops=20 ;;
+                [1-4])   base_matrix_ops_per_sec=8 ;;
+                [5-8])   base_matrix_ops_per_sec=12 ;;
+                [9-12])  base_matrix_ops_per_sec=18 ;;  # Realistic for 10-12 cores
+                *)       base_matrix_ops_per_sec=20 ;;
             esac
             ;;
         *"Orin NX"*|*"NX Orin"*)
-            base_single_core_primes=50000
+            base_single_core_primes_per_60s=50000
             case "$cores" in
-                [1-4])   base_matrix_ops=6 ;;
-                [5-8])   base_matrix_ops=10 ;;
-                *)       base_matrix_ops=12 ;;
+                [1-4])   base_matrix_ops_per_sec=6 ;;
+                [5-8])   base_matrix_ops_per_sec=10 ;;
+                *)       base_matrix_ops_per_sec=12 ;;
             esac
             ;;
         *"Orin Nano"*|*"Nano Orin"*)
-            base_single_core_primes=40000
+            base_single_core_primes_per_60s=40000
             case "$cores" in
-                [1-4])   base_matrix_ops=5 ;;
-                [5-8])   base_matrix_ops=8 ;;
-                *)       base_matrix_ops=10 ;;
+                [1-4])   base_matrix_ops_per_sec=5 ;;
+                [5-8])   base_matrix_ops_per_sec=8 ;;
+                *)       base_matrix_ops_per_sec=10 ;;
             esac
             ;;
         *)
             # Default conservative values
-            base_single_core_primes=45000
+            base_single_core_primes_per_60s=45000
             case "$cores" in
-                [1-4])   base_matrix_ops=6 ;;
-                [5-8])   base_matrix_ops=10 ;;
-                [9-12])  base_matrix_ops=15 ;;
-                *)       base_matrix_ops=18 ;;
+                [1-4])   base_matrix_ops_per_sec=6 ;;
+                [5-8])   base_matrix_ops_per_sec=10 ;;
+                [9-12])  base_matrix_ops_per_sec=15 ;;
+                *)       base_matrix_ops_per_sec=18 ;;
             esac
             ;;
     esac
-    
-    # Calculate expectations - no complex scaling, just use base values
-    single_core_primes=$base_single_core_primes
-    multi_core_matrix=$base_matrix_ops
-    
+
+    # Calculate single-core duration (20% of total, then divided by 5 for prime test)
+    local single_core_test_duration=$((test_duration / 5 / 5))
+
+    # Scale single-core primes based on actual test duration
+    # base is per 60 seconds, scale to actual duration
+    local single_core_primes=$(echo "scale=0; $base_single_core_primes_per_60s * $single_core_test_duration / 60" | bc)
+
+    # Multi-core matrix ops is already per second, no scaling needed
+    local multi_core_matrix=$base_matrix_ops_per_sec
+
     echo "EXPECTED_SINGLE_CORE_PRIMES=$single_core_primes"
     echo "EXPECTED_MULTI_CORE_MATRIX_OPS=$multi_core_matrix"
     echo "EXPECTED_MEMORY_BANDWIDTH=15000"

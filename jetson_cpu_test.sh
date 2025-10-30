@@ -44,8 +44,8 @@ TEMP_THRESHOLD_CRITICAL=95
 
 # Calculate realistic performance expectations based on detected system
 echo "[*] Calculating performance expectations..."
-eval $(calculate_performance_expectations "$CPU_CORES" "$JETSON_MODEL")
-echo "  • Single-core target: $EXPECTED_SINGLE_CORE_PRIMES primes"
+eval $(calculate_performance_expectations "$CPU_CORES" "$JETSON_MODEL" "$TEST_DURATION")
+echo "  • Single-core target: $EXPECTED_SINGLE_CORE_PRIMES primes (scaled for test duration)"
 echo "  • Multi-core target: $EXPECTED_MULTI_CORE_MATRIX_OPS ops/sec"
 
 ################################################################################
