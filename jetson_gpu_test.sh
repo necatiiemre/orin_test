@@ -31,7 +31,7 @@ collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-2}"
 ################################################################################
 
 # Total test duration in seconds
-TEST_DURATION=$((${TEST_DURATION_HOURS%.*} * 3600))
+TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Convert hours to seconds (handle decimals)
 
 # For display purposes, use the hours value directly
 DISPLAY_DURATION_HOURS=$TEST_DURATION_HOURS

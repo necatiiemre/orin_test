@@ -27,7 +27,7 @@ collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
 # CONFIGURATION
 ################################################################################
 
-TEST_DURATION=$((${TEST_DURATION_HOURS%.*} * 3600))  # Convert hours to seconds (handle decimals)
+TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Convert hours to seconds (handle decimals)
 LOG_DIR="${5:-./cpu_ultra_test_$(date +%Y%m%d_%H%M%S)}"
 
 # Dynamic CPU core detection - get REAL physical cores, not hyperthreads
