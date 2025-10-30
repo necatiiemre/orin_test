@@ -27,6 +27,12 @@ TEST_DURATION_HOURS="${4:-1}"  # Default 1 hour for comprehensive testing
 TEST_DURATION=$((TEST_DURATION_HOURS * 3600))  # Convert hours to seconds
 LOG_DIR="${5:-./cpu_ultra_test_$(date +%Y%m%d_%H%M%S)}"
 
+# Password check - must happen before any SSH operations
+if [ -z "$ORIN_PASS" ]; then
+    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
+    echo ""
+fi
+
 # Dynamic CPU core detection - get REAL physical cores, not hyperthreads
 echo "[*] Detecting CPU cores..."
 CPU_CORES=$(get_physical_cores "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS")
@@ -144,12 +150,6 @@ log_info "Verifying remote core count..."
 REMOTE_CORES=$(ssh_execute "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "nproc")
 REMOTE_LOGICAL=$(ssh_execute "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "grep -c ^processor /proc/cpuinfo")
 log_info "Remote system: $REMOTE_CORES cores detected, $REMOTE_LOGICAL logical processors"
-
-# Password check
-if [ -z "$ORIN_PASS" ]; then
-    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
-    echo ""
-fi
 
 # Validate inputs
 validate_ip_address "$ORIN_IP" || exit 1
