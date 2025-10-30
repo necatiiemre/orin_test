@@ -13,18 +13,25 @@
 
 set -e
 
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Load common utilities
+source "$SCRIPT_DIR/jetson_utils.sh"
+
+################################################################################
+# INTERACTIVE PARAMETER COLLECTION
+################################################################################
+
+# Collect parameters interactively with command-line args as defaults
+collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-2}"
+
 ################################################################################
 # CONFIGURATION
 ################################################################################
 
-# Connection parameters
-ORIN_IP="${1:-192.168.55.69}"
-ORIN_USER="${2:-orin}"
-ORIN_PASS="${3}"
-TEST_DURATION_HOURS="${4:-2}"  # Default 2 hours
-
 # Total test duration in seconds
-TEST_DURATION=$((TEST_DURATION_HOURS * 3600))
+TEST_DURATION=$((${TEST_DURATION_HOURS%.*} * 3600))
 
 # For display purposes, use the hours value directly
 DISPLAY_DURATION_HOURS=$TEST_DURATION_HOURS

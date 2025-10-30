@@ -17,14 +17,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jetson_utils.sh"
 
 ################################################################################
+# INTERACTIVE PARAMETER COLLECTION
+################################################################################
+
+# Collect parameters interactively with command-line args as defaults
+collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
+
+################################################################################
 # CONFIGURATION
 ################################################################################
 
-ORIN_IP="${1:-192.168.55.69}"
-ORIN_USER="${2:-orin}"
-ORIN_PASS="${3}"
-TEST_DURATION_HOURS="${4:-1}"  # Default 1 hour
-TEST_DURATION=$((TEST_DURATION_HOURS * 3600))
+TEST_DURATION=$((${TEST_DURATION_HOURS%.*} * 3600))
 
 LOG_DIR="${5:-./combined_parallel_test_$(date +%Y%m%d_%H%M%S)}"
 
