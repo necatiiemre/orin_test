@@ -406,8 +406,10 @@ class AggressiveRAMStressTest:
                 errors += 1
                 with self.lock:
                     print(f"Random access error: pos={pos}, wrote={value:016x}, read={read_value:016x}")
-                    
-            self.operations += 1
+
+            # Thread-safe operation counter increment
+            with self.lock:
+                self.operations += 1
             
         return errors
         
