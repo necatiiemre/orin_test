@@ -174,11 +174,11 @@ find /usr/lib -name "*GL*" 2>/dev/null | grep -E "(libGL|libEGL)" | head -5 || e
 echo ""
 echo "OpenGL development headers:"
 if [ -f "/usr/include/GL/gl.h" ]; then
-    echo "✓ Standard OpenGL headers found"
+    echo "[+] Standard OpenGL headers found"
 elif [ -f "/usr/include/GLES3/gl3.h" ]; then
-    echo "✓ OpenGL ES headers found"
+    echo "[+] OpenGL ES headers found"
 else
-    echo "❌ No OpenGL headers found"
+    echo "[-] No OpenGL headers found"
 fi
 echo ""
 
@@ -284,13 +284,13 @@ fi
 if ! command -v nvidia-smi &> /dev/null; then
     log_warning "nvidia-smi not found - GPU monitoring and some tests may be limited."
 else
-    echo "✓ nvidia-smi available: $(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null || echo 'version unknown')"
+    echo "[+] nvidia-smi available: $(nvidia-smi --query-gpu=driver_version --format=csv,noheader 2>/dev/null || echo 'version unknown')"
 fi
 
 if ! command -v nvcc &> /dev/null; then
     log_warning "nvcc not found - CUDA compilation tests will be skipped. Ensure CUDA toolkit is installed."
 else
-    echo "✓ nvcc available: $(nvcc --version | grep release)"
+    echo "[+] nvcc available: $(nvcc --version | grep release)"
 fi
 
 ################################################################################
@@ -530,7 +530,7 @@ OPENGL_STATUS="NONE"
 # Test standard OpenGL
 log_info "Attempting standard OpenGL compilation test (Desktop GL)..."
 if gcc -o "$OPENGL_TEST_DIR/test_opengl" "$OPENGL_TEST_DIR/test_opengl.c" -lGL 2>/dev/null; then
-    log_success "✓ Standard OpenGL compilation successful"
+    log_success "[+] Standard OpenGL compilation successful"
     OPENGL_STATUS="STANDARD"
     "$OPENGL_TEST_DIR/test_opengl"
 else
@@ -542,7 +542,7 @@ log_info "Attempting OpenGL ES compilation test (GLES3)..."
 if pkg-config --exists glesv2 && \
    gcc -o "$OPENGL_TEST_DIR/test_gles" "$OPENGL_TEST_DIR/test_gles.c" \
    $(pkg-config --cflags --libs glesv2) 2>/dev/null; then
-    log_success "✓ OpenGL ES compilation successful"
+    log_success "[+] OpenGL ES compilation successful"
     if [ "$OPENGL_STATUS" = "NONE" ]; then
         OPENGL_STATUS="GLES"
     else
@@ -600,7 +600,7 @@ int main(int argc, char *argv[]) {
 EOF
 
 if gcc -o "$OPENGL_TEST_DIR/graphics_fallback" "$OPENGL_TEST_DIR/graphics_fallback.c" -lm 2>/dev/null; then
-    log_success "✓ Graphics fallback test created and compiled."
+    log_success "[+] Graphics fallback test created and compiled."
     "$OPENGL_TEST_DIR/graphics_fallback" 3 # Run for a short period
 else
     log_error "Failed to create or compile graphics fallback test. This test is essential if hardware acceleration fails."
@@ -640,7 +640,7 @@ else
 fi
 
 if command -v stress-ng &> /dev/null; then
-    echo "✓ stress-ng available: $(stress-ng --version 2>/dev/null | head -1 || echo 'version unknown')"
+    echo "[+] stress-ng available: $(stress-ng --version 2>/dev/null | head -1 || echo 'version unknown')"
 fi
 
 # Install additional useful monitoring tools
@@ -674,7 +674,7 @@ if [ $MEM_USAGE_PERCENT -gt 80 ]; then
 elif [ $MEM_USAGE_PERCENT -gt 60 ]; then
     log_warning "Moderate memory usage detected ($MEM_USAGE_PERCENT%)."
 else
-    echo "✓ Memory usage acceptable ($MEM_USAGE_PERCENT%)"
+    echo "[+] Memory usage acceptable ($MEM_USAGE_PERCENT%)"
 fi
 
 # Check available storage
@@ -694,7 +694,7 @@ elif [ $STORAGE_USAGE -gt 75 ]; then
 elif [ $AVAILABLE_STORAGE_MB -lt 1000 ]; then
     log_warning "Low available storage (${AVAILABLE_STORAGE_MB}MB) - large tests may fail."
 else
-    echo "✓ Storage availability acceptable"
+    echo "[+] Storage availability acceptable"
 fi
 
 # Check CPU load
@@ -713,7 +713,7 @@ if [ "$LOAD_PERCENT" -gt 80 ]; then
 elif [ "$LOAD_PERCENT" -gt 50 ]; then
     log_warning "Moderate CPU load detected (${LOAD_PERCENT}%)."
 else
-    echo "✓ CPU load acceptable (${LOAD_PERCENT}%)"
+    echo "[+] CPU load acceptable (${LOAD_PERCENT}%)"
 fi
 
 ################################################################################
@@ -732,13 +732,13 @@ find /usr/lib -name "*GL*" 2>/dev/null | grep -E "(libGL|libEGL)" | head -10 || 
 echo ""
 echo "OpenGL Headers Found:"
 if [ -f "/usr/include/GL/gl.h" ]; then
-    echo "✓ /usr/include/GL/gl.h"
+    echo "[+] /usr/include/GL/gl.h"
 fi
 if [ -f "/usr/include/GLES3/gl3.h" ]; then
-    echo "✓ /usr/include/GLES3/gl3.h"
+    echo "[+] /usr/include/GLES3/gl3.h"
 fi
 if [ -f "/usr/include/EGL/egl.h" ]; then
-    echo "✓ /usr/include/EGL/egl.h"
+    echo "[+] /usr/include/EGL/egl.h"
 fi
 
 echo ""
@@ -752,23 +752,23 @@ fi
 echo ""
 echo "CUDA Libraries (cuBLAS, cuDNN):"
 if dpkg -l | grep -q "libcublas-dev" && dpkg -l | grep -q "libcudnn8-dev"; then
-    log_success "✓ cuBLAS and cuDNN development libraries verified."
+    log_success "[+] cuBLAS and cuDNN development libraries verified."
 else
-    log_warning "❌ cuBLAS or cuDNN development libraries not found or verification failed."
+    log_warning "[-] cuBLAS or cuDNN development libraries not found or verification failed."
 fi
 
 echo ""
 echo "GPU Testing Tools:"
 if command -v glmark2 &> /dev/null; then
-    log_success "✓ glmark2 verified."
+    log_success "[+] glmark2 verified."
 else
-    log_warning "❌ glmark2 not found."
+    log_warning "[-] glmark2 not found."
 fi
 
 if [ -f "$HOME/gpu-burn/gpu_burn" ]; then
-    log_success "✓ gpu-burn verified ($HOME/gpu-burn/gpu_burn)."
+    log_success "[+] gpu-burn verified ($HOME/gpu-burn/gpu_burn)."
 else
-    log_warning "❌ gpu-burn not found ($HOME/gpu-burn/gpu_burn)."
+    log_warning "[-] gpu-burn not found ($HOME/gpu-burn/gpu_burn)."
 fi
 
 
@@ -847,53 +847,53 @@ echo ""
 
 if [ "$PREP_STATUS" = "READY" ] && [ $PREP_WARNINGS -eq 0 ]; then
     log_success "System is ready for comprehensive stress testing"
-    echo "  ✓ All dependencies installed and verified"
-    echo "  ✓ System resources sufficient for testing"
-    echo "  ✓ Performance optimizations applied"
-    echo "  ✓ OpenGL/Graphics and CUDA support configured"
-    echo "  ✓ GPU testing tools (glmark2, gpu-burn) installed and compiled"
-    echo "  ✓ Sudo operations completed successfully"
+    echo "  [+] All dependencies installed and verified"
+    echo "  [+] System resources sufficient for testing"
+    echo "  [+] Performance optimizations applied"
+    echo "  [+] OpenGL/Graphics and CUDA support configured"
+    echo "  [+] GPU testing tools (glmark2, gpu-burn) installed and compiled"
+    echo "  [+] Sudo operations completed successfully"
 elif [ "$PREP_STATUS" = "READY" ]; then # READY with warnings
     log_warning "System prepared with some warnings"
-    echo "  ⚠ Review resource usage, OpenGL/CUDA status, and GPU tools before starting intensive tests"
-    echo "  ⚠ Some tests may have reduced performance or fallback modes due to these warnings"
+    echo "  [!] Review resource usage, OpenGL/CUDA status, and GPU tools before starting intensive tests"
+    echo "  [!] Some tests may have reduced performance or fallback modes due to these warnings"
 else # PREP_STATUS indicates critical issues
     log_error "System preparation encountered critical issues."
-    echo "  ❌ Review the log file for detailed errors and resolve them before proceeding."
-    echo "  ❌ It is NOT recommended to proceed with intensive tests."
+    echo "  [-] Review the log file for detailed errors and resolve them before proceeding."
+    echo "  [-] It is NOT recommended to proceed with intensive tests."
 fi
 
 echo ""
 echo "Graphics/GPU Test Capabilities:"
 case "$OPENGL_STATUS" in
     "BOTH")
-        echo "  ✓ Hardware-accelerated Desktop OpenGL tests available"
-        echo "  ✓ Hardware-accelerated OpenGL ES tests available"
+        echo "  [+] Hardware-accelerated Desktop OpenGL tests available"
+        echo "  [+] Hardware-accelerated OpenGL ES tests available"
         ;;
     "STANDARD")
-        echo "  ✓ Hardware-accelerated Desktop OpenGL tests available"
-        echo "  ⚠ OpenGL ES tests may be limited"
+        echo "  [+] Hardware-accelerated Desktop OpenGL tests available"
+        echo "  [!] OpenGL ES tests may be limited"
         ;;
     "GLES")
-        echo "  ✓ Hardware-accelerated OpenGL ES tests available"
-        echo "  ⚠ Desktop OpenGL tests may be limited"
+        echo "  [+] Hardware-accelerated OpenGL ES tests available"
+        echo "  [!] Desktop OpenGL tests may be limited"
         ;;
     "NONE")
-        echo "  ⚠ Hardware-accelerated graphics tests not confirmed. Only CPU-based graphics simulations may be available."
-        echo "  ⚠ Verify NVIDIA drivers and JetPack installation if hardware acceleration is required."
+        echo "  [!] Hardware-accelerated graphics tests not confirmed. Only CPU-based graphics simulations may be available."
+        echo "  [!] Verify NVIDIA drivers and JetPack installation if hardware acceleration is required."
         ;;
 esac
 
 echo "CUDA and Video Processing Capabilities:"
 if command -v nvcc &> /dev/null && dpkg -l | grep -q "libcublas-dev" && dpkg -l | grep -q "libcudnn8-dev"; then
-    echo "  ✓ CUDA toolkit, cuBLAS, and cuDNN are available for compute tests."
+    echo "  [+] CUDA toolkit, cuBLAS, and cuDNN are available for compute tests."
 else
-    echo "  ⚠ CUDA development environment (nvcc, cuBLAS, cuDNN) may be incomplete. CUDA tests might fail."
+    echo "  [!] CUDA development environment (nvcc, cuBLAS, cuDNN) may be incomplete. CUDA tests might fail."
 fi
 if command -v gst-launch-1.0 &> /dev/null && dpkg -l | grep -q "nvidia-l4t-multimedia"; then
-    echo "  ✓ GStreamer with NVIDIA VPU plugins appears available for video encoding/decoding tests."
+    echo "  [+] GStreamer with NVIDIA VPU plugins appears available for video encoding/decoding tests."
 else
-    echo "  ⚠ GStreamer with NVIDIA VPU plugins may be missing or incomplete. Video encoding tests might fail."
+    echo "  [!] GStreamer with NVIDIA VPU plugins may be missing or incomplete. Video encoding tests might fail."
 fi
 
 echo ""
@@ -915,12 +915,12 @@ REMOTE_PREP_START
 
 log_success "Enhanced system preparation completed with sudo fix!"
 echo ""
-echo "📁 Preparation log: $LOG_DIR/logs/system_preparation.log"
-echo "🎮 OpenGL/Graphics: See above results for capabilities"
-echo "⚡ System optimization: Applied with sudo privileges"
-echo "📦 Dependencies: Attempted all package installations"
-echo "🔑 Sudo operations: Detailed errors now visible in log"
+echo "[*] Preparation log: $LOG_DIR/logs/system_preparation.log"
+echo "[*] OpenGL/Graphics: See above results for capabilities"
+echo "[*] System optimization: Applied with sudo privileges"
+echo "[*] Dependencies: Attempted all package installations"
+echo "[*] Sudo operations: Detailed errors now visible in log"
 echo ""
-echo "🚀 Your system is now optimized for comprehensive stress testing, please review log for any remaining warnings!"
+echo "[+] Your system is now optimized for comprehensive stress testing, please review log for any remaining warnings!"
 
 exit 0

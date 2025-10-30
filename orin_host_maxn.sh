@@ -41,7 +41,7 @@ if ! sshpass -p "$ORIN_PASS" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=n
     echo "ERROR: SSH connection failed"
     exit 1
 fi
-echo "✓ SSH connection successful"
+echo "[+] SSH connection successful"
 echo ""
 
 #############################################
@@ -59,7 +59,7 @@ if ! command -v expect &>/dev/null; then
     echo "$ORIN_PASS" | sudo -S apt-get update -qq
     echo "$ORIN_PASS" | sudo -S apt-get install -y -qq expect
 fi
-echo "✓ expect ready"
+echo "[+] expect ready"
 echo ""
 
 echo "[2] Setting power mode to MAXN (mode 0)..."
@@ -81,7 +81,7 @@ chmod +x /tmp/set_maxn.exp
 /tmp/set_maxn.exp "$ORIN_PASS"
 rm -f /tmp/set_maxn.exp
 
-echo "✓ MAXN mode command executed"
+echo "[+] MAXN mode command executed"
 echo ""
 
 echo "[3] Enabling all 12 CPU cores..."
@@ -91,12 +91,12 @@ for cpu_num in {0..11}; do
         echo "$ORIN_PASS" | sudo -S bash -c "echo 1 > $CPU_ONLINE" 2>/dev/null || true
     fi
 done
-echo "✓ All CPUs enabled"
+echo "[+] All CPUs enabled"
 echo ""
 
 echo "[4] Enabling jetson_clocks..."
 echo "$ORIN_PASS" | sudo -S jetson_clocks 2>/dev/null
-echo "✓ jetson_clocks enabled"
+echo "[+] jetson_clocks enabled"
 echo ""
 
 echo "[5] Setting CPU governor to performance..."
@@ -105,7 +105,7 @@ for cpu in /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor; do
         echo "$ORIN_PASS" | sudo -S bash -c "echo performance > $cpu" 2>/dev/null || true
     fi
 done
-echo "✓ CPU governor set"
+echo "[+] CPU governor set"
 echo ""
 
 echo "[6] System will reboot now..."
@@ -113,7 +113,7 @@ echo "$ORIN_PASS" | sudo -S reboot &
 
 ENDSTEP1
 
-echo "✓ Reboot command sent"
+echo "[+] Reboot command sent"
 echo ""
 
 #############################################
@@ -133,7 +133,7 @@ ELAPSED=0
 while [ $ELAPSED -lt $MAX_WAIT ]; do
     if sshpass -p "$ORIN_PASS" ssh -o ConnectTimeout=5 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "echo 'OK'" 2>/dev/null; then
         echo ""
-        echo "✓ System is back online!"
+        echo "[+] System is back online!"
         break
     fi
     printf "\r  Waiting... %ds / %ds " "$ELAPSED" "$MAX_WAIT"

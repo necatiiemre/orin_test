@@ -137,7 +137,7 @@ if ! sshpass -p "$ORIN_PASS" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=n
     echo "  • SSH password is correct"
     exit 1
 fi
-echo "✓ SSH connection successful"
+echo "[+] SSH connection successful"
 echo ""
 
 # Create log directories
@@ -230,11 +230,11 @@ detect_tools() {
     
     {
         echo "=== TOOL AVAILABILITY ==="
-        echo "fio (Professional I/O): $($HAS_FIO && echo "✓ Available" || echo "✗ Missing - will use dd fallback")"
-        echo "iostat (I/O Statistics): $($HAS_IOSTAT && echo "✓ Available" || echo "✗ Missing")"
-        echo "iotop (I/O Monitoring): $($HAS_IOTOP && echo "✓ Available" || echo "✗ Missing")"
-        echo "smartctl (Health Check): $($HAS_SMARTCTL && echo "✓ Available" || echo "✗ Missing")"
-        echo "hdparm (Disk Info): $($HAS_HDPARM && echo "✓ Available" || echo "✗ Missing")"
+        echo "fio (Professional I/O): $($HAS_FIO && echo "[+] Available" || echo "[-] Missing - will use dd fallback")"
+        echo "iostat (I/O Statistics): $($HAS_IOSTAT && echo "[+] Available" || echo "[-] Missing")"
+        echo "iotop (I/O Monitoring): $($HAS_IOTOP && echo "[+] Available" || echo "[-] Missing")"
+        echo "smartctl (Health Check): $($HAS_SMARTCTL && echo "[+] Available" || echo "[-] Missing")"
+        echo "hdparm (Disk Info): $($HAS_HDPARM && echo "[+] Available" || echo "[-] Missing")"
         echo ""
         echo "Test Strategy: $($HAS_FIO && echo "Professional mode with fio" || echo "Compatibility mode with dd")"
     } | tee "$LOG_DIR/tool_availability.txt"
@@ -729,31 +729,31 @@ except:
 ")
             
             if [ "$READ_IOPS" -gt 6000 ] && [ "$WRITE_IOPS" -gt 4000 ]; then
-                RATING="🟢 EXCELLENT"
+                RATING="[+] EXCELLENT"
             elif [ "$READ_IOPS" -gt 3000 ] && [ "$WRITE_IOPS" -gt 2000 ]; then
-                RATING="🟡 GOOD"
+                RATING="[+] GOOD"
             elif [ "$READ_IOPS" -gt 1500 ] && [ "$WRITE_IOPS" -gt 1000 ]; then
-                RATING="🟠 FAIR"
+                RATING="[!] FAIR"
             else
-                RATING="🔴 POOR"
+                RATING="[-] POOR"
             fi
             
             echo "$RATING Performance"
             echo "  • Random Read IOPS: $READ_IOPS"
             echo "  • Random Write IOPS: $WRITE_IOPS"
         else
-            echo "🔄 Performance rating requires fio and python3"
+            echo "[*] Performance rating requires fio and python3"
         fi
-        
+
         echo ""
         echo "=== RECOMMENDATIONS ==="
-        echo "✓ Monitor eMMC health regularly using this test"
-        echo "✓ Avoid excessive small random writes to extend storage life"
-        echo "✓ Consider external NVMe for high-performance applications"
-        echo "✓ Ensure adequate cooling during intensive I/O operations"
-        
+        echo "[*] Monitor eMMC health regularly using this test"
+        echo "[*] Avoid excessive small random writes to extend storage life"
+        echo "[*] Consider external NVMe for high-performance applications"
+        echo "[*] Ensure adequate cooling during intensive I/O operations"
+
         if [ "$HEALTH_STATUS" = "Warning" ]; then
-            echo "⚠ Consider storage maintenance or replacement planning"
+            echo "[!] Consider storage maintenance or replacement planning"
         fi
         
         echo ""
@@ -835,17 +835,17 @@ if [ -n "$REMOTE_DIR" ]; then
     
     echo "[1/3] Copying logs..."
     sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP:$REMOTE_DIR/logs/* "$LOG_DIR/logs/" 2>/dev/null
-    echo "✓ Logs copied"
-    
+    echo "[+] Logs copied"
+
     echo "[2/3] Copying reports..."
     sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP:$REMOTE_DIR/reports/* "$LOG_DIR/reports/" 2>/dev/null
-    echo "✓ Reports copied"
-    
+    echo "[+] Reports copied"
+
     echo "[3/3] Cleaning up remote directory..."
     sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "rm -rf $REMOTE_DIR" 2>/dev/null
-    echo "✓ Cleanup complete"
+    echo "[+] Cleanup complete"
 else
-    echo "⚠ Remote directory not found"
+    echo "[!] Remote directory not found"
 fi
 
 echo ""
@@ -853,9 +853,9 @@ echo "==========================================================================
 echo "  JETSON ORIN DISK STRESS TEST - COMPLETED SUCCESSFULLY"
 echo "================================================================================"
 echo ""
-echo "📁 Results Directory: $LOG_DIR"
+echo "[*] Results Directory: $LOG_DIR"
 echo ""
-echo "📊 Key Files:"
+echo "[*] Key Files:"
 echo "   • Main Report:     $LOG_DIR/reports/DISK_PERFORMANCE_REPORT.txt"
 echo "   • Test Summary:    $LOG_DIR/reports/test_summary.txt"
 echo "   • Tool Detection:  $LOG_DIR/logs/tool_availability.txt"
@@ -873,8 +873,8 @@ if [ -f "$LOG_DIR/reports/DISK_PERFORMANCE_REPORT.txt" ]; then
     echo ""
 fi
 
-echo "💡 To view full report:"
+echo "[*] To view full report:"
 echo "   cat $LOG_DIR/reports/DISK_PERFORMANCE_REPORT.txt"
 echo ""
-echo "✅ Jetson Orin disk stress test completed successfully!"
+echo "[+] Jetson Orin disk stress test completed successfully!"
 echo ""
