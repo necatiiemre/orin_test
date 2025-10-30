@@ -14,7 +14,8 @@ set -e
 # CONFIGURATION
 ################################################################################
 
-TEST_DURATION="${1:-3600}"  # Default 1 hour
+TEST_DURATION_HOURS="${1:-1}"  # Default 1 hour
+TEST_DURATION=$((TEST_DURATION_HOURS * 3600))  # Convert hours to seconds
 MEMORY_PERCENTAGE="${2:-95}"  # Use 95% of available RAM
 
 # Colors
@@ -50,16 +51,16 @@ show_usage() {
   DIRECT RAM STRESS TEST FOR JETSON ORIN
 ================================================================================
 
-Usage: $0 [duration_seconds] [memory_percentage]
+Usage: $0 [duration_hours] [memory_percentage]
 
 Parameters:
-  duration_seconds   : Test duration in seconds (default: 3600 = 1 hour)
+  duration_hours     : Test duration in hours (default: 1 hour)
   memory_percentage  : Percentage of available RAM to use (default: 95)
 
 Examples:
   $0                 # 1 hour test using 95% RAM
-  $0 7200            # 2 hour test using 95% RAM  
-  $0 1800 90         # 30 minute test using 90% RAM
+  $0 2               # 2 hour test using 95% RAM
+  $0 0.5 90          # 30 minute test using 90% RAM
 
 Features:
   • Direct execution on Jetson Orin (no SSH required)
@@ -125,7 +126,7 @@ if [ $TEST_MEMORY_MB -lt 500 ]; then
     exit 1
 fi
 
-log_info "Test Duration: $TEST_DURATION seconds ($((TEST_DURATION / 60)) minutes)"
+log_info "Test Duration: $TEST_DURATION_HOURS hours ($TEST_DURATION seconds / $((TEST_DURATION / 60)) minutes)"
 echo ""
 
 ################################################################################

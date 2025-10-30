@@ -23,7 +23,8 @@ source "$SCRIPT_DIR/jetson_utils.sh"
 ORIN_IP="${1:-192.168.55.69}"
 ORIN_USER="${2:-orin}"
 ORIN_PASS="${3}"
-TEST_DURATION="${4:-3600}"  # Default 1 hour for comprehensive testing
+TEST_DURATION_HOURS="${4:-1}"  # Default 1 hour for comprehensive testing
+TEST_DURATION=$((TEST_DURATION_HOURS * 3600))  # Convert hours to seconds
 LOG_DIR="${5:-./cpu_ultra_test_$(date +%Y%m%d_%H%M%S)}"
 
 # Dynamic CPU core detection - get REAL physical cores, not hyperthreads
@@ -60,7 +61,7 @@ Parameters:
   orin_ip     : IP address of Jetson Orin (default: 192.168.55.69)
   orin_user   : SSH username (default: orin)
   password    : SSH password (will prompt if not provided)
-  duration    : Test duration in seconds (default: 3600 = 1 hour)
+  duration    : Test duration in hours (default: 1 hour)
   log_dir     : Log directory (default: ./cpu_ultra_test_YYYYMMDD_HHMMSS)
 
 ULTRA COMPREHENSIVE TEST COMPONENTS:
@@ -108,8 +109,8 @@ Note: Performance expectations automatically scale based on detected hardware
 
 Examples:
   $0                                    # 1-hour comprehensive test
-  $0 192.168.55.69 orin mypass 7200    # 2-hour extreme test
-  $0 10.0.0.100 nvidia secret 1800     # 30-minute quick validation
+  $0 192.168.55.69 orin mypass 2       # 2-hour extreme test
+  $0 10.0.0.100 nvidia secret 0.5      # 30-minute quick validation
 
 ================================================================================
 EOF
@@ -152,7 +153,7 @@ fi
 
 # Validate inputs
 validate_ip_address "$ORIN_IP" || exit 1
-validate_test_duration "$TEST_DURATION" 300 28800 || exit 1  # 5 minutes to 8 hours
+validate_test_duration "$TEST_DURATION" 300 28800 || exit 1  # 0.08 hours (5 min) to 8 hours
 
 # Check prerequisites
 check_prerequisites "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS"

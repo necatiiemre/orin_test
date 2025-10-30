@@ -21,17 +21,13 @@ set -e
 ORIN_IP="${1:-192.168.55.69}"
 ORIN_USER="${2:-orin}"
 ORIN_PASS="${3}"
-TEST_DURATION_SECONDS="${4:-7200}" 
+TEST_DURATION_HOURS="${4:-2}"  # Default 2 hours
 
 # Total test duration in seconds
-TEST_DURATION=$TEST_DURATION_SECONDS
+TEST_DURATION=$((TEST_DURATION_HOURS * 3600))
 
-# For display purposes, calculate duration in hours
-if (( TEST_DURATION < 3600 )) && (( TEST_DURATION > 0 )); then
-    DISPLAY_DURATION_HOURS=$(echo "scale=2; $TEST_DURATION / 3600" | bc)
-else
-    DISPLAY_DURATION_HOURS=$((TEST_DURATION / 3600))
-fi
+# For display purposes, use the hours value directly
+DISPLAY_DURATION_HOURS=$TEST_DURATION_HOURS
 
 # Phase durations (in seconds)
 PHASE_GPU_VPU=$((TEST_DURATION * 40 / 100)) # 40% of time - Video Processing Unit (Encoding)
@@ -43,7 +39,7 @@ fi
 PHASE_GPU_COMBINED=$((TEST_DURATION * 10 / 100)) # 10% of time - All GPU components combined
 
 # Log directory
-LOG_DIR="./jetson_orin_gpu_test_${TEST_DURATION_SECONDS}s_$(date +%Y%m%d_%H%M%S)"
+LOG_DIR="./jetson_orin_gpu_test_${TEST_DURATION_HOURS}h_$(date +%Y%m%d_%H%M%S)"
 
 ################################################################################
 # USAGE & HELP
@@ -55,13 +51,13 @@ show_usage() {
   JETSON ORIN DEDICATED GPU STRESS TEST (ULTIMATE v1.7)
 ================================================================================
 
-Usage: $0 [orin_ip] [orin_user] [password] [seconds]
+Usage: $0 [orin_ip] [orin_user] [password] [hours]
 
 Parameters:
   orin_ip     : IP address of Jetson Orin (default: 192.168.55.69)
   orin_user   : SSH username (default: orin)
   password    : SSH password (will prompt if not provided)
-  seconds     : Test duration in seconds (default: 7200s for 2 hours)
+  hours       : Test duration in hours (default: 2 hours)
 
 ULTIMATE FIXES IN v1.7:
   🔥 Variable tracking COMPLETELY FIXED (bulletproof temp files)
@@ -71,10 +67,10 @@ ULTIMATE FIXES IN v1.7:
   ✅ Alternative GPU compute tests for graphics validation
 
 Examples:
-  $0                                              # Use all defaults (7200s test)
-  $0 192.168.55.69 orin mypass 14400             # 14400 second (4 hour) test
-  $0 10.0.0.100 nvidia secret 3600               # 3600 second (1 hour) test
-  $0 192.168.55.69 orin mypass 600               # 600 second (10 minute) test
+  $0                                              # Use all defaults (2 hour test)
+  $0 192.168.55.69 orin mypass 4                 # 4 hour test
+  $0 10.0.0.100 nvidia secret 1                  # 1 hour test
+  $0 192.168.55.69 orin mypass 0.17              # 10 minute test (0.17 hours)
 
 GRAPHICS TEST IMPROVEMENTS:
   🖥️ EGL context instead of X11/Xvfb (Jetson-optimized)
@@ -103,7 +99,7 @@ echo "Test Configuration:"
 echo "  • Device: Jetson Orin AGX 64GB"
 echo "  • Target IP: $ORIN_IP"
 echo "  • SSH User: $ORIN_USER"
-echo "  • Test Duration: ${TEST_DURATION} seconds (${DISPLAY_DURATION_HOURS} hours)"
+echo "  • Test Duration: ${DISPLAY_DURATION_HOURS} hours (${TEST_DURATION} seconds)"
 echo "  • Test Mode: DEDICATED GPU (Sequential Component Stress)"
 echo "  • Success Target: 100% (zero failures accepted on components)"
 echo "  • Version: v1.7 ULTIMATE (Graphics test FIXED for Jetson)"
