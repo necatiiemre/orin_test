@@ -387,16 +387,22 @@ class CorrectedRAMTest:
                                 worker_errors += errors
                                 with self.lock:
                                     print(f"Worker {worker_id}: {errors} pattern errors in block {block_info['id']}")
-                                    
+
                             worker_operations += 1
+                            # Update shared counter for progress display
+                            with self.lock:
+                                self.operations += 1
                             
                         # Integrity verification
                         if not self.verify_block_integrity(block_info):
                             worker_errors += 1
                             with self.lock:
                                 print(f"Worker {worker_id}: Integrity error in block {block_info['id']}")
-                                
+
                         worker_operations += 1
+                        # Update shared counter for progress display
+                        with self.lock:
+                            self.operations += 1
                         
                         # Yield control to prevent overwhelming system
                         time.sleep(0.01)
@@ -528,7 +534,8 @@ class CorrectedRAMTest:
         
         # Results
         total_errors = self.errors + total_worker_errors + final_errors
-        total_operations = self.operations + total_worker_operations
+        # Use self.operations directly since workers now update it in real-time
+        total_operations = self.operations
         actual_duration = time.time() - self.start_time
         
         print("=" * 80)
