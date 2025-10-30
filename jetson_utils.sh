@@ -14,6 +14,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 MAGENTA='\033[0;35m'
 CYAN='\033[0;36m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 ################################################################################
@@ -201,6 +202,90 @@ scp_download() {
 }
 
 ################################################################################
+# INTERACTIVE PARAMETER COLLECTION
+################################################################################
+
+# Function to collect test parameters interactively with defaults
+collect_test_parameters() {
+    local default_ip="${1:-192.168.55.69}"
+    local default_user="${2:-orin}"
+    local default_pass="${3}"
+    local default_duration="${4:-1}"
+
+    # Clear screen and show banner
+    clear
+    echo -e "${CYAN}${BOLD}"
+    echo "================================================================================"
+    echo "  JETSON ORIN AGX - TEST PARAMETER CONFIGURATION"
+    echo "================================================================================"
+    echo -e "${NC}"
+    echo ""
+
+    # Collect IP address
+    echo -e "${YELLOW}Enter test parameters (press Enter to use default):${NC}"
+    echo ""
+    read -p "$(echo -e ${BOLD}IP Address${NC}) [$default_ip]: " input_ip
+    ORIN_IP="${input_ip:-$default_ip}"
+
+    # Collect username
+    read -p "$(echo -e ${BOLD}Username${NC}) [$default_user]: " input_user
+    ORIN_USER="${input_user:-$default_user}"
+
+    # Collect password (hidden)
+    if [ -n "$default_pass" ]; then
+        read -sp "$(echo -e ${BOLD}Password${NC}) [using provided password]: " input_pass
+        echo ""
+        ORIN_PASS="${input_pass:-$default_pass}"
+    else
+        read -sp "$(echo -e ${BOLD}Password${NC}): " input_pass
+        echo ""
+        ORIN_PASS="$input_pass"
+    fi
+
+    # Collect test duration
+    read -p "$(echo -e ${BOLD}Test duration in hours${NC}) [$default_duration]: " input_duration
+    TEST_DURATION_HOURS="${input_duration:-$default_duration}"
+
+    # Validate duration is a number
+    if ! [[ "$TEST_DURATION_HOURS" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+        log_error "Invalid duration. Using default: $default_duration hours"
+        TEST_DURATION_HOURS="$default_duration"
+    fi
+
+    # Display confirmation
+    echo ""
+    echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${GREEN}${BOLD}  TEST CONFIGURATION${NC}"
+    echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${BOLD}Target IP:${NC}        $ORIN_IP"
+    echo -e "${BOLD}Username:${NC}         $ORIN_USER"
+    echo -e "${BOLD}Password:${NC}         $(echo "$ORIN_PASS" | sed 's/./*/g')"
+    echo -e "${BOLD}Test duration:${NC}    $TEST_DURATION_HOURS hours"
+    echo ""
+
+    # Ask for confirmation
+    read -p "$(echo -e ${YELLOW}Proceed with these settings?${NC}) (yes/no) [yes]: " confirm
+    confirm="${confirm:-yes}"
+
+    if [[ ! "$confirm" =~ ^[Yy] ]]; then
+        echo ""
+        log_warning "Test cancelled by user"
+        exit 0
+    fi
+
+    echo ""
+    echo -e "${GREEN}✓ Configuration confirmed${NC}"
+    echo ""
+
+    # Export variables for use in calling script
+    export ORIN_IP
+    export ORIN_USER
+    export ORIN_PASS
+    export TEST_DURATION_HOURS
+}
+
+################################################################################
 # PREREQUISITE CHECKS
 ################################################################################
 
@@ -208,7 +293,7 @@ check_prerequisites() {
     local ip="$1"
     local user="$2"
     local pass="$3"
-    
+
     # Check for sshpass
     if ! command -v sshpass &> /dev/null; then
         log_error "'sshpass' is not installed"
@@ -218,7 +303,7 @@ check_prerequisites() {
         echo "  Ubuntu/Debian: sudo apt-get install sshpass"
         exit 1
     fi
-    
+
     # Test SSH connection
     log_info "Testing SSH connection to $ip..."
     if ! ssh_execute "$ip" "$user" "$pass" "echo 'Connection OK'" | grep -q "Connection OK"; then
