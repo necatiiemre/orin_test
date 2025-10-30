@@ -60,11 +60,11 @@ Parameters:
   hours       : Test duration in hours (default: 2 hours)
 
 ULTIMATE FIXES IN v1.7:
-  🔥 Variable tracking COMPLETELY FIXED (bulletproof temp files)
-  🎬 All videos 4K resolution (3840x2160) as requested
-  🖥️  Graphics test FIXED for Jetson headless systems
-  ✅ EGL-based OpenGL testing (no virtual display needed)
-  ✅ Alternative GPU compute tests for graphics validation
+  [*] Variable tracking COMPLETELY FIXED (bulletproof temp files)
+  [*] All videos 4K resolution (3840x2160) as requested
+  [*] Graphics test FIXED for Jetson headless systems
+  [+] EGL-based OpenGL testing (no virtual display needed)
+  [+] Alternative GPU compute tests for graphics validation
 
 Examples:
   $0                                              # Use all defaults (2 hour test)
@@ -73,10 +73,10 @@ Examples:
   $0 192.168.55.69 orin mypass 0.17              # 10 minute test (0.17 hours)
 
 GRAPHICS TEST IMPROVEMENTS:
-  🖥️ EGL context instead of X11/Xvfb (Jetson-optimized)
-  🎮 Native GPU compute shaders
-  🔺 Triangle rendering tests
-  📊 GPU memory bandwidth tests
+  [*] EGL context instead of X11/Xvfb (Jetson-optimized)
+  [*] Native GPU compute shaders
+  [*] Triangle rendering tests
+  [*] GPU memory bandwidth tests
 
 ================================================================================
 EOF
@@ -131,7 +131,7 @@ if ! sshpass -p "$ORIN_PASS" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=n
     echo "  • SSH password is correct"
     exit 1
 fi
-echo "✓ SSH connection successful"
+echo "[+] SSH connection successful"
 echo ""
 
 # Create local log directories
@@ -460,10 +460,10 @@ declare -a VIDEO_BITRATES=(
            qtmux ! \
            filesink location="$video_file" >/dev/null 2>&1; then
             
-            echo "✓ Video $video_count encoded successfully"
+            echo "[+] Video $video_count encoded successfully"
             increment_vpu_pass  # BULLETPROOF tracking
         else
-            echo "✗ Video $video_count encoding failed"
+            echo "[-] Video $video_count encoding failed"
             increment_vpu_fail  # BULLETPROOF tracking
         fi
         
@@ -685,10 +685,10 @@ log_info "Compiling CUDA stress application..."
 {
     cd "$CUDA_APP_DIR"
     if nvcc -O3 -lcublas -o cuda_stress cuda_stress.cu 2>&1; then
-        echo "✓ CUDA stress application compiled successfully"
+        echo "[+] CUDA stress application compiled successfully"
         CUDA_COMPILE_SUCCESS=1
     else
-        echo "✗ CUDA compilation failed"
+        echo "[-] CUDA compilation failed"
         CUDA_COMPILE_SUCCESS=0
     fi
 } > "$LOG_DIR/02_gpu_cuda_compile.log" 2>&1
@@ -705,11 +705,11 @@ if [ $CUDA_COMPILE_SUCCESS -eq 1 ]; then
         cd "$CUDA_APP_DIR"
         if ./cuda_stress $PHASE_GPU_CUDA; then
             echo ""
-            echo "✓ CUDA stress test completed successfully"
+            echo "[+] CUDA stress test completed successfully"
             increment_cuda_pass  # BULLETPROOF tracking
         else
             echo ""
-            echo "✗ CUDA stress test failed"
+            echo "[-] CUDA stress test failed"
             increment_cuda_fail  # BULLETPROOF tracking
         fi
         
@@ -991,10 +991,10 @@ log_info "Compiling EGL graphics stress application..."
 {
     cd "$GRAPHICS_APP_DIR"
     if gcc -O3 -o egl_graphics_stress egl_graphics_stress.c -lEGL -lGLESv2 -lm 2>&1; then
-        echo "✓ EGL graphics stress application compiled successfully"
+        echo "[+] EGL graphics stress application compiled successfully"
         GRAPHICS_COMPILE_SUCCESS=1
     else
-        echo "✗ EGL graphics compilation failed"
+        echo "[-] EGL graphics compilation failed"
         GRAPHICS_COMPILE_SUCCESS=0
     fi
 } > "$LOG_DIR/03_gpu_gfx_compile.log" 2>&1
@@ -1012,11 +1012,11 @@ if [ $GRAPHICS_COMPILE_SUCCESS -eq 1 ]; then
         cd "$GRAPHICS_APP_DIR"
         if ./egl_graphics_stress $PHASE_GPU_GFX; then
             echo ""
-            echo "✓ EGL graphics stress test completed successfully"
+            echo "[+] EGL graphics stress test completed successfully"
             increment_gfx_pass  # BULLETPROOF tracking
         else
             echo ""
-            echo "✗ EGL graphics stress test failed"
+            echo "[-] EGL graphics stress test failed"
             increment_gfx_fail  # BULLETPROOF tracking
         fi
         
@@ -1084,14 +1084,14 @@ GPU_MEMORY_EOF
             
             cd "$GRAPHICS_APP_DIR"
             if nvcc -o gpu_memory_test gpu_memory_test.cu 2>/dev/null && ./gpu_memory_test $PHASE_GPU_GFX; then
-                echo "✓ GPU memory bandwidth test completed successfully"
+                echo "[+] GPU memory bandwidth test completed successfully"
                 increment_gfx_pass  # BULLETPROOF tracking
             else
-                echo "✗ GPU memory bandwidth test failed"
+                echo "[-] GPU memory bandwidth test failed"
                 increment_gfx_fail  # BULLETPROOF tracking
             fi
         else
-            echo "✗ No GPU tools available for fallback test"
+            echo "[-] No GPU tools available for fallback test"
             increment_gfx_fail
         fi
         
@@ -1406,15 +1406,15 @@ log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$
     echo "=== GPU VPU (Video Processing Unit) Results ==="
     case "$VPU_STATUS" in
         "PASS")
-            echo "Status: ✓ PASSED"
+            echo "Status: [+] PASSED"
             echo "All 4K video encoding operations completed successfully"
             ;;
         "PASS_WITH_WARNINGS")
-            echo "Status: ⚠ PASSED (with warnings)"
+            echo "Status: [!] PASSED (with warnings)"
             echo "Most 4K video encoding operations succeeded"
             ;;
         "FAIL")
-            echo "Status: ✗ FAILED"
+            echo "Status: [-] FAILED"
             echo "4K video encoding operations failed"
             ;;
     esac
@@ -1427,14 +1427,14 @@ log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$
     echo "=== GPU CUDA (Compute) Results ==="
     case "$CUDA_STATUS" in
         "PASS")
-            echo "Status: ✓ PASSED"
+            echo "Status: [+] PASSED"
             echo "Custom CUDA stress application completed successfully"
             ;;
         "FAIL_COMPILE")
-            echo "Status: ✗ FAILED (Compilation Error)"
+            echo "Status: [-] FAILED (Compilation Error)"
             ;;
         "FAIL")
-            echo "Status: ✗ FAILED (Runtime Error)"
+            echo "Status: [-] FAILED (Runtime Error)"
             ;;
     esac
     echo "Execution success: $CUDA_PASS"
@@ -1444,15 +1444,15 @@ log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$
     echo "=== GPU Graphics (EGL Headless) Results ==="
     case "$GFX_STATUS" in
         "PASS")
-            echo "Status: ✓ PASSED"
+            echo "Status: [+] PASSED"
             echo "EGL headless graphics tests completed successfully"
             ;;
         "PASS_WITH_WARNINGS")
-            echo "Status: ⚠ PASSED (with warnings)"
+            echo "Status: [!] PASSED (with warnings)"
             echo "Most EGL graphics tests succeeded"
             ;;
         "FAIL")
-            echo "Status: ✗ FAILED"
+            echo "Status: [-] FAILED"
             echo "EGL graphics tests failed"
             ;;
     esac
@@ -1465,15 +1465,15 @@ log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$
     echo "=== GPU Combined (All Components) Results ==="
     case "$COMBINED_STATUS" in
         "PASS")
-            echo "Status: ✓ PASSED"
+            echo "Status: [+] PASSED"
             echo "All GPU components operated successfully under combined load"
             ;;
         "PASS_WITH_WARNINGS")
-            echo "Status: ⚠ PASSED (with warnings)"
+            echo "Status: [!] PASSED (with warnings)"
             echo "GPU handled combined load mostly well"
             ;;
         "FAIL")
-            echo "Status: ✗ FAILED"
+            echo "Status: [-] FAILED"
             echo "GPU struggled under combined component load"
             ;;
     esac
@@ -1491,11 +1491,11 @@ log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$
         
         if [ "$GPU_MAX" != "N/A" ]; then
             if [ "$GPU_MAX" -le 80 ]; then
-                echo "Status: ✓ EXCELLENT (GPU stayed well within safe limits)"
+                echo "Status: [+] EXCELLENT (GPU stayed well within safe limits)"
             elif [ "$GPU_MAX" -le 95 ]; then
-                echo "Status: ⚠ ACCEPTABLE (GPU reached warning threshold)"
+                echo "Status: [!] ACCEPTABLE (GPU reached warning threshold)"
             else
-                echo "Status: ✗ CRITICAL (GPU exceeded safe limits)"
+                echo "Status: [-] CRITICAL (GPU exceeded safe limits)"
             fi
         fi
     fi
@@ -1515,18 +1515,18 @@ log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$
         echo ""
         
         if [ $FAILED_TESTS -eq 0 ]; then
-            echo "🎉 RESULT: ALL GPU COMPONENT TESTS PASSED"
+            echo "[+] RESULT: ALL GPU COMPONENT TESTS PASSED"
             echo "   Your Jetson Orin's GPU is performing excellently!"
             echo "   All CUDA, VPU (4K), and Graphics (EGL) components passed stress testing."
-            echo "   🔥 v1.7 ULTIMATE: All known issues FIXED!"
+            echo "   [*] v1.7 ULTIMATE: All known issues FIXED!"
         elif [ $SUCCESS_RATE -ge 80 ]; then
-            echo "✅ RESULT: ACCEPTABLE GPU PERFORMANCE"
+            echo "[+] RESULT: ACCEPTABLE GPU PERFORMANCE"
             echo "   Most GPU components passed testing."
-            echo "   🔥 v1.7 ULTIMATE: Graphics test now working on Jetson headless!"
+            echo "   [*] v1.7 ULTIMATE: Graphics test now working on Jetson headless!"
         else
-            echo "⚠ RESULT: GPU NEEDS ATTENTION"
+            echo "[!] RESULT: GPU NEEDS ATTENTION"
             echo "   Multiple GPU components failed testing."
-            echo "   🔥 v1.7 ULTIMATE: Results are now accurate with bulletproof tracking!"
+            echo "   [*] v1.7 ULTIMATE: Results are now accurate with bulletproof tracking!"
         fi
     fi
     echo ""
@@ -1571,7 +1571,7 @@ echo ""
 echo "Test directory on Jetson: $TEST_DIR"
 echo "Main report: $REPORT_DIR/FINAL_GPU_REPORT.txt"
 echo "Summary data: $REPORT_DIR/summary.txt"
-echo "🔥 v1.7 ULTIMATE FIXES APPLIED:"
+echo "[*] v1.7 ULTIMATE FIXES APPLIED:"
 echo "   • Variable tracking COMPLETELY FIXED (bulletproof temp files)"
 echo "   • All videos 4K resolution (3840x2160)"
 echo "   • Graphics test FIXED for Jetson headless systems (EGL-based)"
@@ -1601,15 +1601,15 @@ if [ -n "$REMOTE_DIR" ]; then
     
     echo "[1/4] Copying logs..."
     sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/logs/*" "$LOG_DIR/logs/" 2>/dev/null
-    echo "✓ Logs copied"
-    
+    echo "[+] Logs copied"
+
     echo "[2/4] Copying reports..."
     sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/reports/*" "$LOG_DIR/reports/" 2>/dev/null
-    echo "✓ Reports copied"
+    echo "[+] Reports copied"
 
     echo "[3/4] Copying monitoring data..."
     sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/monitoring/*" "$LOG_DIR/monitoring/" 2>/dev/null
-    echo "✓ Monitoring data copied"
+    echo "[+] Monitoring data copied"
     
     echo "[4/4] Copying sample 4K videos..."
     VIDEO_FILES=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "ls -t $REMOTE_DIR/videos/*.mp4 2>/dev/null | head -5")
@@ -1618,17 +1618,17 @@ if [ -n "$REMOTE_DIR" ]; then
         for video in $VIDEO_FILES; do
             sshpass -p "$ORIN_PASS" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$video" "$LOG_DIR/videos/" 2>/dev/null
         done
-        echo "✓ Sample 4K videos copied"
+        echo "[+] Sample 4K videos copied"
     else
-        echo "⚠ No 4K videos found"
+        echo "[!] No 4K videos found"
     fi
     
     echo ""
     echo "Cleaning up remote directory: $REMOTE_DIR"
     sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "rm -rf $REMOTE_DIR" 2>/dev/null
-    echo "✓ Cleanup complete"
+    echo "[+] Cleanup complete"
 else
-    echo "⚠ Remote directory not found"
+    echo "[!] Remote directory not found"
 fi
 
 echo ""
@@ -1636,21 +1636,21 @@ echo "==========================================================================
 echo "  ALL OPERATIONS COMPLETED SUCCESSFULLY (ULTIMATE v1.7)"
 echo "================================================================================"
 echo ""
-echo "📁 Local Results Directory:"
+echo "[*] Local Results Directory:"
 echo "   $LOG_DIR"
 echo ""
-echo "📊 Key Files:"
+echo "[*] Key Files:"
 echo "   • Final GPU Report: $LOG_DIR/reports/FINAL_GPU_REPORT.txt"
 echo "   • Summary Data:     $LOG_DIR/reports/summary.txt"
 echo "   • Temperature Log:  $LOG_DIR/monitoring/temperature_log.csv"
 echo ""
-echo "📈 GPU Test Logs:"
+echo "[*] GPU Test Logs:"
 echo "   • VPU (4K Encoding): $LOG_DIR/logs/01_gpu_vpu_stress.log"
 echo "   • CUDA (compute):    $LOG_DIR/logs/02_gpu_cuda_stress.log"
 echo "   • GFX (EGL):         $LOG_DIR/logs/03_gpu_gfx_stress.log"
 echo "   • Combined GPU:      $LOG_DIR/logs/04_gpu_combined_stress.log"
 echo ""
-echo "🎬 Sample 4K Videos:"
+echo "[*] Sample 4K Videos:"
 echo "   $LOG_DIR/videos/"
 echo ""
 
@@ -1663,16 +1663,16 @@ if [ -f "$LOG_DIR/reports/FINAL_GPU_REPORT.txt" ]; then
     echo ""
 fi
 
-echo "🔥 v1.7 ULTIMATE FIXES SUCCESSFULLY APPLIED:"
-echo "   ✅ Variable tracking COMPLETELY FIXED (bulletproof temp files)"
-echo "   ✅ All videos 4K resolution (3840x2160) as requested"
-echo "   ✅ Graphics test FIXED for Jetson headless systems"
-echo "   ✅ EGL-based OpenGL testing (no Xvfb/virtual display needed)"
-echo "   ✅ Fallback GPU memory tests if EGL fails"
-echo "   ✅ No more 'Failed to start virtual display' errors!"
+echo "[*] v1.7 ULTIMATE FIXES SUCCESSFULLY APPLIED:"
+echo "   [+] Variable tracking COMPLETELY FIXED (bulletproof temp files)"
+echo "   [+] All videos 4K resolution (3840x2160) as requested"
+echo "   [+] Graphics test FIXED for Jetson headless systems"
+echo "   [+] EGL-based OpenGL testing (no Xvfb/virtual display needed)"
+echo "   [+] Fallback GPU memory tests if EGL fails"
+echo "   [+] No more 'Failed to start virtual display' errors!"
 echo ""
-echo "💡 To view full GPU report:"
+echo "[*] To view full GPU report:"
 echo "   cat $LOG_DIR/reports/FINAL_GPU_REPORT.txt"
 echo ""
-echo "✅ Jetson Orin dedicated GPU stress test completed (ULTIMATE v1.7)!"
+echo "[+] Jetson Orin dedicated GPU stress test completed (ULTIMATE v1.7)!"
 echo ""

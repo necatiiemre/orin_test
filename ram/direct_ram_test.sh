@@ -264,8 +264,8 @@ class AggressiveRAMStressTest:
                     print(f"Allocation error: {e}")
                     break
                     
-        print(f"✓ Successfully allocated {len(self.memory_blocks)} blocks ({total_allocated}MB)")
-        print(f"✓ Memory allocation rate: {(total_allocated/self.memory_mb)*100:.1f}%")
+        print(f"[+] Successfully allocated {len(self.memory_blocks)} blocks ({total_allocated}MB)")
+        print(f"[+] Memory allocation rate: {(total_allocated/self.memory_mb)*100:.1f}%")
         
         return len(self.memory_blocks) > 0
         
@@ -501,7 +501,7 @@ class AggressiveRAMStressTest:
             return False
             
         total_allocated_mb = sum(block['size_mb'] for block in self.memory_blocks)
-        print(f"✓ Allocated {total_allocated_mb}MB across {len(self.memory_blocks)} blocks")
+        print(f"[+] Allocated {total_allocated_mb}MB across {len(self.memory_blocks)} blocks")
         print("")
         
         # Phase 2: Multi-threaded Aggressive Stress Testing
@@ -604,17 +604,17 @@ class AggressiveRAMStressTest:
         
         if total_errors == 0:
             print("🎉 RESULT: AGGRESSIVE RAM TEST PASSED!")
-            print("✓ ZERO memory errors detected under maximum stress")
-            print("✓ ALL memory patterns verified successfully")
-            print("✓ Memory integrity maintained under extreme load")
-            print("✓ Your RAM is ROCK SOLID!")
+            print("[+] ZERO memory errors detected under maximum stress")
+            print("[+] ALL memory patterns verified successfully")
+            print("[+] Memory integrity maintained under extreme load")
+            print("[+] Your RAM is ROCK SOLID!")
             result = True
         else:
-            print("❌ RESULT: AGGRESSIVE RAM TEST FAILED!")
-            print(f"✗ {total_errors} memory errors detected")
-            print("✗ RAM has defects or instability issues")
-            print("✗ Memory is NOT reliable under stress")
-            print("✗ HARDWARE REPLACEMENT RECOMMENDED")
+            print("[-] RESULT: AGGRESSIVE RAM TEST FAILED!")
+            print(f"[-] {total_errors} memory errors detected")
+            print("[-] RAM has defects or instability issues")
+            print("[-] Memory is NOT reliable under stress")
+            print("[-] HARDWARE REPLACEMENT RECOMMENDED")
             result = False
             
         print("")
@@ -918,14 +918,14 @@ if [ -f "/tmp/ram_test_result.txt" ]; then
     
     if [ "$RESULT" = "PASSED" ]; then
         log_success "🎉 RAM STRESS TEST PASSED!"
-        echo "✓ Your RAM survived the AGGRESSIVE stress test"
-        echo "✓ Zero errors detected under maximum load"
-        echo "✓ Memory is SOLID and reliable"
+        echo "[+] Your RAM survived the AGGRESSIVE stress test"
+        echo "[+] Zero errors detected under maximum load"
+        echo "[+] Memory is SOLID and reliable"
     else
-        log_error "❌ RAM STRESS TEST FAILED!"
-        echo "✗ $ERRORS memory errors detected"
-        echo "✗ RAM has stability issues under stress"
-        echo "✗ Hardware investigation recommended"
+        log_error "[-] RAM STRESS TEST FAILED!"
+        echo "[-] $ERRORS memory errors detected"
+        echo "[-] RAM has stability issues under stress"
+        echo "[-] Hardware investigation recommended"
     fi
 else
     log_error "Test results not found - test may have crashed"
@@ -990,10 +990,10 @@ if [ $TEST_RESULT -eq 0 ]; then
     echo "The memory system is stable, reliable, and ready for demanding workloads."
     echo ""
     echo "Key achievements:"
-    echo "  ✓ Zero memory errors under maximum stress"
-    echo "  ✓ Thermal performance within acceptable limits"
-    echo "  ✓ System stability maintained throughout test"
-    echo "  ✓ RAM can handle intensive parallel workloads"
+    echo "  [+] Zero memory errors under maximum stress"
+    echo "  [+] Thermal performance within acceptable limits"
+    echo "  [+] System stability maintained throughout test"
+    echo "  [+] RAM can handle intensive parallel workloads"
     echo ""
     echo "Your system is PRODUCTION READY for memory-intensive applications!"
     
@@ -1003,14 +1003,14 @@ else
     echo "Issues detected during aggressive stress testing:"
     
     if [ "$RESULT" = "FAILED" ]; then
-        echo "  ✗ Memory errors detected ($ERRORS errors)"
-        echo "  ✗ RAM stability issues under high load"
+        echo "  [-] Memory errors detected ($ERRORS errors)"
+        echo "  [-] RAM stability issues under high load"
     fi
     
     if [ -f "/tmp/monitor_results.txt" ]; then
         source /tmp/monitor_results.txt
         if (( $(echo "$MAX_CPU_TEMP > 85" | bc -l 2>/dev/null || echo "0") )); then
-            echo "  ✗ Excessive CPU temperatures (${MAX_CPU_TEMP}°C)"
+            echo "  [-] Excessive CPU temperatures (${MAX_CPU_TEMP}°C)"
         fi
     fi
     

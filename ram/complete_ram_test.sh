@@ -49,11 +49,11 @@ Parameters:
   duration : Test duration in hours (default: 1 hour)
 
 FIXES APPLIED:
-  ✓ Proper memory allocation calculations
-  ✓ Fixed pattern verification logic
-  ✓ Thread-safe memory operations
-  ✓ Better handling of memory pressure
-  ✓ Conservative memory usage (75% instead of 95%)
+  [+] Proper memory allocation calculations
+  [+] Fixed pattern verification logic
+  [+] Thread-safe memory operations
+  [+] Better handling of memory pressure
+  [+] Conservative memory usage (75% instead of 95%)
 
 ================================================================================
 EOF
@@ -300,8 +300,8 @@ class CorrectedRAMTest:
                 self.stats['allocation_errors'] += 1
                 break
                 
-        print(f"✓ Successfully allocated {allocated_count} blocks ({total_allocated_mb}MB)")
-        print(f"✓ Allocation success rate: {(allocated_count/blocks_needed)*100:.1f}%")
+        print(f"[+] Successfully allocated {allocated_count} blocks ({total_allocated_mb}MB)")
+        print(f"[+] Allocation success rate: {(allocated_count/blocks_needed)*100:.1f}%")
         
         # Force garbage collection
         gc.collect()
@@ -429,11 +429,11 @@ class CorrectedRAMTest:
         print(f"Test Duration: {self.duration} seconds ({self.duration/60:.1f} minutes)")
         print("")
         print("FIXES APPLIED:")
-        print("  ✓ Conservative memory allocation (75% with safety margin)")
-        print("  ✓ Proper pattern verification logic")
-        print("  ✓ Thread-safe operations")
-        print("  ✓ Memory pressure handling")
-        print("  ✓ Checksum-based integrity verification")
+        print("  [+] Conservative memory allocation (75% with safety margin)")
+        print("  [+] Proper pattern verification logic")
+        print("  [+] Thread-safe operations")
+        print("  [+] Memory pressure handling")
+        print("  [+] Checksum-based integrity verification")
         print("")
         
         # Phase 1: Safe Memory Allocation
@@ -445,7 +445,7 @@ class CorrectedRAMTest:
             return False
             
         total_allocated_mb = sum(block['size_mb'] for block in self.memory_blocks)
-        print(f"✓ Successfully allocated {total_allocated_mb}MB in {len(self.memory_blocks)} blocks")
+        print(f"[+] Successfully allocated {total_allocated_mb}MB in {len(self.memory_blocks)} blocks")
         print("")
         
         # Phase 2: Conservative Stress Testing
@@ -548,15 +548,15 @@ class CorrectedRAMTest:
         print("")
         
         if total_errors == 0:
-            print("✅ RESULT: CORRECTED RAM TEST PASSED!")
-            print("✓ No memory errors detected with proper testing")
-            print("✓ RAM hardware is functioning correctly")
-            print("✓ Previous errors were due to test logic issues")
+            print("[+] RESULT: CORRECTED RAM TEST PASSED!")
+            print("[+] No memory errors detected with proper testing")
+            print("[+] RAM hardware is functioning correctly")
+            print("[+] Previous errors were due to test logic issues")
             result = True
         else:
-            print("❌ RESULT: RAM TEST STILL FAILED")
-            print(f"✗ {total_errors} genuine memory errors detected")
-            print("✗ RAM may have actual hardware issues")
+            print("[-] RESULT: RAM TEST STILL FAILED")
+            print(f"[-] {total_errors} genuine memory errors detected")
+            print("[-] RAM may have actual hardware issues")
             result = False
             
         if total_operations > 0:
@@ -623,20 +623,20 @@ if [ -f "/tmp/ram_test_result.txt" ]; then
     echo ""
     
     if [ "$RESULT" = "PASSED" ]; then
-        log_success "✅ CORRECTED RAM TEST PASSED!"
-        echo "✓ No genuine memory errors detected"
-        echo "✓ Previous errors were due to test logic issues"
-        echo "✓ Your RAM hardware is working correctly"
+        log_success "[+] CORRECTED RAM TEST PASSED!"
+        echo "[+] No genuine memory errors detected"
+        echo "[+] Previous errors were due to test logic issues"
+        echo "[+] Your RAM hardware is working correctly"
         echo ""
         echo "EXPLANATION:"
         echo "  The original test had bugs in pattern verification logic"
         echo "  and was trying to use too much memory (95% vs 75%)"
         echo "  Your RAM is actually fine!"
     else
-        log_error "❌ RAM TEST STILL FAILED"
-        echo "✗ $ERRORS genuine memory errors detected"
-        echo "✗ These appear to be real hardware issues"
-        echo "✗ Consider professional RAM testing tools"
+        log_error "[-] RAM TEST STILL FAILED"
+        echo "[-] $ERRORS genuine memory errors detected"
+        echo "[-] These appear to be real hardware issues"
+        echo "[-] Consider professional RAM testing tools"
     fi
 else
     log_error "Test results not found"
@@ -660,7 +660,7 @@ echo "==========================================================================
 echo ""
 
 if [ $? -eq 0 ]; then
-    echo "✅ CONCLUSION: Your RAM is most likely FINE!"
+    echo "[+] CONCLUSION: Your RAM is most likely FINE!"
     echo ""
     echo "The massive errors you saw were caused by:"
     echo "  • Test trying to use 95% of available RAM (too aggressive)"
