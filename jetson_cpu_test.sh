@@ -28,11 +28,11 @@ TEST_DURATION=$((TEST_DURATION_HOURS * 3600))  # Convert hours to seconds
 LOG_DIR="${5:-./cpu_ultra_test_$(date +%Y%m%d_%H%M%S)}"
 
 # Dynamic CPU core detection - get REAL physical cores, not hyperthreads
-echo "🔍 Detecting CPU cores..."
+echo "[*] Detecting CPU cores..."
 CPU_CORES=$(get_physical_cores "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS")
 echo "  • Detected cores: $CPU_CORES"
 
-echo "🔍 Detecting Jetson model..."
+echo "[*] Detecting Jetson model..."
 JETSON_MODEL=$(detect_jetson_model "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS")
 echo "  • Model: $JETSON_MODEL"
 
@@ -40,7 +40,7 @@ TEMP_THRESHOLD_WARNING=80
 TEMP_THRESHOLD_CRITICAL=95
 
 # Calculate realistic performance expectations based on detected system
-echo "🔍 Calculating performance expectations..."
+echo "[*] Calculating performance expectations..."
 eval $(calculate_performance_expectations "$CPU_CORES" "$JETSON_MODEL")
 echo "  • Single-core target: $EXPECTED_SINGLE_CORE_PRIMES primes"
 echo "  • Multi-core target: $EXPECTED_MULTI_CORE_MATRIX_OPS ops/sec"
@@ -67,36 +67,36 @@ Parameters:
 ULTRA COMPREHENSIVE TEST COMPONENTS:
 ================================================================================
 
-🔥 SINGLE-CORE TESTS (CPU Limit Testing):
-  • Prime Number Generation      - Single-thread integer performance  
+[SINGLE-CORE TESTS] (CPU Limit Testing):
+  • Prime Number Generation      - Single-thread integer performance
   • Fibonacci Calculation        - Recursive mathematical load
   • FFT Computation             - Signal processing workload
   • Sorting Algorithms          - Memory access patterns
   • Cryptographic Hashing       - SHA-256 intensive computation
 
-⚡ MULTI-CORE TESTS (All Cores to Limit):
+[MULTI-CORE TESTS] (All Cores to Limit):
   • Parallel Matrix Multiplication - All cores floating-point load
-  • Multi-threaded Prime Search    - Distributed integer workload  
+  • Multi-threaded Prime Search    - Distributed integer workload
   • Parallel FFT Processing        - Multi-core signal processing
   • Concurrent Memory Stress       - Memory bandwidth saturation
   • Multi-core Scientific Computing - Complex mathematical workloads
 
-🧠 MEMORY & CACHE TORTURE:
+[MEMORY & CACHE TORTURE]:
   • L1 Cache Stress (16KB patterns)
-  • L2 Cache Stress (512KB patterns) 
+  • L2 Cache Stress (512KB patterns)
   • L3 Cache Stress (4MB patterns)
   • Main Memory Bandwidth (64MB patterns)
   • Random Memory Access Patterns
   • Memory Latency Measurements
 
-🌡️ THERMAL & HEALTH VALIDATION:
+[THERMAL & HEALTH VALIDATION]:
   • Real-time temperature monitoring (1-second intervals)
   • CPU frequency scaling under load
   • Thermal throttling detection
   • Performance degradation analysis
   • Health score calculation (0-100)
 
-✅ PASS/FAIL CRITERIA:
+[PASS/FAIL CRITERIA]:
   • Performance vs Expected Benchmarks
   • Thermal Management Effectiveness  
   • System Stability During Stress
@@ -127,7 +127,7 @@ fi
 
 log_phase "JETSON ORIN ULTRA COMPREHENSIVE CPU STRESS TEST"
 
-echo "🔥 ULTRA CPU STRESS CONFIGURATION:"
+echo "[ULTRA CPU STRESS CONFIGURATION]"
 echo "  • Target Device: $ORIN_IP"
 echo "  • Jetson Model: $JETSON_MODEL"
 echo "  • Test Duration: $(format_duration $TEST_DURATION)"
@@ -174,7 +174,7 @@ echo ""
 # ULTRA CPU STRESS TEST EXECUTION
 ################################################################################
 
-log_phase "🚀 STARTING ULTRA CPU STRESS TEST"
+log_phase "[STARTING ULTRA CPU STRESS TEST]"
 
 # Start intensive temperature monitoring (1-second intervals)
 start_temperature_monitoring "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$LOG_DIR/logs/cpu_temperature.csv" 1
@@ -263,7 +263,7 @@ HEALTH_WARNINGS=0
 # SYSTEM PREPARATION AND OPTIMIZATION
 ################################################################################
 
-log_phase "🔧 SYSTEM PREPARATION FOR EXTREME TESTING"
+log_phase "[SYSTEM PREPARATION FOR EXTREME TESTING]"
 
 echo "=== CPU ARCHITECTURE ANALYSIS ==="
 cat /proc/cpuinfo | grep -E "(processor|model name|cpu MHz|cache size|cpu cores|Hardware|Model|Features)" | head -30
@@ -309,7 +309,7 @@ done
 # PHASE 1: SINGLE-CORE EXTREME STRESS TESTS
 ################################################################################
 
-log_phase "🔥 PHASE 1: SINGLE-CORE EXTREME STRESS TESTS"
+log_phase "[PHASE 1: SINGLE-CORE EXTREME STRESS TESTS]"
 
 SINGLE_CORE_DURATION=$((TEST_DURATION / 5))  # 20% of total time
 
@@ -601,7 +601,7 @@ fi
 # PHASE 2: MULTI-CORE EXTREME STRESS TESTS
 ################################################################################
 
-log_phase "⚡ PHASE 2: MULTI-CORE EXTREME STRESS TESTS"
+log_phase "[PHASE 2: MULTI-CORE EXTREME STRESS TESTS]"
 
 MULTI_CORE_DURATION=$((TEST_DURATION / 5))  # 20% of total time
 
@@ -985,7 +985,7 @@ fi
 # PHASE 3: MEMORY & CACHE TORTURE TESTS
 ################################################################################
 
-log_phase "🧠 PHASE 3: MEMORY & CACHE TORTURE TESTS"
+log_phase "[PHASE 3: MEMORY & CACHE TORTURE TESTS]"
 
 MEMORY_DURATION=$((TEST_DURATION / 10))  # 10% of total time
 
@@ -1144,7 +1144,7 @@ gcc -O3 -o "$REMOTE_TEST_DIR/cache_stress" "$REMOTE_TEST_DIR/cache_stress.c"
 # PHASE 4: EXTENDED EXTREME STRESS TEST
 ################################################################################
 
-log_phase "🔥 PHASE 4: EXTENDED EXTREME STRESS TEST"
+log_phase "[PHASE 4: EXTENDED EXTREME STRESS TEST]"
 
 EXTENDED_DURATION=$((TEST_DURATION - SINGLE_CORE_DURATION - MULTI_CORE_DURATION - MEMORY_DURATION - 300))
 if [ $EXTENDED_DURATION -lt 300 ]; then
@@ -1175,9 +1175,9 @@ get_cpu_temp() {
 check_thermal_throttling() {
     local current_temp=$(get_cpu_temp)
     if [ "$current_temp" != "N/A" ] && [ "$current_temp" -gt $TEMP_THRESHOLD_WARNING ]; then
-        echo "⚠️ WARNING: Temperature $current_temp°C exceeds warning threshold ($TEMP_THRESHOLD_WARNING°C)"
+        echo "[!] WARNING: Temperature $current_temp°C exceeds warning threshold ($TEMP_THRESHOLD_WARNING°C)"
         if [ "$current_temp" -gt $TEMP_THRESHOLD_CRITICAL ]; then
-            echo "🔥 CRITICAL: Temperature $current_temp°C exceeds critical threshold ($TEMP_THRESHOLD_CRITICAL°C)"
+            echo "[!!] CRITICAL: Temperature $current_temp°C exceeds critical threshold ($TEMP_THRESHOLD_CRITICAL°C)"
             return 1
         fi
     fi
@@ -1243,7 +1243,7 @@ fi
 # PHASE 5: HEALTH ASSESSMENT AND SCORING
 ################################################################################
 
-log_phase "📊 PHASE 5: HEALTH ASSESSMENT AND SCORING"
+log_phase "[PHASE 5: HEALTH ASSESSMENT AND SCORING]"
 
 # Calculate overall health score (weighted average)
 OVERALL_HEALTH_SCORE=$(echo "scale=0; ($SINGLE_CORE_SCORE * 25 + $MULTI_CORE_SCORE * 35 + $THERMAL_SCORE * 40) / 100" | bc 2>/dev/null || echo "0")
@@ -1301,7 +1301,7 @@ EOF
 # CLEANUP AND FINALIZATION
 ################################################################################
 
-log_phase "🧹 CLEANUP AND FINALIZATION"
+log_phase "[CLEANUP AND FINALIZATION]"
 
 # Restore CPU governor to ondemand/powersave
 log_info "Restoring CPU governor to power saving mode..."
@@ -1344,7 +1344,7 @@ REMOTE_ULTRA_CPU_TEST_START
 # STOP MONITORING & GENERATE REPORTS
 ################################################################################
 
-log_phase "📊 GENERATING COMPREHENSIVE REPORTS"
+log_phase "[GENERATING COMPREHENSIVE REPORTS]"
 
 # Stop temperature monitoring
 stop_temperature_monitoring
@@ -1364,7 +1364,7 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
 
 {
     echo "================================================================================"
-    echo "  🎯 JETSON ORIN ULTRA COMPREHENSIVE CPU STRESS TEST REPORT"
+    echo "  JETSON ORIN ULTRA COMPREHENSIVE CPU STRESS TEST REPORT"
     echo "================================================================================"
     echo ""
     echo "Test completed: $(date)"
@@ -1378,144 +1378,144 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
         source "$LOG_DIR/reports/ultra_cpu_results.txt"
         
         echo "================================================================================"
-        echo "  🏥 OVERALL CPU HEALTH ASSESSMENT"
+        echo "  OVERALL CPU HEALTH ASSESSMENT"
         echo "================================================================================"
         echo ""
-        echo "⭐ OVERALL HEALTH SCORE: $OVERALL_HEALTH_SCORE/100"
+        echo "[*] OVERALL HEALTH SCORE: $OVERALL_HEALTH_SCORE/100"
         echo ""
-        
+
         case "$CPU_HEALTH_STATUS" in
             "EXCELLENT")
-                echo "🟢 CPU HEALTH VERDICT: EXCELLENT"
+                echo "[+] CPU HEALTH VERDICT: EXCELLENT"
                 echo ""
-                echo "   ✅ OUTSTANDING: Your Jetson Orin CPU is performing exceptionally!"
+                echo "   [+] OUTSTANDING: Your Jetson Orin CPU is performing exceptionally!"
                 echo ""
-                echo "   ✅ PERFORMANCE: All benchmarks exceeded expectations"
-                echo "   ✅ THERMAL: Excellent temperature management"
-                echo "   ✅ STABILITY: Rock-solid system stability"
+                echo "   [+] PERFORMANCE: All benchmarks exceeded expectations"
+                echo "   [+] THERMAL: Excellent temperature management"
+                echo "   [+] STABILITY: Rock-solid system stability"
                 echo ""
-                echo "   💡 RECOMMENDATION: System is ready for production workloads"
+                echo "   [*] RECOMMENDATION: System is ready for production workloads"
                 ;;
             "GOOD")
-                echo "🟢 CPU HEALTH VERDICT: GOOD"
+                echo "[+] CPU HEALTH VERDICT: GOOD"
                 echo ""
-                echo "   ✅ SOLID: Your Jetson Orin CPU is performing well!"
+                echo "   [+] SOLID: Your Jetson Orin CPU is performing well!"
                 echo ""
-                echo "   ✅ PERFORMANCE: Most benchmarks met or exceeded expectations"
-                echo "   ✅ RELIABILITY: Good system stability and thermal management"
-                echo "   ✅ WORKLOAD READY: Suitable for demanding applications"
+                echo "   [+] PERFORMANCE: Most benchmarks met or exceeded expectations"
+                echo "   [+] RELIABILITY: Good system stability and thermal management"
+                echo "   [+] WORKLOAD READY: Suitable for demanding applications"
                 echo ""
-                echo "   💡 RECOMMENDATION: System is ready for production use"
+                echo "   [*] RECOMMENDATION: System is ready for production use"
                 ;;
             "ACCEPTABLE")
-                echo "🟠 CPU HEALTH VERDICT: ACCEPTABLE"
+                echo "[!] CPU HEALTH VERDICT: ACCEPTABLE"
                 echo ""
-                echo "   ⚠️  Your Jetson Orin CPU is functional but has performance limitations"
+                echo "   [!] Your Jetson Orin CPU is functional but has performance limitations"
                 echo ""
-                echo "   ⚠️  PERFORMANCE: Several benchmarks below expectations"
-                echo "   ⚠️  CONCERNS: Multiple performance or thermal issues"
-                echo "   ⚠️  WORKLOAD IMPACT: May struggle with demanding applications"
+                echo "   [!] PERFORMANCE: Several benchmarks below expectations"
+                echo "   [!] CONCERNS: Multiple performance or thermal issues"
+                echo "   [!] WORKLOAD IMPACT: May struggle with demanding applications"
                 echo ""
-                echo "   💡 RECOMMENDATION: System optimization or maintenance needed"
+                echo "   [*] RECOMMENDATION: System optimization or maintenance needed"
                 ;;
             "POOR")
-                echo "🔴 CPU HEALTH VERDICT: POOR"
+                echo "[-] CPU HEALTH VERDICT: POOR"
                 echo ""
-                echo "   ❌ CRITICAL: Your Jetson Orin CPU has significant issues!"
+                echo "   [-] CRITICAL: Your Jetson Orin CPU has significant issues!"
                 echo ""
-                echo "   ❌ PERFORMANCE: Multiple critical benchmarks failed"
-                echo "   ❌ RELIABILITY: System stability concerns detected"
-                echo "   ❌ THERMAL: Possible cooling or hardware issues"
+                echo "   [-] PERFORMANCE: Multiple critical benchmarks failed"
+                echo "   [-] RELIABILITY: System stability concerns detected"
+                echo "   [-] THERMAL: Possible cooling or hardware issues"
                 echo ""
-                echo "   🚨 URGENT RECOMMENDATION: Professional diagnosis required!"
-                echo "   🚨 Do not use for critical applications until issues resolved"
+                echo "   [!!] URGENT RECOMMENDATION: Professional diagnosis required!"
+                echo "   [!!] Do not use for critical applications until issues resolved"
                 ;;
         esac
-        
+
         echo ""
-        echo "📈 DETAILED METRICS:"
+        echo "[DETAILED METRICS]"
         echo "  • Health Warnings: $HEALTH_WARNINGS"
         echo "  • Peak Temperature: ${MAX_TEMP_DETECTED}°C"
         echo "  • Throttling Events: $THERMAL_VIOLATIONS"
         echo ""
-        
+
         # Performance comparison with expected values
         if [ -f "$LOG_DIR/performance_data/single_core_prime_results.txt" ]; then
             source "$LOG_DIR/performance_data/single_core_prime_results.txt"
-            echo "📊 SINGLE-CORE PERFORMANCE ANALYSIS:"
+            echo "[SINGLE-CORE PERFORMANCE ANALYSIS]"
             echo "  • Primes Found: $PRIME_COUNT (Expected: $EXPECTED_SINGLE_CORE_PRIMES)"
             echo "  • Performance Ratio: $(echo "scale=2; $PRIME_COUNT * 100 / $EXPECTED_SINGLE_CORE_PRIMES" | bc 2>/dev/null || echo "N/A")%"
             echo ""
         fi
-        
+
         if [ -f "$LOG_DIR/performance_data/multi_core_matrix_results.txt" ]; then
             source "$LOG_DIR/performance_data/multi_core_matrix_results.txt"
-            echo "📊 MULTI-CORE PERFORMANCE ANALYSIS:"
+            echo "[MULTI-CORE PERFORMANCE ANALYSIS]"
             echo "  • Matrix Ops/sec: $OPS_PER_SECOND (Expected: $EXPECTED_MULTI_CORE_MATRIX_OPS)"
             echo "  • Performance Ratio: $(echo "scale=2; $OPS_PER_SECOND * 100 / $EXPECTED_MULTI_CORE_MATRIX_OPS" | bc 2>/dev/null || echo "N/A")%"
             echo "  • Threads Utilized: $THREADS_USED/$CPU_CORES"
             echo ""
         fi
-        
+
         if [ -f "$LOG_DIR/performance_data/memory_bandwidth_results.txt" ]; then
             source "$LOG_DIR/performance_data/memory_bandwidth_results.txt"
-            echo "📊 MEMORY PERFORMANCE ANALYSIS:"
+            echo "[MEMORY PERFORMANCE ANALYSIS]"
             echo "  • Memory Bandwidth: $MEMORY_BANDWIDTH_MBPS MB/s (Expected: $EXPECTED_MEMORY_BANDWIDTH MB/s)"
             echo "  • Performance Ratio: $(echo "scale=2; $MEMORY_BANDWIDTH_MBPS * 100 / $EXPECTED_MEMORY_BANDWIDTH" | bc 2>/dev/null || echo "N/A")%"
             echo ""
         fi
         
     else
-        echo "❌ ERROR: Ultra CPU test results not available"
+        echo "[-] ERROR: Ultra CPU test results not available"
         echo "Test may have failed or been interrupted"
     fi
-    
+
     if [ -f "$LOG_DIR/reports/cpu_temperature_results.txt" ]; then
         source "$LOG_DIR/reports/cpu_temperature_results.txt"
-        echo "🌡️ THERMAL ANALYSIS DURING TESTING:"
+        echo "[THERMAL ANALYSIS DURING TESTING]"
         echo "  • CPU Temperature Range: ${CPU_MIN}°C - ${CPU_MAX}°C (Avg: ${CPU_AVG}°C)"
         echo "  • GPU Temperature Range: ${GPU_MIN}°C - ${GPU_MAX}°C (Avg: ${GPU_AVG}°C)"
         echo ""
-        
+
         if [ "$CPU_MAX" != "N/A" ] && [ "$CPU_MAX" -le 75 ]; then
-            echo "  🟢 THERMAL VERDICT: EXCELLENT - Superb cooling performance"
+            echo "  [+] THERMAL VERDICT: EXCELLENT - Superb cooling performance"
         elif [ "$CPU_MAX" != "N/A" ] && [ "$CPU_MAX" -le 85 ]; then
-            echo "  🟡 THERMAL VERDICT: GOOD - Acceptable thermal management"
+            echo "  [+] THERMAL VERDICT: GOOD - Acceptable thermal management"
         elif [ "$CPU_MAX" != "N/A" ] && [ "$CPU_MAX" -le 95 ]; then
-            echo "  🟠 THERMAL VERDICT: CONCERNING - Review cooling solution"
+            echo "  [!] THERMAL VERDICT: CONCERNING - Review cooling solution"
         elif [ "$CPU_MAX" != "N/A" ]; then
-            echo "  🔴 THERMAL VERDICT: CRITICAL - Immediate cooling improvements needed"
+            echo "  [-] THERMAL VERDICT: CRITICAL - Immediate cooling improvements needed"
         else
-            echo "  ⚪ THERMAL VERDICT: NO DATA AVAILABLE"
+            echo "  [*] THERMAL VERDICT: NO DATA AVAILABLE"
         fi
     fi
     
     echo ""
     echo "================================================================================"
-    echo "  📁 FILES AND REPORTS GENERATED"
+    echo "  FILES AND REPORTS GENERATED"
     echo "================================================================================"
     echo ""
-    echo "📊 Main Reports:"
+    echo "[Main Reports]"
     echo "  • Ultra CPU Report: $LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
     echo "  • Detailed Test Log: $LOG_DIR/logs/ultra_cpu_stress.log"
     echo "  • Temperature Data: $LOG_DIR/logs/cpu_temperature.csv"
     echo "  • Performance Data: $LOG_DIR/performance_data/"
     echo ""
-    echo "📈 Individual Test Results:"
+    echo "[Individual Test Results]"
     echo "  • Single-core Results: $LOG_DIR/reports/ultra_cpu_results.txt"
     echo "  • Multi-core Results: $LOG_DIR/reports/ultra_cpu_results.txt"
     echo "  • Memory Results: $LOG_DIR/reports/ultra_cpu_results.txt"
     echo "  • Thermal Results: $LOG_DIR/reports/cpu_temperature_results.txt"
     echo ""
-    
+
     echo "================================================================================"
-    echo "  🎯 TEST SUMMARY AND RECOMMENDATIONS"
+    echo "  TEST SUMMARY AND RECOMMENDATIONS"
     echo "================================================================================"
     echo ""
     echo "This ultra comprehensive CPU test pushed your Jetson Orin to its absolute limits"
     echo "across single-core, multi-core, memory, and thermal stress scenarios."
     echo ""
-    echo "🔍 What This Test Validates:"
+    echo "[What This Test Validates]"
     echo "  • CPU arithmetic and floating-point performance"
     echo "  • Multi-core scaling and thread efficiency (all $CPU_CORES physical cores)"
     echo "  • Optimized workload sizing based on core count"
@@ -1525,31 +1525,31 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
     echo "  • System stability during maximum stress"
     echo "  • Frequency scaling and throttling behavior"
     echo ""
-    echo "💡 For Production Use:"
+    echo "[For Production Use]"
     if [ "$CPU_HEALTH_STATUS" = "EXCELLENT" ] || [ "$CPU_HEALTH_STATUS" = "GOOD" ]; then
-        echo "  ✅ System is ready for demanding AI/ML workloads"
-        echo "  ✅ Suitable for real-time inference applications"
-        echo "  ✅ Can handle sustained high-performance computing"
+        echo "  [+] System is ready for demanding AI/ML workloads"
+        echo "  [+] Suitable for real-time inference applications"
+        echo "  [+] Can handle sustained high-performance computing"
     else
-        echo "  ⚠️  Review system before deploying critical workloads"
-        echo "  ⚠️  Consider performance optimization or hardware maintenance"
-        echo "  ⚠️  Monitor thermal behavior during actual workloads"
+        echo "  [!] Review system before deploying critical workloads"
+        echo "  [!] Consider performance optimization or hardware maintenance"
+        echo "  [!] Monitor thermal behavior during actual workloads"
     fi
     echo ""
-    echo "📞 Support Information:"
+    echo "[Support Information]"
     echo "  • For detailed analysis: Review individual test logs"
     echo "  • For thermal issues: Check cooling solution and case ventilation"
     echo "  • For performance issues: Verify JetPack version and system configuration"
     echo ""
     echo "================================================================================"
-    echo "  🎉 ULTRA COMPREHENSIVE CPU TEST COMPLETED"
+    echo "  ULTRA COMPREHENSIVE CPU TEST COMPLETED"
     echo "================================================================================"
     echo ""
     echo "Test completed: $(date)"
     echo "Total test duration: $(format_duration $TEST_DURATION)"
     echo "Report generation: Ultra Comprehensive CPU Test Suite v3.1 (Optimized)"
     echo ""
-    echo "Thank you for using the Jetson Orin Ultra CPU Stress Test! 🚀"
+    echo "Thank you for using the Jetson Orin Ultra CPU Stress Test!"
     echo ""
     
 } | tee "$LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
@@ -1558,30 +1558,30 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
 # COMPLETION
 ################################################################################
 
-log_success "🎉 Ultra comprehensive CPU stress test completed successfully!"
+log_success "[+] Ultra comprehensive CPU stress test completed successfully!"
 echo ""
-echo "📁 Results Directory: $LOG_DIR"
-echo "📊 Ultra Report: $LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
-echo "📈 Detailed Log: $LOG_DIR/logs/ultra_cpu_stress.log"
-echo "🌡️  Temperature Data: $LOG_DIR/logs/cpu_temperature.csv"
-echo "📊 Performance Data: $LOG_DIR/performance_data/"
+echo "[*] Results Directory: $LOG_DIR"
+echo "[*] Ultra Report: $LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
+echo "[*] Detailed Log: $LOG_DIR/logs/ultra_cpu_stress.log"
+echo "[*] Temperature Data: $LOG_DIR/logs/cpu_temperature.csv"
+echo "[*] Performance Data: $LOG_DIR/performance_data/"
 echo ""
 
 # Display quick health summary
 if [ -f "$LOG_DIR/reports/ultra_cpu_results.txt" ]; then
     source "$LOG_DIR/reports/ultra_cpu_results.txt"
     echo "================================================================================"
-    echo "  🏥 QUICK HEALTH SUMMARY"
+    echo "  QUICK HEALTH SUMMARY"
     echo "================================================================================"
     echo ""
-    echo "⭐ CPU HEALTH SCORE: $OVERALL_HEALTH_SCORE/100"
-    echo "🏥 HEALTH STATUS: $CPU_HEALTH_STATUS"
-    echo "🤖 JETSON MODEL: $JETSON_MODEL"
-    echo "⚠️  Health Warnings: $HEALTH_WARNINGS"
-    echo "🌡️  Peak Temperature: ${MAX_TEMP_DETECTED}°C"
-    echo "🔧 Physical CPU Cores Tested: $CPU_CORES"
+    echo "[*] CPU HEALTH SCORE: $OVERALL_HEALTH_SCORE/100"
+    echo "[*] HEALTH STATUS: $CPU_HEALTH_STATUS"
+    echo "[*] JETSON MODEL: $JETSON_MODEL"
+    echo "[*] Health Warnings: $HEALTH_WARNINGS"
+    echo "[*] Peak Temperature: ${MAX_TEMP_DETECTED}°C"
+    echo "[*] Physical CPU Cores Tested: $CPU_CORES"
     echo ""
-    echo "💡 View complete report: cat $LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
+    echo "[*] View complete report: cat $LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
 fi
 
 # Return appropriate exit code based on health
