@@ -12,7 +12,8 @@ set -e
 ORIN_IP="${1:-192.168.55.69}"
 ORIN_USER="${2:-orin}"
 ORIN_PASS="${3}"
-TEST_DURATION="${4:-3600}"
+TEST_DURATION_HOURS="${4:-1}"  # Default 1 hour
+TEST_DURATION=$((TEST_DURATION_HOURS * 3600))  # Convert hours to seconds
 
 # Colors
 RED='\033[0;31m'
@@ -39,13 +40,13 @@ show_usage() {
   CORRECTED RAM STRESS TEST - FIXED VERSION
 ================================================================================
 
-Usage: $0 [ip] [user] [password] [duration_seconds]
+Usage: $0 [ip] [user] [password] [duration_hours]
 
 Parameters:
   ip       : Jetson Orin IP (default: 192.168.55.69)
   user     : SSH username (default: orin)
   password : SSH password (will prompt if not provided)
-  duration : Test duration in seconds (default: 3600 = 1 hour)
+  duration : Test duration in hours (default: 1 hour)
 
 FIXES APPLIED:
   ✓ Proper memory allocation calculations
@@ -68,7 +69,7 @@ echo "  CORRECTED RAM STRESS TEST - FIXED VERSION"
 echo "================================================================================"
 echo ""
 log_info "Target: $ORIN_USER@$ORIN_IP"
-log_info "Duration: $TEST_DURATION seconds ($((TEST_DURATION / 60)) minutes)"
+log_info "Duration: $TEST_DURATION_HOURS hours ($TEST_DURATION seconds / $((TEST_DURATION / 60)) minutes)"
 echo ""
 
 # Get password if not provided
