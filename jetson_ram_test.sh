@@ -16,11 +16,26 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jetson_utils.sh"
 
 ################################################################################
-# INTERACTIVE PARAMETER COLLECTION
+# PARAMETER HANDLING
 ################################################################################
 
-# Collect parameters interactively with command-line args as defaults
-collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
+# Check if being run non-interactively with all parameters provided
+if [ -n "$1" ] && [ -n "$2" ] && [ -n "$3" ] && [ -n "$4" ]; then
+    # Non-interactive mode: use provided parameters directly (called from orchestrator/sequential)
+    ORIN_IP="$1"
+    ORIN_USER="$2"
+    ORIN_PASS="$3"
+    TEST_DURATION_HOURS="$4"
+
+    # Validate duration is a number
+    if ! [[ "$TEST_DURATION_HOURS" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+        echo "ERROR: Invalid duration '$TEST_DURATION_HOURS'. Must be a number."
+        exit 1
+    fi
+else
+    # Interactive mode: collect parameters
+    collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
+fi
 
 ################################################################################
 # CONFIGURATION
