@@ -23,12 +23,12 @@ BOLD='\033[1m'
 NC='\033[0m'
 
 ################################################################################
-# CONFIGURATION
+# CONFIGURATION - Will be set by interactive prompts
 ################################################################################
 
-ORIN_IP="${1:-192.168.55.69}"
-ORIN_USER="${2:-orin}"
-ORIN_PASS="${3}"
+ORIN_IP=""
+ORIN_USER=""
+ORIN_PASS=""
 
 ################################################################################
 # BANNER
@@ -50,23 +50,43 @@ show_banner() {
 ================================================================================
 EOF
     echo -e "${NC}"
-    echo "Target Device: $ORIN_USER@$ORIN_IP"
-    echo ""
+    if [ -n "$ORIN_IP" ] && [ -n "$ORIN_USER" ]; then
+        echo "Target Device: $ORIN_USER@$ORIN_IP"
+        echo ""
+    fi
 }
 
 ################################################################################
-# PASSWORD CHECK
+# INTERACTIVE CREDENTIAL COLLECTION
 ################################################################################
 
-check_credentials() {
-    if [ -z "$ORIN_PASS" ]; then
-        read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
-        echo ""
-        echo ""
-    fi
+collect_credentials() {
+    clear
+    show_banner
+
+    echo -e "${BOLD}${CYAN}═══════════════════════════════════════════════════════════════════════════════${NC}"
+    echo -e "${BOLD}${CYAN}  JETSON ORIN CONNECTION SETUP${NC}"
+    echo -e "${BOLD}${CYAN}═══════════════════════════════════════════════════════════════════════════════${NC}"
+    echo ""
+    echo -e "${YELLOW}Please enter your Jetson Orin connection details:${NC}"
+    echo ""
+
+    # Prompt for IP address
+    read -p "$(echo -e ${BOLD}Enter IP address${NC}) [192.168.55.69]: " ORIN_IP
+    ORIN_IP="${ORIN_IP:-192.168.55.69}"
+
+    # Prompt for username
+    read -p "$(echo -e ${BOLD}Enter username${NC}) [orin]: " ORIN_USER
+    ORIN_USER="${ORIN_USER:-orin}"
+
+    # Prompt for password
+    read -sp "$(echo -e ${BOLD}Enter password${NC}): " ORIN_PASS
+    echo ""
+    echo ""
 
     # Test SSH connection
-    echo -e "${CYAN}Testing SSH connection...${NC}"
+    echo -e "${CYAN}Testing SSH connection to $ORIN_USER@$ORIN_IP...${NC}"
+
     if ! command -v sshpass &> /dev/null; then
         echo -e "${RED}ERROR: sshpass is not installed${NC}"
         echo "Install with: sudo apt install sshpass"
@@ -74,12 +94,21 @@ check_credentials() {
     fi
 
     if ! sshpass -p "$ORIN_PASS" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "echo 'OK'" 2>/dev/null | grep -q "OK"; then
-        echo -e "${RED}ERROR: SSH connection failed${NC}"
-        echo "Please check IP address, username, and password"
-        exit 1
+        echo -e "${RED}✗ SSH connection failed${NC}"
+        echo ""
+        echo "Please check:"
+        echo "  • IP address is correct and reachable"
+        echo "  • Username is correct"
+        echo "  • Password is correct"
+        echo "  • SSH service is running on Jetson Orin"
+        echo ""
+        read -p "Press Enter to try again or Ctrl+C to exit..."
+        collect_credentials
+        return
     fi
 
     echo -e "${GREEN}✓ SSH connection verified${NC}"
+    echo ""
     sleep 1
 }
 
@@ -384,6 +413,8 @@ main_menu() {
 # MAIN EXECUTION
 ################################################################################
 
-show_banner
-check_credentials
+# Collect credentials interactively
+collect_credentials
+
+# Start the main menu flow
 main_menu
