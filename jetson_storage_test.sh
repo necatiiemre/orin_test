@@ -54,6 +54,16 @@ LARGE_FILE_SIZE=0  # Will be calculated based on available space
 # Log directory - accepts parameter from orchestrator/sequential test
 LOG_DIR="${5:-./storage_test_$(date +%Y%m%d_%H%M%S)}"
 
+# Debug: Show what LOG_DIR was set to
+echo "[DEBUG] Storage Test - Received parameters:"
+echo "  \$1 (IP): $1"
+echo "  \$2 (User): $2"
+echo "  \$3 (Pass): [hidden]"
+echo "  \$4 (Duration): $4"
+echo "  \$5 (LOG_DIR): ${5:-NOT_PROVIDED}"
+echo "  Final LOG_DIR: $LOG_DIR"
+echo ""
+
 ################################################################################
 # USAGE & HELP
 ################################################################################
