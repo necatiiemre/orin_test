@@ -389,17 +389,27 @@ class CorrectedRAMTest:
                             if errors > 0:
                                 worker_errors += errors
                                 with self.lock:
+                                    self.errors += errors
                                     print(f"Worker {worker_id}: {errors} pattern errors in block {block_info['id']}")
                                     
                             worker_operations += 1
-                            
+
+                            # Update global operations counter with lock
+                            with self.lock:
+                                self.operations += 1
+
                         # Integrity verification
                         if not self.verify_block_integrity(block_info):
                             worker_errors += 1
                             with self.lock:
                                 print(f"Worker {worker_id}: Integrity error in block {block_info['id']}")
-                                
+                                self.errors += 1
+
                         worker_operations += 1
+
+                        # Update global operations counter with lock
+                        with self.lock:
+                            self.operations += 1
                         
                         # Yield control to prevent overwhelming system
                         time.sleep(0.01)

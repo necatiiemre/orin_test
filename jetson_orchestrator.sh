@@ -368,7 +368,30 @@ run_test() {
     echo -e "${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
 
-    LOG_DIR="./orchestrator_${TEST_MODE}_$(date +%Y%m%d_%H%M%S)"
+    # Create clean directory names based on test mode
+    case "$TEST_MODE" in
+        "Sequential")
+            LOG_DIR="./sequential_test_$(date +%Y%m%d_%H%M%S)"
+            ;;
+        "Parallel")
+            LOG_DIR="./parallel_test_$(date +%Y%m%d_%H%M%S)"
+            ;;
+        "CPU")
+            LOG_DIR="./cpu_test_$(date +%Y%m%d_%H%M%S)"
+            ;;
+        "GPU")
+            LOG_DIR="./gpu_test_$(date +%Y%m%d_%H%M%S)"
+            ;;
+        "RAM")
+            LOG_DIR="./ram_test_$(date +%Y%m%d_%H%M%S)"
+            ;;
+        "Storage")
+            LOG_DIR="./storage_test_$(date +%Y%m%d_%H%M%S)"
+            ;;
+        *)
+            LOG_DIR="./${TEST_MODE}_test_$(date +%Y%m%d_%H%M%S)"
+            ;;
+    esac
 
     # Run the test
     if bash "$SCRIPT_DIR/$TEST_SCRIPT" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR"; then
