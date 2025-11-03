@@ -51,8 +51,8 @@ TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Conv
 TEST_SIZES=(1 10 100 1000)
 LARGE_FILE_SIZE=0  # Will be calculated based on available space
 
-# Log directory
-LOG_DIR="./jetson_disk_test_${TEST_DURATION_HOURS}h_$(date +%Y%m%d_%H%M%S)"
+# Log directory - accepts parameter from orchestrator/sequential test
+LOG_DIR="${5:-./storage_test_$(date +%Y%m%d_%H%M%S)}"
 
 ################################################################################
 # USAGE & HELP

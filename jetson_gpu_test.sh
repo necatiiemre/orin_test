@@ -60,8 +60,8 @@ if (( PHASE_GPU_GFX < 90 )); then
 fi
 PHASE_GPU_COMBINED=$((TEST_DURATION * 10 / 100)) # 10% of time - All GPU components combined
 
-# Log directory
-LOG_DIR="./jetson_orin_gpu_test_${TEST_DURATION_HOURS}h_$(date +%Y%m%d_%H%M%S)"
+# Log directory - accepts parameter from orchestrator/sequential test
+LOG_DIR="${5:-./gpu_test_$(date +%Y%m%d_%H%M%S)}"
 
 ################################################################################
 # USAGE & HELP
