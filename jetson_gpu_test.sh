@@ -112,12 +112,6 @@ echo "  • Success Target: 100% (zero failures accepted on components)"
 echo "  • Version: v1.7 ULTIMATE (Graphics test FIXED for Jetson)"
 echo ""
 
-# Password check
-if [ -z "$ORIN_PASS" ]; then
-    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
-    echo ""
-fi
-
 # Check for sshpass
 if ! command -v sshpass &> /dev/null; then
     echo "ERROR: 'sshpass' is not installed"

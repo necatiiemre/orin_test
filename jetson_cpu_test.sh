@@ -148,12 +148,6 @@ REMOTE_CORES=$(ssh_execute "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "nproc")
 REMOTE_LOGICAL=$(ssh_execute "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "grep -c ^processor /proc/cpuinfo")
 log_info "Remote system: $REMOTE_CORES cores detected, $REMOTE_LOGICAL logical processors"
 
-# Password check
-if [ -z "$ORIN_PASS" ]; then
-    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
-    echo ""
-fi
-
 # Validate inputs
 validate_ip_address "$ORIN_IP" || exit 1
 validate_test_duration "$TEST_DURATION" 300 28800 || exit 1  # 0.08 hours (5 min) to 8 hours

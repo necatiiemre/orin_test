@@ -92,12 +92,6 @@ echo "  • Intensity: MAXIMUM"
 echo "  • Components: CPU + GPU + RAM + Storage"
 echo ""
 
-# Password check
-if [ -z "$ORIN_PASS" ]; then
-    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
-    echo ""
-fi
-
 # Check prerequisites
 check_prerequisites "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS"
 

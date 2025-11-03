@@ -101,12 +101,6 @@ echo "  • Test Mode: COMPREHENSIVE DISK STRESS"
 echo "  • Compatibility Mode: Auto-detect tools"
 echo ""
 
-# Password check
-if [ -z "$ORIN_PASS" ]; then
-    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
-    echo ""
-fi
-
 # Check for sshpass
 if ! command -v sshpass &> /dev/null; then
     echo "ERROR: 'sshpass' is not installed"

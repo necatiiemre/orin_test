@@ -66,12 +66,6 @@ log_info "Target: $ORIN_USER@$ORIN_IP"
 log_info "Duration: $TEST_DURATION_HOURS hours ($TEST_DURATION seconds / $((TEST_DURATION / 60)) minutes)"
 echo ""
 
-# Get password if not provided
-if [ -z "$ORIN_PASS" ]; then
-    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
-    echo ""
-fi
-
 # Check sshpass
 if ! command -v sshpass &> /dev/null; then
     log_error "sshpass not found. Install with: sudo apt install sshpass"
