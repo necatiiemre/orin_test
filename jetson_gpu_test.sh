@@ -31,7 +31,7 @@ collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-2}"
 ################################################################################
 
 # Total test duration in seconds
-TEST_DURATION=$((${TEST_DURATION_HOURS%.*} * 3600))
+TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Convert hours to seconds (handle decimals)
 
 # For display purposes, use the hours value directly
 DISPLAY_DURATION_HOURS=$TEST_DURATION_HOURS
@@ -111,12 +111,6 @@ echo "  • Test Mode: DEDICATED GPU (Sequential Component Stress)"
 echo "  • Success Target: 100% (zero failures accepted on components)"
 echo "  • Version: v1.7 ULTIMATE (Graphics test FIXED for Jetson)"
 echo ""
-
-# Password check
-if [ -z "$ORIN_PASS" ]; then
-    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
-    echo ""
-fi
 
 # Check for sshpass
 if ! command -v sshpass &> /dev/null; then

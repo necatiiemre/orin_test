@@ -26,7 +26,7 @@ collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
 # CONFIGURATION
 ################################################################################
 
-TEST_DURATION=$((${TEST_DURATION_HOURS%.*} * 3600))  # Convert hours to seconds
+TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Convert hours to seconds (handle decimals)
 
 show_usage() {
     cat << EOF
@@ -65,12 +65,6 @@ echo ""
 log_info "Target: $ORIN_USER@$ORIN_IP"
 log_info "Duration: $TEST_DURATION_HOURS hours ($TEST_DURATION seconds / $((TEST_DURATION / 60)) minutes)"
 echo ""
-
-# Get password if not provided
-if [ -z "$ORIN_PASS" ]; then
-    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
-    echo ""
-fi
 
 # Check sshpass
 if ! command -v sshpass &> /dev/null; then

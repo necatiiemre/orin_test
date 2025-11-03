@@ -27,7 +27,7 @@ collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
 # CONFIGURATION
 ################################################################################
 
-TEST_DURATION=$((${TEST_DURATION_HOURS%.*} * 3600))
+TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Convert hours to seconds (handle decimals)
 
 LOG_DIR="${5:-./combined_parallel_test_$(date +%Y%m%d_%H%M%S)}"
 
@@ -91,12 +91,6 @@ echo "  • Test Mode: ALL COMPONENTS SIMULTANEOUSLY"
 echo "  • Intensity: MAXIMUM"
 echo "  • Components: CPU + GPU + RAM + Storage"
 echo ""
-
-# Password check
-if [ -z "$ORIN_PASS" ]; then
-    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
-    echo ""
-fi
 
 # Check prerequisites
 check_prerequisites "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS"

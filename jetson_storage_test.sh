@@ -30,24 +30,7 @@ collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-2}"
 ################################################################################
 
 # Test duration in seconds (handle decimal hours)
-if [[ "$TEST_DURATION_HOURS" == *"."* ]]; then
-    # Handle decimal hours using available tools
-    if command -v python3 >/dev/null 2>&1; then
-        TEST_DURATION=$(python3 -c "print(int(float('$TEST_DURATION_HOURS') * 3600))")
-    elif command -v awk >/dev/null 2>&1; then
-        TEST_DURATION=$(awk "BEGIN {print int($TEST_DURATION_HOURS * 3600)}")
-    else
-        # Simple fallback for common decimals
-        case "$TEST_DURATION_HOURS" in
-            "0.5") TEST_DURATION=1800 ;;
-            "1.5") TEST_DURATION=5400 ;;
-            "2.5") TEST_DURATION=9000 ;;
-            *) TEST_DURATION=$((${TEST_DURATION_HOURS%.*} * 3600)) ;;
-        esac
-    fi
-else
-    TEST_DURATION=$((TEST_DURATION_HOURS * 3600))
-fi
+TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Convert hours to seconds (handle decimals)
 
 # Test file sizes (MB)
 TEST_SIZES=(1 10 100 1000)
@@ -117,12 +100,6 @@ echo "  • Test Duration: ${TEST_DURATION_HOURS} hours ($TEST_DURATION seconds)
 echo "  • Test Mode: COMPREHENSIVE DISK STRESS"
 echo "  • Compatibility Mode: Auto-detect tools"
 echo ""
-
-# Password check
-if [ -z "$ORIN_PASS" ]; then
-    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
-    echo ""
-fi
 
 # Check for sshpass
 if ! command -v sshpass &> /dev/null; then

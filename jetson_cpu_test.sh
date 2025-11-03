@@ -27,7 +27,7 @@ collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
 # CONFIGURATION
 ################################################################################
 
-TEST_DURATION=$((${TEST_DURATION_HOURS%.*} * 3600))  # Convert hours to seconds (handle decimals)
+TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Convert hours to seconds (handle decimals)
 LOG_DIR="${5:-./cpu_ultra_test_$(date +%Y%m%d_%H%M%S)}"
 
 # Dynamic CPU core detection - get REAL physical cores, not hyperthreads
@@ -44,8 +44,8 @@ TEMP_THRESHOLD_CRITICAL=95
 
 # Calculate realistic performance expectations based on detected system
 echo "[*] Calculating performance expectations..."
-eval $(calculate_performance_expectations "$CPU_CORES" "$JETSON_MODEL")
-echo "  • Single-core target: $EXPECTED_SINGLE_CORE_PRIMES primes"
+eval $(calculate_performance_expectations "$CPU_CORES" "$JETSON_MODEL" "$TEST_DURATION")
+echo "  • Single-core target: $EXPECTED_SINGLE_CORE_PRIMES primes (scaled for test duration)"
 echo "  • Multi-core target: $EXPECTED_MULTI_CORE_MATRIX_OPS ops/sec"
 
 ################################################################################
@@ -147,12 +147,6 @@ log_info "Verifying remote core count..."
 REMOTE_CORES=$(ssh_execute "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "nproc")
 REMOTE_LOGICAL=$(ssh_execute "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "grep -c ^processor /proc/cpuinfo")
 log_info "Remote system: $REMOTE_CORES cores detected, $REMOTE_LOGICAL logical processors"
-
-# Password check
-if [ -z "$ORIN_PASS" ]; then
-    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
-    echo ""
-fi
 
 # Validate inputs
 validate_ip_address "$ORIN_IP" || exit 1

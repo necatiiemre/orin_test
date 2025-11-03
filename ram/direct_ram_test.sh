@@ -15,7 +15,7 @@ set -e
 ################################################################################
 
 TEST_DURATION_HOURS="${1:-1}"  # Default 1 hour
-TEST_DURATION=$((TEST_DURATION_HOURS * 3600))  # Convert hours to seconds
+TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Convert hours to seconds (handle decimals)
 MEMORY_PERCENTAGE="${2:-95}"  # Use 95% of available RAM
 
 # Colors
