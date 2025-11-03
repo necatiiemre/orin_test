@@ -853,14 +853,13 @@ REMOTE_DIR=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnow
 if [ -n "$REMOTE_DIR" ]; then
     echo "Remote test directory: $REMOTE_DIR"
     echo ""
-    
+
     echo "[1/3] Copying logs..."
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP:$REMOTE_DIR/logs/* "$LOG_DIR/logs/" 2>/dev/null
-    echo "[+] Logs copied"
+    # Use directory copying instead of wildcards for reliability
+    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/logs/" "$LOG_DIR/" 2>/dev/null && echo "[+] Logs copied" || echo "[!] Some logs may not have copied"
 
     echo "[2/3] Copying reports..."
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP:$REMOTE_DIR/reports/* "$LOG_DIR/reports/" 2>/dev/null
-    echo "[+] Reports copied"
+    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/reports/" "$LOG_DIR/" 2>/dev/null && echo "[+] Reports copied" || echo "[!] Some reports may not have copied"
 
     echo "[3/3] Cleaning up remote directory..."
     sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "rm -rf $REMOTE_DIR" 2>/dev/null

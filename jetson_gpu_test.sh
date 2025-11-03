@@ -1614,27 +1614,23 @@ REMOTE_DIR=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnow
 if [ -n "$REMOTE_DIR" ]; then
     echo "Remote test directory: $REMOTE_DIR"
     echo ""
-    
+
     echo "[1/4] Copying logs..."
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/logs/*" "$LOG_DIR/logs/" 2>/dev/null
-    echo "[+] Logs copied"
+    # Use directory copying instead of wildcards for reliability
+    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/logs/" "$LOG_DIR/" 2>/dev/null && echo "[+] Logs copied" || echo "[!] Some logs may not have copied"
 
     echo "[2/4] Copying reports..."
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/reports/*" "$LOG_DIR/reports/" 2>/dev/null
-    echo "[+] Reports copied"
+    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/reports/" "$LOG_DIR/" 2>/dev/null && echo "[+] Reports copied" || echo "[!] Some reports may not have copied"
 
     echo "[3/4] Copying monitoring data..."
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/monitoring/*" "$LOG_DIR/monitoring/" 2>/dev/null
-    echo "[+] Monitoring data copied"
-    
+    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/monitoring/" "$LOG_DIR/" 2>/dev/null && echo "[+] Monitoring data copied" || echo "[!] Some monitoring data may not have copied"
+
     echo "[4/4] Copying sample 4K videos..."
-    VIDEO_FILES=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "ls -t $REMOTE_DIR/videos/*.mp4 2>/dev/null | head -5")
-    
-    if [ -n "$VIDEO_FILES" ]; then
-        for video in $VIDEO_FILES; do
-            sshpass -p "$ORIN_PASS" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$video" "$LOG_DIR/videos/" 2>/dev/null
-        done
-        echo "[+] Sample 4K videos copied"
+    # Copy videos directory if it exists
+    VIDEO_COUNT=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "ls $REMOTE_DIR/videos/*.mp4 2>/dev/null | wc -l")
+
+    if [ -n "$VIDEO_COUNT" ] && [ "$VIDEO_COUNT" -gt 0 ]; then
+        sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/videos/" "$LOG_DIR/" 2>/dev/null && echo "[+] Sample 4K videos copied ($VIDEO_COUNT files)" || echo "[!] Videos may not have copied"
     else
         echo "[!] No 4K videos found"
     fi
