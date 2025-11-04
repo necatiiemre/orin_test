@@ -1115,7 +1115,9 @@ int main(int argc, char *argv[]) {
     FILE *freq_file = fopen(freq_path, "r");
     long freq = 0;
     if (freq_file) {
-        fscanf(freq_file, "%ld", &freq);
+        if (fscanf(freq_file, "%ld", &freq) != 1) {
+            freq = 0;  // Failed to read frequency
+        }
         fclose(freq_file);
     }
 
