@@ -16,17 +16,35 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jetson_utils.sh"
 
 ################################################################################
-# INTERACTIVE PARAMETER COLLECTION
+# PARAMETER HANDLING
 ################################################################################
 
-# Collect parameters interactively with command-line args as defaults
-collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
+# Check if being run non-interactively with all parameters provided
+if [ -n "$1" ] && [ -n "$2" ] && [ -n "$3" ] && [ -n "$4" ]; then
+    # Non-interactive mode: use provided parameters directly (called from orchestrator/sequential)
+    ORIN_IP="$1"
+    ORIN_USER="$2"
+    ORIN_PASS="$3"
+    TEST_DURATION_HOURS="$4"
+
+    # Validate duration is a number
+    if ! [[ "$TEST_DURATION_HOURS" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+        echo "ERROR: Invalid duration '$TEST_DURATION_HOURS'. Must be a number."
+        exit 1
+    fi
+else
+    # Interactive mode: collect parameters
+    collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
+fi
 
 ################################################################################
 # CONFIGURATION
 ################################################################################
 
 TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Convert hours to seconds (handle decimals)
+
+# Log directory setup
+LOG_DIR="${5:-./ram_test_$(date +%Y%m%d_%H%M%S)}"
 
 show_usage() {
     cat << EOF
@@ -66,6 +84,17 @@ log_info "Target: $ORIN_USER@$ORIN_IP"
 log_info "Duration: $TEST_DURATION_HOURS hours ($TEST_DURATION seconds / $((TEST_DURATION / 60)) minutes)"
 echo ""
 
+# Create log directories
+ensure_directory "$LOG_DIR"
+ensure_directory "$LOG_DIR/logs"
+ensure_directory "$LOG_DIR/reports"
+
+# Convert to absolute path
+LOG_DIR=$(cd "$LOG_DIR" && pwd)
+
+log_info "Results will be saved to: $LOG_DIR"
+echo ""
+
 # Check sshpass
 if ! command -v sshpass &> /dev/null; then
     log_error "sshpass not found. Install with: sudo apt install sshpass"
@@ -83,7 +112,7 @@ echo ""
 
 log_info "Starting CORRECTED RAM stress test with proper memory handling..."
 
-sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "export TEST_DURATION=$TEST_DURATION; bash -s" << 'REMOTE_SCRIPT'
+sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "export TEST_DURATION=$TEST_DURATION; bash -s" << 'REMOTE_SCRIPT' | tee "$LOG_DIR/logs/ram_stress_test.log"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -374,17 +403,27 @@ class CorrectedRAMTest:
                             if errors > 0:
                                 worker_errors += errors
                                 with self.lock:
+                                    self.errors += errors
                                     print(f"Worker {worker_id}: {errors} pattern errors in block {block_info['id']}")
                                     
                             worker_operations += 1
-                            
+
+                            # Update global operations counter with lock
+                            with self.lock:
+                                self.operations += 1
+
                         # Integrity verification
                         if not self.verify_block_integrity(block_info):
                             worker_errors += 1
                             with self.lock:
                                 print(f"Worker {worker_id}: Integrity error in block {block_info['id']}")
-                                
+                                self.errors += 1
+
                         worker_operations += 1
+
+                        # Update global operations counter with lock
+                        with self.lock:
+                            self.operations += 1
                         
                         # Yield control to prevent overwhelming system
                         time.sleep(0.01)
@@ -634,6 +673,37 @@ fi
 echo ""
 echo "================================================================================"
 
+# Save results before cleanup
+cat > "$TEST_DIR/ram_test_summary.txt" << SUMMARY_EOF
+================================================================================
+  CORRECTED RAM STRESS TEST - FINAL RESULTS
+================================================================================
+
+Test Date: $(date)
+Test Duration: ${TEST_DURATION}s ($(($TEST_DURATION / 60)) minutes)
+Memory Tested: ${MEMORY_MB} MB
+
+RESULTS:
+  Status: $RESULT
+  Total Operations: $OPERATIONS
+  Total Errors: $ERRORS
+  Error Rate: $([ "$OPERATIONS" -gt 0 ] && echo "scale=6; $ERRORS * 100 / $OPERATIONS" | bc || echo "N/A")%
+
+$(if [ "$RESULT" = "PASSED" ]; then
+    echo "VERDICT: RAM TEST PASSED ✓"
+    echo ""
+    echo "Your RAM hardware is functioning correctly."
+    echo "The corrected test uses proper allocation and verification."
+else
+    echo "VERDICT: RAM TEST FAILED ✗"
+    echo ""
+    echo "Detected $ERRORS genuine memory errors."
+    echo "Consider professional RAM testing or hardware replacement."
+fi)
+
+================================================================================
+SUMMARY_EOF
+
 # Cleanup
 rm -rf "$TEST_DIR"
 
@@ -641,13 +711,38 @@ exit $TEST_RESULT
 
 REMOTE_SCRIPT
 
+# Capture test result
+RAM_TEST_RESULT=$?
+
+echo ""
+echo "================================================================================"
+echo "  COPYING RAM TEST RESULTS TO HOST MACHINE"
+echo "================================================================================"
+echo ""
+
+# Copy result file from remote
+echo "[1/2] Copying test results..."
+sshpass -p "$ORIN_PASS" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:/tmp/ram_test_result.txt" "$LOG_DIR/reports/ram_test_results.txt" 2>/dev/null && echo "[+] Results copied" || echo "[!] Results file not found"
+
+echo "[2/2] Copying test summary..."
+# Find the most recent test directory
+REMOTE_TEST_DIR=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "ls -td /tmp/ram_stress_test_* 2>/dev/null | head -1")
+if [ -n "$REMOTE_TEST_DIR" ]; then
+    sshpass -p "$ORIN_PASS" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_TEST_DIR/ram_test_summary.txt" "$LOG_DIR/reports/ram_test_summary.txt" 2>/dev/null && echo "[+] Summary copied" || echo "[!] Summary not found"
+
+    # Cleanup remote directory
+    sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "rm -rf $REMOTE_TEST_DIR /tmp/ram_test_result.txt" 2>/dev/null
+else
+    echo "[!] Remote test directory not found"
+fi
+
 echo ""
 echo "================================================================================"
 echo "  CORRECTED RAM TEST COMPLETED"
 echo "================================================================================"
 echo ""
 
-if [ $? -eq 0 ]; then
+if [ $RAM_TEST_RESULT -eq 0 ]; then
     echo "[+] CONCLUSION: Your RAM is most likely FINE!"
     echo ""
     echo "The massive errors you saw were caused by:"
@@ -662,4 +757,11 @@ else
 fi
 
 echo ""
+echo "[*] Results Directory: $LOG_DIR"
+echo "   • Test Log:    $LOG_DIR/logs/ram_stress_test.log"
+echo "   • Results:     $LOG_DIR/reports/ram_test_results.txt"
+echo "   • Summary:     $LOG_DIR/reports/ram_test_summary.txt"
+echo ""
 echo "Test completed: $(date)"
+
+exit $RAM_TEST_RESULT

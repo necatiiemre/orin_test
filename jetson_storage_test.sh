@@ -19,11 +19,26 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jetson_utils.sh"
 
 ################################################################################
-# INTERACTIVE PARAMETER COLLECTION
+# PARAMETER HANDLING
 ################################################################################
 
-# Collect parameters interactively with command-line args as defaults
-collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-2}"
+# Check if being run non-interactively with all parameters provided
+if [ -n "$1" ] && [ -n "$2" ] && [ -n "$3" ] && [ -n "$4" ]; then
+    # Non-interactive mode: use provided parameters directly (called from orchestrator/sequential)
+    ORIN_IP="$1"
+    ORIN_USER="$2"
+    ORIN_PASS="$3"
+    TEST_DURATION_HOURS="$4"
+
+    # Validate duration is a number
+    if ! [[ "$TEST_DURATION_HOURS" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+        echo "ERROR: Invalid duration '$TEST_DURATION_HOURS'. Must be a number."
+        exit 1
+    fi
+else
+    # Interactive mode: collect parameters
+    collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-2}"
+fi
 
 ################################################################################
 # CONFIGURATION
@@ -32,12 +47,22 @@ collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-2}"
 # Test duration in seconds (handle decimal hours)
 TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Convert hours to seconds (handle decimals)
 
-# Test file sizes (MB)
+# Test file sizes (MB) - will be calculated dynamically based on available space
 TEST_SIZES=(1 10 100 1000)
-LARGE_FILE_SIZE=2048  # 2GB for compatibility
+LARGE_FILE_SIZE=0  # Will be calculated based on available space
 
-# Log directory
-LOG_DIR="./jetson_disk_test_${TEST_DURATION_HOURS}h_$(date +%Y%m%d_%H%M%S)"
+# Log directory - accepts parameter from orchestrator/sequential test
+LOG_DIR="${5:-./storage_test_$(date +%Y%m%d_%H%M%S)}"
+
+# Debug: Show what LOG_DIR was set to
+echo "[DEBUG] Storage Test - Received parameters:"
+echo "  \$1 (IP): $1"
+echo "  \$2 (User): $2"
+echo "  \$3 (Pass): [hidden]"
+echo "  \$4 (Duration): $4"
+echo "  \$5 (LOG_DIR): ${5:-NOT_PROVIDED}"
+echo "  Final LOG_DIR: $LOG_DIR"
+echo ""
 
 ################################################################################
 # USAGE & HELP
@@ -218,7 +243,7 @@ detect_tools() {
         echo "iostat (I/O Statistics): $($HAS_IOSTAT && echo "[+] Available" || echo "[-] Missing")"
         echo "iotop (I/O Monitoring): $($HAS_IOTOP && echo "[+] Available" || echo "[-] Missing")"
         echo "smartctl (Health Check): $($HAS_SMARTCTL && echo "[+] Available" || echo "[-] Missing")"
-        echo "hdparm (Disk Info): $($HAS_HDPARM && echo "[+] Available" || echo "[-] Missing")"
+        echo "hdparm (Disk Info): $($HAS_HDPARM && echo "[+] Available" || echo "[i] Not installed (optional)")"
         echo ""
         echo "Test Strategy: $($HAS_FIO && echo "Professional mode with fio" || echo "Compatibility mode with dd")"
     } | tee "$LOG_DIR/tool_availability.txt"
@@ -245,18 +270,40 @@ get_storage_info() {
         echo "=== AVAILABLE SPACE ==="
         AVAILABLE_KB=$(df /tmp | awk 'NR==2 {print $4}')
         AVAILABLE_MB=$((AVAILABLE_KB / 1024))
-        echo "Available space in /tmp: ${AVAILABLE_MB} MB"
-        
-        # Calculate test size (use 25% of available space, max 2GB)
-        MAX_TEST_SIZE=2048
-        TEST_SIZE_MB=$((AVAILABLE_MB / 4))
+        AVAILABLE_GB=$((AVAILABLE_MB / 1024))
+        echo "Available space in /tmp: ${AVAILABLE_MB} MB (${AVAILABLE_GB} GB)"
+
+        # Calculate AGGRESSIVE test size for proper storage stress testing
+        # Use 70% of available space, leaving 30% safety margin
+        # Minimum: 1GB, Maximum: 50GB (to prevent extremely long tests)
+        SAFETY_MARGIN_MB=$((AVAILABLE_MB * 30 / 100))  # Keep 30% free
+        MIN_SAFETY_MB=2048  # Minimum 2GB safety margin
+
+        if [ $SAFETY_MARGIN_MB -lt $MIN_SAFETY_MB ]; then
+            SAFETY_MARGIN_MB=$MIN_SAFETY_MB
+        fi
+
+        TEST_SIZE_MB=$((AVAILABLE_MB - SAFETY_MARGIN_MB))
+
+        # Apply minimum and maximum bounds
+        MIN_TEST_SIZE=1024   # Minimum 1GB
+        MAX_TEST_SIZE=51200  # Maximum 50GB
+
+        if [ $TEST_SIZE_MB -lt $MIN_TEST_SIZE ]; then
+            TEST_SIZE_MB=$MIN_TEST_SIZE
+        fi
         if [ $TEST_SIZE_MB -gt $MAX_TEST_SIZE ]; then
             TEST_SIZE_MB=$MAX_TEST_SIZE
         fi
-        if [ $TEST_SIZE_MB -lt 100 ]; then
-            TEST_SIZE_MB=100
-        fi
-        echo "Test file size will be: ${TEST_SIZE_MB} MB"
+
+        TEST_SIZE_GB=$((TEST_SIZE_MB / 1024))
+        UTILIZATION=$((TEST_SIZE_MB * 100 / AVAILABLE_MB))
+
+        echo "Test file size: ${TEST_SIZE_MB} MB (~${TEST_SIZE_GB} GB)"
+        echo "Space utilization: ${UTILIZATION}%"
+        echo "Safety margin: ${SAFETY_MARGIN_MB} MB (~$((SAFETY_MARGIN_MB / 1024)) GB)"
+        echo ""
+        echo "This aggressive test size ensures proper storage stress testing!"
         
         echo ""
         echo "=== BLOCK DEVICE DETAILS ==="
@@ -387,6 +434,10 @@ test_random_io() {
             done
             END_TIME=$(date +%s)
             DURATION=$((END_TIME - START_TIME))
+            # Prevent division by zero
+            if [ "$DURATION" -le 0 ]; then
+                DURATION=1
+            fi
             IOPS=$((1000 / DURATION))
             echo "Random Read IOPS (approximate): $IOPS"
             
@@ -399,6 +450,10 @@ test_random_io() {
             done
             END_TIME=$(date +%s)
             DURATION=$((END_TIME - START_TIME))
+            # Prevent division by zero
+            if [ "$DURATION" -le 0 ]; then
+                DURATION=1
+            fi
             IOPS=$((1000 / DURATION))
             echo "Random Write IOPS (approximate): $IOPS"
             
@@ -816,14 +871,13 @@ REMOTE_DIR=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnow
 if [ -n "$REMOTE_DIR" ]; then
     echo "Remote test directory: $REMOTE_DIR"
     echo ""
-    
+
     echo "[1/3] Copying logs..."
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP:$REMOTE_DIR/logs/* "$LOG_DIR/logs/" 2>/dev/null
-    echo "[+] Logs copied"
+    # Use directory copying instead of wildcards for reliability
+    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/logs/" "$LOG_DIR/" 2>/dev/null && echo "[+] Logs copied" || echo "[!] Some logs may not have copied"
 
     echo "[2/3] Copying reports..."
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP:$REMOTE_DIR/reports/* "$LOG_DIR/reports/" 2>/dev/null
-    echo "[+] Reports copied"
+    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/reports/" "$LOG_DIR/" 2>/dev/null && echo "[+] Reports copied" || echo "[!] Some reports may not have copied"
 
     echo "[3/3] Cleaning up remote directory..."
     sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "rm -rf $REMOTE_DIR" 2>/dev/null

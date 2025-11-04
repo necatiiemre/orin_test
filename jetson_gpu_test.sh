@@ -20,11 +20,26 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/jetson_utils.sh"
 
 ################################################################################
-# INTERACTIVE PARAMETER COLLECTION
+# PARAMETER HANDLING
 ################################################################################
 
-# Collect parameters interactively with command-line args as defaults
-collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-2}"
+# Check if being run non-interactively with all parameters provided
+if [ -n "$1" ] && [ -n "$2" ] && [ -n "$3" ] && [ -n "$4" ]; then
+    # Non-interactive mode: use provided parameters directly (called from orchestrator/sequential)
+    ORIN_IP="$1"
+    ORIN_USER="$2"
+    ORIN_PASS="$3"
+    TEST_DURATION_HOURS="$4"
+
+    # Validate duration is a number
+    if ! [[ "$TEST_DURATION_HOURS" =~ ^[0-9]+\.?[0-9]*$ ]]; then
+        echo "ERROR: Invalid duration '$TEST_DURATION_HOURS'. Must be a number."
+        exit 1
+    fi
+else
+    # Interactive mode: collect parameters
+    collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-2}"
+fi
 
 ################################################################################
 # CONFIGURATION
@@ -45,8 +60,18 @@ if (( PHASE_GPU_GFX < 90 )); then
 fi
 PHASE_GPU_COMBINED=$((TEST_DURATION * 10 / 100)) # 10% of time - All GPU components combined
 
-# Log directory
-LOG_DIR="./jetson_orin_gpu_test_${TEST_DURATION_HOURS}h_$(date +%Y%m%d_%H%M%S)"
+# Log directory - accepts parameter from orchestrator/sequential test
+LOG_DIR="${5:-./gpu_test_$(date +%Y%m%d_%H%M%S)}"
+
+# Debug: Show what LOG_DIR was set to
+echo "[DEBUG] GPU Test - Received parameters:"
+echo "  \$1 (IP): $1"
+echo "  \$2 (User): $2"
+echo "  \$3 (Pass): [hidden]"
+echo "  \$4 (Duration): $4"
+echo "  \$5 (LOG_DIR): ${5:-NOT_PROVIDED}"
+echo "  Final LOG_DIR: $LOG_DIR"
+echo ""
 
 ################################################################################
 # USAGE & HELP
@@ -1599,27 +1624,23 @@ REMOTE_DIR=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnow
 if [ -n "$REMOTE_DIR" ]; then
     echo "Remote test directory: $REMOTE_DIR"
     echo ""
-    
+
     echo "[1/4] Copying logs..."
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/logs/*" "$LOG_DIR/logs/" 2>/dev/null
-    echo "[+] Logs copied"
+    # Use directory copying instead of wildcards for reliability
+    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/logs/" "$LOG_DIR/" 2>/dev/null && echo "[+] Logs copied" || echo "[!] Some logs may not have copied"
 
     echo "[2/4] Copying reports..."
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/reports/*" "$LOG_DIR/reports/" 2>/dev/null
-    echo "[+] Reports copied"
+    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/reports/" "$LOG_DIR/" 2>/dev/null && echo "[+] Reports copied" || echo "[!] Some reports may not have copied"
 
     echo "[3/4] Copying monitoring data..."
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/monitoring/*" "$LOG_DIR/monitoring/" 2>/dev/null
-    echo "[+] Monitoring data copied"
-    
+    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/monitoring/" "$LOG_DIR/" 2>/dev/null && echo "[+] Monitoring data copied" || echo "[!] Some monitoring data may not have copied"
+
     echo "[4/4] Copying sample 4K videos..."
-    VIDEO_FILES=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "ls -t $REMOTE_DIR/videos/*.mp4 2>/dev/null | head -5")
-    
-    if [ -n "$VIDEO_FILES" ]; then
-        for video in $VIDEO_FILES; do
-            sshpass -p "$ORIN_PASS" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$video" "$LOG_DIR/videos/" 2>/dev/null
-        done
-        echo "[+] Sample 4K videos copied"
+    # Copy videos directory if it exists
+    VIDEO_COUNT=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "ls $REMOTE_DIR/videos/*.mp4 2>/dev/null | wc -l")
+
+    if [ -n "$VIDEO_COUNT" ] && [ "$VIDEO_COUNT" -gt 0 ]; then
+        sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/videos/" "$LOG_DIR/" 2>/dev/null && echo "[+] Sample 4K videos copied ($VIDEO_COUNT files)" || echo "[!] Videos may not have copied"
     else
         echo "[!] No 4K videos found"
     fi
