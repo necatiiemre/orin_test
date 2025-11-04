@@ -243,7 +243,7 @@ detect_tools() {
         echo "iostat (I/O Statistics): $($HAS_IOSTAT && echo "[+] Available" || echo "[-] Missing")"
         echo "iotop (I/O Monitoring): $($HAS_IOTOP && echo "[+] Available" || echo "[-] Missing")"
         echo "smartctl (Health Check): $($HAS_SMARTCTL && echo "[+] Available" || echo "[-] Missing")"
-        echo "hdparm (Disk Info): $($HAS_HDPARM && echo "[+] Available" || echo "[-] Missing")"
+        echo "hdparm (Disk Info): $($HAS_HDPARM && echo "[+] Available" || echo "[i] Not installed (optional)")"
         echo ""
         echo "Test Strategy: $($HAS_FIO && echo "Professional mode with fio" || echo "Compatibility mode with dd")"
     } | tee "$LOG_DIR/tool_availability.txt"
@@ -434,6 +434,10 @@ test_random_io() {
             done
             END_TIME=$(date +%s)
             DURATION=$((END_TIME - START_TIME))
+            # Prevent division by zero
+            if [ "$DURATION" -le 0 ]; then
+                DURATION=1
+            fi
             IOPS=$((1000 / DURATION))
             echo "Random Read IOPS (approximate): $IOPS"
             
@@ -446,6 +450,10 @@ test_random_io() {
             done
             END_TIME=$(date +%s)
             DURATION=$((END_TIME - START_TIME))
+            # Prevent division by zero
+            if [ "$DURATION" -le 0 ]; then
+                DURATION=1
+            fi
             IOPS=$((1000 / DURATION))
             echo "Random Write IOPS (approximate): $IOPS"
             
