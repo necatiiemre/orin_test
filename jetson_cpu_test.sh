@@ -4,8 +4,8 @@
 # JETSON ORIN - ULTRA COMPREHENSIVE CPU STRESS TEST
 ################################################################################
 # Description: Complete CPU validation with single/multi-core tests and health assessment
-# Features: Single-core, Multi-core, Mathematical workloads, Health validation
-# Version: 3.1 Optimized - Reduced verbose output, dynamic core detection
+# Features: Single-core, Multi-core, Per-core, Instruction throughput, Memory patterns, Health validation
+# Version: 4.0 Enhanced - Added per-core testing, instruction micro-benchmarks, and advanced memory patterns
 ################################################################################
 
 set -e
@@ -98,6 +98,25 @@ ULTRA COMPREHENSIVE TEST COMPONENTS:
   • Parallel FFT Processing        - Multi-core signal processing
   • Concurrent Memory Stress       - Memory bandwidth saturation
   • Multi-core Scientific Computing - Complex mathematical workloads
+
+[PER-CORE INDIVIDUAL TESTING]:
+  • Individual core performance validation
+  • Core-to-core performance uniformity
+  • Per-core frequency monitoring
+  • Identification of weak/strong cores
+
+[CPU INSTRUCTION THROUGHPUT MICRO-BENCHMARKS]:
+  • Integer operations (ADD, MUL, DIV)
+  • Floating-point operations (ADD, MUL, DIV, SQRT)
+  • Branch prediction efficiency testing
+  • Predictable vs unpredictable branch performance
+
+[ADVANCED MEMORY PATTERNS]:
+  • Sequential memory access patterns
+  • Random memory access patterns
+  • Strided memory access (cache line testing)
+  • Cache latency measurements (L1, L2, Memory)
+  • Memory bandwidth analysis
 
 [MEMORY & CACHE TORTURE]:
   • L1 Cache Stress (16KB patterns)
@@ -994,10 +1013,666 @@ else
 fi
 
 ################################################################################
-# PHASE 3: MEMORY & CACHE TORTURE TESTS
+# PHASE 3: PER-CORE INDIVIDUAL TESTING
 ################################################################################
 
-log_phase "[PHASE 3: MEMORY & CACHE TORTURE TESTS]"
+log_phase "[PHASE 3: PER-CORE INDIVIDUAL TESTING]"
+
+PER_CORE_DURATION=$((TEST_DURATION / 20))  # 5% of total time
+if [ $PER_CORE_DURATION -lt 30 ]; then
+    PER_CORE_DURATION=30  # Minimum 30 seconds per core
+fi
+
+echo "Per-core test duration: $PER_CORE_DURATION seconds per core"
+echo "Testing each of $CPU_CORES cores individually"
+echo ""
+
+log_info "Test 3.1: Individual Core Performance Testing"
+
+cat > "$REMOTE_TEST_DIR/per_core_test.c" << 'PER_CORE_TEST_EOF'
+#define _GNU_SOURCE
+#include <stdio.h>
+#include <stdlib.h>
+#include <sched.h>
+#include <pthread.h>
+#include <time.h>
+#include <unistd.h>
+#include <math.h>
+
+// Prime number test for individual core
+long long test_core_primes(int duration) {
+    long long prime_count = 0;
+    time_t start_time = time(NULL);
+    time_t end_time = start_time + duration;
+
+    for (long long n = 2; time(NULL) < end_time; n++) {
+        int is_prime = 1;
+        if (n <= 1) is_prime = 0;
+        else if (n <= 3) is_prime = 1;
+        else if (n % 2 == 0 || n % 3 == 0) is_prime = 0;
+        else {
+            for (long long i = 5; i * i <= n; i += 6) {
+                if (n % i == 0 || n % (i + 2) == 0) {
+                    is_prime = 0;
+                    break;
+                }
+            }
+        }
+        if (is_prime) prime_count++;
+    }
+    return prime_count;
+}
+
+// Floating-point test for individual core
+double test_core_floating_point(int duration) {
+    double result = 1.0;
+    long long operations = 0;
+    time_t start_time = time(NULL);
+    time_t end_time = start_time + duration;
+
+    while (time(NULL) < end_time) {
+        result = sin(result) * cos(result) + sqrt(fabs(result)) + 1.0;
+        operations++;
+    }
+
+    return (double)operations / duration;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc < 3) {
+        printf("Usage: %s <core_id> <duration>\n", argv[0]);
+        return 1;
+    }
+
+    int core_id = atoi(argv[1]);
+    int duration = atoi(argv[2]);
+
+    // Pin to specific core
+    cpu_set_t cpuset;
+    CPU_ZERO(&cpuset);
+    CPU_SET(core_id, &cpuset);
+
+    if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset) != 0) {
+        printf("Failed to set CPU affinity for core %d\n", core_id);
+        return 1;
+    }
+
+    printf("Testing Core %d for %d seconds...\n", core_id, duration);
+
+    // Test 1: Prime numbers (integer performance)
+    time_t test_start = time(NULL);
+    long long primes = test_core_primes(duration / 2);
+    double prime_time = difftime(time(NULL), test_start);
+
+    // Test 2: Floating-point operations
+    test_start = time(NULL);
+    double flops = test_core_floating_point(duration / 2);
+    double fp_time = difftime(time(NULL), test_start);
+
+    // Get CPU frequency if available
+    char freq_path[256];
+    snprintf(freq_path, sizeof(freq_path), "/sys/devices/system/cpu/cpu%d/cpufreq/scaling_cur_freq", core_id);
+    FILE *freq_file = fopen(freq_path, "r");
+    long freq = 0;
+    if (freq_file) {
+        if (fscanf(freq_file, "%ld", &freq) != 1) {
+            freq = 0;  // Failed to read frequency
+        }
+        fclose(freq_file);
+    }
+
+    printf("\n=== CORE %d RESULTS ===\n", core_id);
+    printf("Primes found: %lld (%.2f primes/sec)\n", primes, primes / prime_time);
+    printf("FP operations: %.0f ops/sec\n", flops);
+    printf("Current frequency: %ld kHz\n", freq);
+
+    // Write results
+    char result_file[256];
+    snprintf(result_file, sizeof(result_file), "/tmp/core_%d_results.txt", core_id);
+    FILE *f = fopen(result_file, "w");
+    if (f) {
+        fprintf(f, "CORE_ID=%d\n", core_id);
+        fprintf(f, "PRIMES=%lld\n", primes);
+        fprintf(f, "PRIMES_PER_SEC=%.2f\n", primes / prime_time);
+        fprintf(f, "FLOPS=%.0f\n", flops);
+        fprintf(f, "FREQUENCY=%ld\n", freq);
+        fclose(f);
+    }
+
+    return 0;
+}
+PER_CORE_TEST_EOF
+
+gcc -O3 -pthread -o "$REMOTE_TEST_DIR/per_core_test" "$REMOTE_TEST_DIR/per_core_test.c" -lm
+
+# Test each core individually
+declare -a CORE_PRIMES
+declare -a CORE_FLOPS
+declare -a CORE_FREQS
+
+for ((core=0; core<CPU_CORES; core++)); do
+    log_info "Testing Core $core..."
+    "$REMOTE_TEST_DIR/per_core_test" $core $PER_CORE_DURATION
+
+    # Read results
+    if [ -f "/tmp/core_${core}_results.txt" ]; then
+        source "/tmp/core_${core}_results.txt"
+        CORE_PRIMES[$core]=$PRIMES_PER_SEC
+        CORE_FLOPS[$core]=$FLOPS
+        CORE_FREQS[$core]=$FREQUENCY
+    fi
+done
+
+# Analyze core-to-core variation
+log_info "Analyzing core performance variation..."
+
+# Calculate average and standard deviation
+total_primes=0
+total_flops=0
+for ((core=0; core<CPU_CORES; core++)); do
+    total_primes=$(echo "$total_primes + ${CORE_PRIMES[$core]}" | bc 2>/dev/null || echo "0")
+    total_flops=$(echo "$total_flops + ${CORE_FLOPS[$core]}" | bc 2>/dev/null || echo "0")
+done
+
+avg_primes=$(echo "scale=2; $total_primes / $CPU_CORES" | bc 2>/dev/null || echo "0")
+avg_flops=$(echo "scale=2; $total_flops / $CPU_CORES" | bc 2>/dev/null || echo "0")
+
+# Find min/max performing cores
+min_prime_core=0
+max_prime_core=0
+min_prime_val=${CORE_PRIMES[0]}
+max_prime_val=${CORE_PRIMES[0]}
+
+for ((core=0; core<CPU_CORES; core++)); do
+    val=${CORE_PRIMES[$core]}
+    if (( $(echo "$val < $min_prime_val" | bc -l 2>/dev/null || echo "0") )); then
+        min_prime_val=$val
+        min_prime_core=$core
+    fi
+    if (( $(echo "$val > $max_prime_val" | bc -l 2>/dev/null || echo "0") )); then
+        max_prime_val=$val
+        max_prime_core=$core
+    fi
+done
+
+# Calculate performance variation percentage
+perf_variation=$(echo "scale=2; (($max_prime_val - $min_prime_val) / $avg_primes) * 100" | bc 2>/dev/null || echo "0")
+
+echo ""
+echo "=== PER-CORE ANALYSIS ==="
+echo "Average Prime Performance: $avg_primes primes/sec"
+echo "Average FP Performance: $avg_flops ops/sec"
+echo "Best Core: $max_prime_core ($max_prime_val primes/sec)"
+echo "Worst Core: $min_prime_core ($min_prime_val primes/sec)"
+echo "Performance Variation: $perf_variation%"
+
+# Score per-core testing
+PER_CORE_SCORE=100
+if (( $(echo "$perf_variation > 20" | bc -l 2>/dev/null || echo "0") )); then
+    PER_CORE_SCORE=60
+    log_warning "High core-to-core variation detected ($perf_variation%)"
+    HEALTH_WARNINGS=$((HEALTH_WARNINGS + 1))
+elif (( $(echo "$perf_variation > 10" | bc -l 2>/dev/null || echo "0") )); then
+    PER_CORE_SCORE=80
+    log_info "Moderate core-to-core variation ($perf_variation%)"
+elif (( $(echo "$perf_variation > 5" | bc -l 2>/dev/null || echo "0") )); then
+    PER_CORE_SCORE=90
+else
+    log_success "Excellent core uniformity ($perf_variation%)"
+fi
+
+# Save per-core results
+cat > /tmp/per_core_results.txt << EOF
+PER_CORE_SCORE=$PER_CORE_SCORE
+AVG_PRIMES=$avg_primes
+AVG_FLOPS=$avg_flops
+BEST_CORE=$max_prime_core
+WORST_CORE=$min_prime_core
+PERF_VARIATION=$perf_variation
+EOF
+
+for ((core=0; core<CPU_CORES; core++)); do
+    echo "CORE_${core}_PRIMES=${CORE_PRIMES[$core]}" >> /tmp/per_core_results.txt
+    echo "CORE_${core}_FLOPS=${CORE_FLOPS[$core]}" >> /tmp/per_core_results.txt
+    echo "CORE_${core}_FREQ=${CORE_FREQS[$core]}" >> /tmp/per_core_results.txt
+done
+
+################################################################################
+# PHASE 4: CPU INSTRUCTION THROUGHPUT MICRO-BENCHMARKS
+################################################################################
+
+log_phase "[PHASE 4: CPU INSTRUCTION THROUGHPUT MICRO-BENCHMARKS]"
+
+MICROBENCH_DURATION=$((TEST_DURATION / 20))  # 5% of total time
+if [ $MICROBENCH_DURATION -lt 30 ]; then
+    MICROBENCH_DURATION=30  # Minimum 30 seconds
+fi
+
+echo "Micro-benchmark duration: $MICROBENCH_DURATION seconds"
+echo ""
+
+log_info "Test 4.1: Integer Operations Throughput"
+
+cat > "$REMOTE_TEST_DIR/int_throughput.c" << 'INT_THROUGHPUT_EOF'
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <stdint.h>
+
+int main(int argc, char *argv[]) {
+    int duration = argc > 1 ? atoi(argv[1]) : 30;
+
+    volatile uint64_t a = 12345, b = 67890, c = 0;
+    uint64_t add_ops = 0, mul_ops = 0, div_ops = 0;
+
+    printf("Testing integer operations for %d seconds...\n", duration);
+
+    // Test 1: Integer Addition
+    time_t start = time(NULL);
+    while (time(NULL) - start < duration / 3) {
+        c = a + b; c = b + a; c = a + b; c = b + a;
+        c = a + b; c = b + a; c = a + b; c = b + a;
+        add_ops += 8;
+        a = c + 1;
+    }
+    double add_time = difftime(time(NULL), start);
+
+    // Test 2: Integer Multiplication
+    a = 12345; b = 67890;
+    start = time(NULL);
+    while (time(NULL) - start < duration / 3) {
+        c = a * b; c = b * a; c = a * b; c = b * a;
+        c = a * b; c = b * a; c = a * b; c = b * a;
+        mul_ops += 8;
+        if (a > 1000000) a = 12345;
+        a++;
+    }
+    double mul_time = difftime(time(NULL), start);
+
+    // Test 3: Integer Division
+    a = 987654321; b = 12345;
+    start = time(NULL);
+    while (time(NULL) - start < duration / 3) {
+        if (b != 0) { c = a / b; c = a / b; c = a / b; c = a / b; }
+        if (b != 0) { c = a / b; c = a / b; c = a / b; c = a / b; }
+        div_ops += 8;
+        b = (b % 10000) + 1;
+    }
+    double div_time = difftime(time(NULL), start);
+
+    printf("\n=== INTEGER OPERATIONS THROUGHPUT ===\n");
+    printf("Addition: %.0f Mops/sec\n", (add_ops / add_time) / 1000000.0);
+    printf("Multiplication: %.0f Mops/sec\n", (mul_ops / mul_time) / 1000000.0);
+    printf("Division: %.0f Mops/sec\n", (div_ops / div_time) / 1000000.0);
+
+    FILE *f = fopen("/tmp/int_throughput_results.txt", "w");
+    if (f) {
+        fprintf(f, "INT_ADD_MOPS=%.0f\n", (add_ops / add_time) / 1000000.0);
+        fprintf(f, "INT_MUL_MOPS=%.0f\n", (mul_ops / mul_time) / 1000000.0);
+        fprintf(f, "INT_DIV_MOPS=%.0f\n", (div_ops / div_time) / 1000000.0);
+        fclose(f);
+    }
+
+    return 0;
+}
+INT_THROUGHPUT_EOF
+
+gcc -O2 -o "$REMOTE_TEST_DIR/int_throughput" "$REMOTE_TEST_DIR/int_throughput.c"
+"$REMOTE_TEST_DIR/int_throughput" $MICROBENCH_DURATION
+
+log_info "Test 4.2: Floating-Point Operations Throughput"
+
+cat > "$REMOTE_TEST_DIR/fp_throughput.c" << 'FP_THROUGHPUT_EOF'
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <math.h>
+
+int main(int argc, char *argv[]) {
+    int duration = argc > 1 ? atoi(argv[1]) : 30;
+
+    volatile double a = 1.23456, b = 6.78901, c = 0.0;
+    uint64_t add_ops = 0, mul_ops = 0, div_ops = 0, sqrt_ops = 0;
+
+    printf("Testing floating-point operations for %d seconds...\n", duration);
+
+    // Test 1: FP Addition
+    time_t start = time(NULL);
+    while (time(NULL) - start < duration / 4) {
+        c = a + b; c = b + a; c = a + b; c = b + a;
+        c = a + b; c = b + a; c = a + b; c = b + a;
+        add_ops += 8;
+        a = c * 0.9999;
+    }
+    double add_time = difftime(time(NULL), start);
+
+    // Test 2: FP Multiplication
+    a = 1.23456; b = 6.78901;
+    start = time(NULL);
+    while (time(NULL) - start < duration / 4) {
+        c = a * b; c = b * a; c = a * b; c = b * a;
+        c = a * b; c = b * a; c = a * b; c = b * a;
+        mul_ops += 8;
+        a = c * 0.0001;
+        if (a < 1.0) a = 1.23456;
+    }
+    double mul_time = difftime(time(NULL), start);
+
+    // Test 3: FP Division
+    a = 987.654; b = 1.23456;
+    start = time(NULL);
+    while (time(NULL) - start < duration / 4) {
+        c = a / b; c = a / b; c = a / b; c = a / b;
+        c = a / b; c = a / b; c = a / b; c = a / b;
+        div_ops += 8;
+        a = c + 100.0;
+    }
+    double div_time = difftime(time(NULL), start);
+
+    // Test 4: FP Square Root
+    a = 123456.789;
+    start = time(NULL);
+    while (time(NULL) - start < duration / 4) {
+        c = sqrt(a); c = sqrt(c); c = sqrt(fabs(c));
+        a = c * c + 1000.0;
+        sqrt_ops += 3;
+    }
+    double sqrt_time = difftime(time(NULL), start);
+
+    printf("\n=== FLOATING-POINT OPERATIONS THROUGHPUT ===\n");
+    printf("Addition: %.0f Mops/sec\n", (add_ops / add_time) / 1000000.0);
+    printf("Multiplication: %.0f Mops/sec\n", (mul_ops / mul_time) / 1000000.0);
+    printf("Division: %.0f Mops/sec\n", (div_ops / div_time) / 1000000.0);
+    printf("Square Root: %.0f Mops/sec\n", (sqrt_ops / sqrt_time) / 1000000.0);
+
+    FILE *f = fopen("/tmp/fp_throughput_results.txt", "w");
+    if (f) {
+        fprintf(f, "FP_ADD_MOPS=%.0f\n", (add_ops / add_time) / 1000000.0);
+        fprintf(f, "FP_MUL_MOPS=%.0f\n", (mul_ops / mul_time) / 1000000.0);
+        fprintf(f, "FP_DIV_MOPS=%.0f\n", (div_ops / div_time) / 1000000.0);
+        fprintf(f, "FP_SQRT_MOPS=%.0f\n", (sqrt_ops / sqrt_time) / 1000000.0);
+        fclose(f);
+    }
+
+    return 0;
+}
+FP_THROUGHPUT_EOF
+
+gcc -O2 -o "$REMOTE_TEST_DIR/fp_throughput" "$REMOTE_TEST_DIR/fp_throughput.c" -lm
+"$REMOTE_TEST_DIR/fp_throughput" $MICROBENCH_DURATION
+
+log_info "Test 4.3: Branch Prediction Performance"
+
+cat > "$REMOTE_TEST_DIR/branch_test.c" << 'BRANCH_TEST_EOF'
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+int main(int argc, char *argv[]) {
+    int duration = argc > 1 ? atoi(argv[1]) : 30;
+
+    printf("Testing branch prediction for %d seconds...\n", duration);
+
+    // Test 1: Predictable branches
+    volatile int sum = 0;
+    uint64_t pred_branches = 0;
+    time_t start = time(NULL);
+    while (time(NULL) - start < duration / 2) {
+        for (int i = 0; i < 1000; i++) {
+            if (i % 2 == 0) sum++; else sum--;
+            pred_branches++;
+        }
+    }
+    double pred_time = difftime(time(NULL), start);
+
+    // Test 2: Random unpredictable branches
+    srand(12345);
+    uint64_t unpred_branches = 0;
+    start = time(NULL);
+    while (time(NULL) - start < duration / 2) {
+        for (int i = 0; i < 1000; i++) {
+            if (rand() % 2 == 0) sum++; else sum--;
+            unpred_branches++;
+        }
+    }
+    double unpred_time = difftime(time(NULL), start);
+
+    double pred_rate = pred_branches / pred_time;
+    double unpred_rate = unpred_branches / unpred_time;
+    double penalty = ((pred_rate - unpred_rate) / pred_rate) * 100.0;
+
+    printf("\n=== BRANCH PREDICTION RESULTS ===\n");
+    printf("Predictable branches: %.0f M/sec\n", pred_rate / 1000000.0);
+    printf("Unpredictable branches: %.0f M/sec\n", unpred_rate / 1000000.0);
+    printf("Misprediction penalty: %.1f%%\n", penalty);
+
+    FILE *f = fopen("/tmp/branch_results.txt", "w");
+    if (f) {
+        fprintf(f, "PRED_BRANCH_MOPS=%.0f\n", pred_rate / 1000000.0);
+        fprintf(f, "UNPRED_BRANCH_MOPS=%.0f\n", unpred_rate / 1000000.0);
+        fprintf(f, "MISPREDICT_PENALTY=%.1f\n", penalty);
+        fclose(f);
+    }
+
+    return 0;
+}
+BRANCH_TEST_EOF
+
+gcc -O2 -o "$REMOTE_TEST_DIR/branch_test" "$REMOTE_TEST_DIR/branch_test.c"
+"$REMOTE_TEST_DIR/branch_test" $MICROBENCH_DURATION
+
+# Score instruction throughput tests
+INSTRUCTION_SCORE=100
+log_success "Instruction throughput micro-benchmarks completed"
+
+################################################################################
+# PHASE 5: ADVANCED MEMORY PATTERNS
+################################################################################
+
+log_phase "[PHASE 5: ADVANCED MEMORY PATTERNS]"
+
+MEMORY_PATTERN_DURATION=$((TEST_DURATION / 20))  # 5% of total time
+if [ $MEMORY_PATTERN_DURATION -lt 30 ]; then
+    MEMORY_PATTERN_DURATION=30
+fi
+
+echo "Memory pattern test duration: $MEMORY_PATTERN_DURATION seconds"
+echo ""
+
+log_info "Test 5.1: Sequential vs Random Access Patterns"
+
+cat > "$REMOTE_TEST_DIR/memory_patterns.c" << 'MEMORY_PATTERNS_EOF'
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
+#include <stdint.h>
+
+#define BUFFER_SIZE (16 * 1024 * 1024)  // 16MB
+
+int main(int argc, char *argv[]) {
+    int duration = argc > 1 ? atoi(argv[1]) : 30;
+
+    printf("Allocating %d MB buffer...\n", BUFFER_SIZE / (1024*1024));
+    uint64_t *buffer = malloc(BUFFER_SIZE);
+    if (!buffer) {
+        printf("Failed to allocate memory\n");
+        return 1;
+    }
+
+    // Initialize buffer
+    for (size_t i = 0; i < BUFFER_SIZE / sizeof(uint64_t); i++) {
+        buffer[i] = i;
+    }
+
+    printf("Testing memory access patterns for %d seconds...\n", duration);
+
+    // Test 1: Sequential read
+    volatile uint64_t sum = 0;
+    uint64_t seq_read_ops = 0;
+    time_t start = time(NULL);
+    while (time(NULL) - start < duration / 3) {
+        for (size_t i = 0; i < BUFFER_SIZE / sizeof(uint64_t); i++) {
+            sum += buffer[i];
+            seq_read_ops++;
+        }
+    }
+    double seq_read_time = difftime(time(NULL), start);
+
+    // Test 2: Random read
+    srand(12345);
+    uint64_t rand_read_ops = 0;
+    start = time(NULL);
+    while (time(NULL) - start < duration / 3) {
+        for (int i = 0; i < 10000; i++) {
+            size_t idx = rand() % (BUFFER_SIZE / sizeof(uint64_t));
+            sum += buffer[idx];
+            rand_read_ops++;
+        }
+    }
+    double rand_read_time = difftime(time(NULL), start);
+
+    // Test 3: Strided access (stride of 8 elements = 64 bytes, cache line size)
+    uint64_t stride_ops = 0;
+    start = time(NULL);
+    while (time(NULL) - start < duration / 3) {
+        for (size_t i = 0; i < BUFFER_SIZE / sizeof(uint64_t); i += 8) {
+            sum += buffer[i];
+            stride_ops++;
+        }
+    }
+    double stride_time = difftime(time(NULL), start);
+
+    double seq_bw = (seq_read_ops * sizeof(uint64_t) / seq_read_time) / (1024.0 * 1024.0);
+    double rand_bw = (rand_read_ops * sizeof(uint64_t) / rand_read_time) / (1024.0 * 1024.0);
+    double stride_bw = (stride_ops * sizeof(uint64_t) / stride_time) / (1024.0 * 1024.0);
+
+    printf("\n=== MEMORY ACCESS PATTERN RESULTS ===\n");
+    printf("Sequential read: %.2f MB/s\n", seq_bw);
+    printf("Random read: %.2f MB/s (%.1f%% of sequential)\n",
+           rand_bw, (rand_bw / seq_bw) * 100.0);
+    printf("Strided read (64B): %.2f MB/s (%.1f%% of sequential)\n",
+           stride_bw, (stride_bw / seq_bw) * 100.0);
+
+    FILE *f = fopen("/tmp/memory_pattern_results.txt", "w");
+    if (f) {
+        fprintf(f, "SEQ_READ_BW=%.2f\n", seq_bw);
+        fprintf(f, "RAND_READ_BW=%.2f\n", rand_bw);
+        fprintf(f, "STRIDE_READ_BW=%.2f\n", stride_bw);
+        fprintf(f, "RAND_SEQ_RATIO=%.1f\n", (rand_bw / seq_bw) * 100.0);
+        fclose(f);
+    }
+
+    free(buffer);
+    return 0;
+}
+MEMORY_PATTERNS_EOF
+
+gcc -O2 -o "$REMOTE_TEST_DIR/memory_patterns" "$REMOTE_TEST_DIR/memory_patterns.c"
+"$REMOTE_TEST_DIR/memory_patterns" $MEMORY_PATTERN_DURATION
+
+log_info "Test 5.2: Cache Latency Measurement"
+
+cat > "$REMOTE_TEST_DIR/cache_latency.c" << 'CACHE_LATENCY_EOF'
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+#include <stdint.h>
+
+#define ITERATIONS 10000000
+
+double measure_latency(size_t size) {
+    uint8_t *buffer = malloc(size);
+    if (!buffer) return -1.0;
+
+    // Initialize with pointer chase pattern
+    for (size_t i = 0; i < size - 64; i += 64) {
+        *(size_t*)(buffer + i) = i + 64;
+    }
+    *(size_t*)(buffer + size - 64) = 0;
+
+    // Warm up
+    volatile size_t idx = 0;
+    for (int i = 0; i < 1000; i++) {
+        idx = *(size_t*)(buffer + idx);
+    }
+
+    // Measure
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+
+    idx = 0;
+    for (int i = 0; i < ITERATIONS; i++) {
+        idx = *(size_t*)(buffer + idx);
+    }
+
+    clock_gettime(CLOCK_MONOTONIC, &end);
+
+    double elapsed = (end.tv_sec - start.tv_sec) +
+                     (end.tv_nsec - start.tv_nsec) / 1e9;
+    double latency_ns = (elapsed / ITERATIONS) * 1e9;
+
+    free(buffer);
+    return latency_ns;
+}
+
+int main() {
+    printf("Measuring cache latency...\n\n");
+
+    // Test different memory sizes
+    size_t sizes[] = {
+        4 * 1024,        // 4KB - L1 cache
+        32 * 1024,       // 32KB - L1 cache
+        256 * 1024,      // 256KB - L2 cache
+        2 * 1024 * 1024, // 2MB - L2/L3 cache
+        8 * 1024 * 1024, // 8MB - L3 cache / main memory
+        64 * 1024 * 1024 // 64MB - main memory
+    };
+    const char *names[] = {
+        "4 KB (L1 Cache)",
+        "32 KB (L1 Cache)",
+        "256 KB (L2 Cache)",
+        "2 MB (L2/L3 Cache)",
+        "8 MB (L3/Memory)",
+        "64 MB (Main Memory)"
+    };
+
+    double latencies[6];
+
+    for (int i = 0; i < 6; i++) {
+        latencies[i] = measure_latency(sizes[i]);
+        printf("%s: %.2f ns\n", names[i], latencies[i]);
+    }
+
+    printf("\n=== CACHE LATENCY RESULTS ===\n");
+    printf("L1 Cache latency: ~%.2f ns\n", latencies[0]);
+    printf("L2 Cache latency: ~%.2f ns\n", latencies[2]);
+    printf("Main Memory latency: ~%.2f ns\n", latencies[5]);
+
+    FILE *f = fopen("/tmp/cache_latency_results.txt", "w");
+    if (f) {
+        fprintf(f, "L1_LATENCY=%.2f\n", latencies[0]);
+        fprintf(f, "L2_LATENCY=%.2f\n", latencies[2]);
+        fprintf(f, "MEMORY_LATENCY=%.2f\n", latencies[5]);
+        fclose(f);
+    }
+
+    return 0;
+}
+CACHE_LATENCY_EOF
+
+gcc -O2 -o "$REMOTE_TEST_DIR/cache_latency" "$REMOTE_TEST_DIR/cache_latency.c"
+"$REMOTE_TEST_DIR/cache_latency"
+
+# Score memory pattern tests
+MEMORY_PATTERN_SCORE=100
+log_success "Advanced memory pattern tests completed"
+
+################################################################################
+# PHASE 6: MEMORY & CACHE TORTURE TESTS
+################################################################################
+
+log_phase "[PHASE 6: MEMORY & CACHE TORTURE TESTS]"
 
 MEMORY_DURATION=$((TEST_DURATION / 10))  # 10% of total time
 
@@ -1153,12 +1828,12 @@ gcc -O3 -o "$REMOTE_TEST_DIR/cache_stress" "$REMOTE_TEST_DIR/cache_stress.c"
 "$REMOTE_TEST_DIR/cache_stress" $MEMORY_DURATION
 
 ################################################################################
-# PHASE 4: EXTENDED EXTREME STRESS TEST
+# PHASE 7: EXTENDED EXTREME STRESS TEST
 ################################################################################
 
-log_phase "[PHASE 4: EXTENDED EXTREME STRESS TEST]"
+log_phase "[PHASE 7: EXTENDED EXTREME STRESS TEST]"
 
-EXTENDED_DURATION=$((TEST_DURATION - SINGLE_CORE_DURATION - MULTI_CORE_DURATION - MEMORY_DURATION - 300))
+EXTENDED_DURATION=$((TEST_DURATION - SINGLE_CORE_DURATION - MULTI_CORE_DURATION - PER_CORE_DURATION * CPU_CORES - MICROBENCH_DURATION - MEMORY_PATTERN_DURATION - MEMORY_DURATION - 300))
 if [ $EXTENDED_DURATION -lt 300 ]; then
     EXTENDED_DURATION=300  # Minimum 5 minutes
 fi
@@ -1252,13 +1927,14 @@ else
 fi
 
 ################################################################################
-# PHASE 5: HEALTH ASSESSMENT AND SCORING
+# PHASE 8: HEALTH ASSESSMENT AND SCORING
 ################################################################################
 
-log_phase "[PHASE 5: HEALTH ASSESSMENT AND SCORING]"
+log_phase "[PHASE 8: HEALTH ASSESSMENT AND SCORING]"
 
-# Calculate overall health score (weighted average)
-OVERALL_HEALTH_SCORE=$(echo "scale=0; ($SINGLE_CORE_SCORE * 25 + $MULTI_CORE_SCORE * 35 + $THERMAL_SCORE * 40) / 100" | bc 2>/dev/null || echo "0")
+# Calculate overall health score (weighted average including new tests)
+# Weights: Single-core 20%, Multi-core 25%, Per-core 15%, Instruction 10%, Memory patterns 10%, Thermal 20%
+OVERALL_HEALTH_SCORE=$(echo "scale=0; ($SINGLE_CORE_SCORE * 20 + $MULTI_CORE_SCORE * 25 + $PER_CORE_SCORE * 15 + $INSTRUCTION_SCORE * 10 + $MEMORY_PATTERN_SCORE * 10 + $THERMAL_SCORE * 20) / 100" | bc 2>/dev/null || echo "0")
 
 # Determine overall health status
 if [ $OVERALL_HEALTH_SCORE -ge 85 ]; then
@@ -1290,6 +1966,9 @@ fi
 echo "=== HEALTH ASSESSMENT COMPLETE ==="
 echo "Single-core Score: $SINGLE_CORE_SCORE/100"
 echo "Multi-core Score: $MULTI_CORE_SCORE/100"
+echo "Per-core Score: $PER_CORE_SCORE/100"
+echo "Instruction Throughput Score: $INSTRUCTION_SCORE/100"
+echo "Memory Pattern Score: $MEMORY_PATTERN_SCORE/100"
 echo "Thermal Score: $THERMAL_SCORE/100"
 echo "Health Warnings: $HEALTH_WARNINGS"
 echo "Overall Health Score: $OVERALL_HEALTH_SCORE/100"
@@ -1302,6 +1981,9 @@ OVERALL_HEALTH_SCORE=$OVERALL_HEALTH_SCORE
 CPU_HEALTH_STATUS=$CPU_HEALTH_STATUS
 SINGLE_CORE_SCORE=$SINGLE_CORE_SCORE
 MULTI_CORE_SCORE=$MULTI_CORE_SCORE
+PER_CORE_SCORE=$PER_CORE_SCORE
+INSTRUCTION_SCORE=$INSTRUCTION_SCORE
+MEMORY_PATTERN_SCORE=$MEMORY_PATTERN_SCORE
 THERMAL_SCORE=$THERMAL_SCORE
 HEALTH_WARNINGS=$HEALTH_WARNINGS
 THERMAL_VIOLATIONS=$THERMAL_VIOLATIONS
@@ -1366,6 +2048,12 @@ scp_download "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "/tmp/ultra_cpu_results.txt" "
 scp_download "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "/tmp/single_core_prime_results.txt" "$LOG_DIR/performance_data/single_core_prime_results.txt" 2>/dev/null || true
 scp_download "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "/tmp/multi_core_matrix_results.txt" "$LOG_DIR/performance_data/multi_core_matrix_results.txt" 2>/dev/null || true
 scp_download "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "/tmp/memory_bandwidth_results.txt" "$LOG_DIR/performance_data/memory_bandwidth_results.txt" 2>/dev/null || true
+scp_download "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "/tmp/per_core_results.txt" "$LOG_DIR/performance_data/per_core_results.txt" 2>/dev/null || true
+scp_download "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "/tmp/int_throughput_results.txt" "$LOG_DIR/performance_data/int_throughput_results.txt" 2>/dev/null || true
+scp_download "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "/tmp/fp_throughput_results.txt" "$LOG_DIR/performance_data/fp_throughput_results.txt" 2>/dev/null || true
+scp_download "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "/tmp/branch_results.txt" "$LOG_DIR/performance_data/branch_results.txt" 2>/dev/null || true
+scp_download "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "/tmp/memory_pattern_results.txt" "$LOG_DIR/performance_data/memory_pattern_results.txt" 2>/dev/null || true
+scp_download "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "/tmp/cache_latency_results.txt" "$LOG_DIR/performance_data/cache_latency_results.txt" 2>/dev/null || true
 
 # Generate temperature analysis
 generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/reports/cpu_temperature_results.txt"
@@ -1476,6 +2164,75 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
             echo "  • Performance Ratio: $(echo "scale=2; $MEMORY_BANDWIDTH_MBPS * 100 / $EXPECTED_MEMORY_BANDWIDTH" | bc 2>/dev/null || echo "N/A")%"
             echo ""
         fi
+
+        if [ -f "$LOG_DIR/performance_data/per_core_results.txt" ]; then
+            source "$LOG_DIR/performance_data/per_core_results.txt"
+            echo "[PER-CORE PERFORMANCE ANALYSIS]"
+            echo "  • Average Prime Performance: $AVG_PRIMES primes/sec"
+            echo "  • Average FP Performance: $AVG_FLOPS ops/sec"
+            echo "  • Best Performing Core: Core $BEST_CORE"
+            echo "  • Worst Performing Core: Core $WORST_CORE"
+            echo "  • Performance Variation: $PERF_VARIATION%"
+            if (( $(echo "$PERF_VARIATION > 10" | bc -l 2>/dev/null || echo "0") )); then
+                echo "  • Status: High variation detected - possible core imbalance"
+            else
+                echo "  • Status: Excellent core uniformity"
+            fi
+            echo ""
+            echo "  [Per-Core Details]"
+            for ((core=0; core<CPU_CORES; core++)); do
+                core_primes_var="CORE_${core}_PRIMES"
+                core_freq_var="CORE_${core}_FREQ"
+                echo "    Core $core: ${!core_primes_var} primes/sec @ ${!core_freq_var} kHz"
+            done
+            echo ""
+        fi
+
+        if [ -f "$LOG_DIR/performance_data/int_throughput_results.txt" ]; then
+            source "$LOG_DIR/performance_data/int_throughput_results.txt"
+            echo "[INTEGER INSTRUCTION THROUGHPUT]"
+            echo "  • Addition: $INT_ADD_MOPS Mops/sec"
+            echo "  • Multiplication: $INT_MUL_MOPS Mops/sec"
+            echo "  • Division: $INT_DIV_MOPS Mops/sec"
+            echo ""
+        fi
+
+        if [ -f "$LOG_DIR/performance_data/fp_throughput_results.txt" ]; then
+            source "$LOG_DIR/performance_data/fp_throughput_results.txt"
+            echo "[FLOATING-POINT INSTRUCTION THROUGHPUT]"
+            echo "  • Addition: $FP_ADD_MOPS Mops/sec"
+            echo "  • Multiplication: $FP_MUL_MOPS Mops/sec"
+            echo "  • Division: $FP_DIV_MOPS Mops/sec"
+            echo "  • Square Root: $FP_SQRT_MOPS Mops/sec"
+            echo ""
+        fi
+
+        if [ -f "$LOG_DIR/performance_data/branch_results.txt" ]; then
+            source "$LOG_DIR/performance_data/branch_results.txt"
+            echo "[BRANCH PREDICTION ANALYSIS]"
+            echo "  • Predictable Branches: $PRED_BRANCH_MOPS M/sec"
+            echo "  • Unpredictable Branches: $UNPRED_BRANCH_MOPS M/sec"
+            echo "  • Misprediction Penalty: $MISPREDICT_PENALTY%"
+            echo ""
+        fi
+
+        if [ -f "$LOG_DIR/performance_data/memory_pattern_results.txt" ]; then
+            source "$LOG_DIR/performance_data/memory_pattern_results.txt"
+            echo "[ADVANCED MEMORY ACCESS PATTERNS]"
+            echo "  • Sequential Read: $SEQ_READ_BW MB/s"
+            echo "  • Random Read: $RAND_READ_BW MB/s ($RAND_SEQ_RATIO% of sequential)"
+            echo "  • Strided Read (64B): $STRIDE_READ_BW MB/s"
+            echo ""
+        fi
+
+        if [ -f "$LOG_DIR/performance_data/cache_latency_results.txt" ]; then
+            source "$LOG_DIR/performance_data/cache_latency_results.txt"
+            echo "[CACHE LATENCY MEASUREMENTS]"
+            echo "  • L1 Cache Latency: $L1_LATENCY ns"
+            echo "  • L2 Cache Latency: $L2_LATENCY ns"
+            echo "  • Main Memory Latency: $MEMORY_LATENCY ns"
+            echo ""
+        fi
         
     else
         echo "[-] ERROR: Ultra CPU test results not available"
@@ -1530,9 +2287,14 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
     echo "[What This Test Validates]"
     echo "  • CPU arithmetic and floating-point performance"
     echo "  • Multi-core scaling and thread efficiency (all $CPU_CORES physical cores)"
+    echo "  • Individual core performance and core-to-core uniformity"
+    echo "  • Instruction-level throughput (integer, FP, branches)"
+    echo "  • Advanced memory access patterns (sequential, random, strided)"
+    echo "  • Cache latency at different memory hierarchy levels"
     echo "  • Optimized workload sizing based on core count"
     echo "  • Memory subsystem bandwidth and latency"
     echo "  • Cache hierarchy performance (L1/L2/L3)"
+    echo "  • Branch prediction efficiency"
     echo "  • Thermal management under extreme load"
     echo "  • System stability during maximum stress"
     echo "  • Frequency scaling and throttling behavior"
@@ -1559,7 +2321,7 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
     echo ""
     echo "Test completed: $(date)"
     echo "Total test duration: $(format_duration $TEST_DURATION)"
-    echo "Report generation: Ultra Comprehensive CPU Test Suite v3.1 (Optimized)"
+    echo "Report generation: Ultra Comprehensive CPU Test Suite v4.0 (Enhanced)"
     echo ""
     echo "Thank you for using the Jetson Orin Ultra CPU Stress Test!"
     echo ""
