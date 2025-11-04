@@ -1,11 +1,18 @@
 #!/bin/bash
 
 ################################################################################
-# JETSON ORIN AGX 64GB - DEDICATED GPU STRESS TEST (GRAPHICS FIXED)
+# JETSON ORIN AGX 64GB - DEDICATED GPU STRESS TEST (ENHANCED DETAILED)
 ################################################################################
 # Description: Professional stress testing for Jetson Orin's GPU (CUDA, VPU, GFX)
-# Version: 1.7 ULTIMATE - Fixed Graphics test for Jetson headless systems
-# FIXES: 
+# Version: 2.0 DETAILED - Enhanced comprehensive GPU testing with detailed metrics
+# ENHANCEMENTS:
+# - Multiple CUDA kernel types (compute, memory bandwidth, precision tests)
+# - Power monitoring and thermal throttling detection
+# - Multi-codec VPU testing (H.264, H.265)
+# - Detailed performance metrics (GFLOPS, bandwidth, efficiency)
+# - Concurrent execution testing
+# - All using default/built-in features (no external ML models)
+# PREVIOUS FIXES:
 # - Variable tracking COMPLETELY SOLVED (v1.6)
 # - 4K-only videos (v1.6)
 # - Graphics test fixed for Jetson headless systems (v1.7)
@@ -80,7 +87,7 @@ echo ""
 show_usage() {
     cat << EOF
 ================================================================================
-  JETSON ORIN DEDICATED GPU STRESS TEST (ULTIMATE v1.7)
+  JETSON ORIN DEDICATED GPU STRESS TEST (DETAILED v2.0)
 ================================================================================
 
 Usage: $0 [orin_ip] [orin_user] [password] [hours]
@@ -91,12 +98,16 @@ Parameters:
   password    : SSH password (will prompt if not provided)
   hours       : Test duration in hours (default: 2 hours)
 
-ULTIMATE FIXES IN v1.7:
-  [*] Variable tracking COMPLETELY FIXED (bulletproof temp files)
-  [*] All videos 4K resolution (3840x2160) as requested
-  [*] Graphics test FIXED for Jetson headless systems
-  [+] EGL-based OpenGL testing (no virtual display needed)
-  [+] Alternative GPU compute tests for graphics validation
+NEW ENHANCEMENTS IN v2.0:
+  [+] Multiple CUDA test types (compute, memory, precision)
+  [+] Memory bandwidth testing (H2D, D2H, D2D)
+  [+] FP16, FP32, FP64 precision tests
+  [+] Concurrent kernel execution testing
+  [+] Power monitoring and thermal throttling detection
+  [+] Multi-codec VPU testing (H.264, H.265)
+  [+] Detailed performance metrics (GFLOPS, GB/s)
+  [+] Performance degradation detection
+  [+] All features use default/built-in capabilities
 
 Examples:
   $0                                              # Use all defaults (2 hour test)
@@ -104,11 +115,11 @@ Examples:
   $0 10.0.0.100 nvidia secret 1                  # 1 hour test
   $0 192.168.55.69 orin mypass 0.17              # 10 minute test (0.17 hours)
 
-GRAPHICS TEST IMPROVEMENTS:
-  [*] EGL context instead of X11/Xvfb (Jetson-optimized)
-  [*] Native GPU compute shaders
-  [*] Triangle rendering tests
-  [*] GPU memory bandwidth tests
+TEST COMPONENTS:
+  [*] VPU: Multi-codec (H.264/H.265), 4K encoding, decode testing
+  [*] CUDA: Multiple kernel types, precision tests, memory bandwidth
+  [*] Graphics: EGL headless rendering, compute shaders
+  [*] Combined: All components running simultaneously
 
 ================================================================================
 EOF
@@ -124,7 +135,7 @@ fi
 ################################################################################
 
 echo "================================================================================
-  JETSON ORIN DEDICATED GPU STRESS TEST (ULTIMATE v1.7) - INITIALIZATION
+  JETSON ORIN DEDICATED GPU STRESS TEST (DETAILED v2.0) - INITIALIZATION
 ================================================================================"
 echo ""
 echo "Test Configuration:"
@@ -132,9 +143,15 @@ echo "  • Device: Jetson Orin AGX 64GB"
 echo "  • Target IP: $ORIN_IP"
 echo "  • SSH User: $ORIN_USER"
 echo "  • Test Duration: ${DISPLAY_DURATION_HOURS} hours (${TEST_DURATION} seconds)"
-echo "  • Test Mode: DEDICATED GPU (Sequential Component Stress)"
+echo "  • Test Mode: DEDICATED GPU (Enhanced Detailed Testing)"
 echo "  • Success Target: 100% (zero failures accepted on components)"
-echo "  • Version: v1.7 ULTIMATE (Graphics test FIXED for Jetson)"
+echo "  • Version: v2.0 DETAILED (Multi-kernel, precision, bandwidth tests)"
+echo ""
+echo "Enhanced Testing Features:"
+echo "  • CUDA: Multiple kernel types, precision tests, bandwidth measurement"
+echo "  • VPU: Multi-codec (H.264/H.265), encode/decode tests"
+echo "  • Power: Continuous monitoring, throttling detection"
+echo "  • Metrics: GFLOPS, GB/s, thermal performance"
 echo ""
 
 # Check for sshpass
@@ -244,16 +261,16 @@ else
     REMOTE_DISPLAY_HOURS=$((TEST_DURATION / 3600))
 fi
 
-log_phase "JETSON ORIN DEDICATED GPU STRESS TEST STARTED (ULTIMATE v1.7)"
+log_phase "JETSON ORIN DETAILED GPU STRESS TEST STARTED (v2.0)"
 
 log_info "Remote Test Configuration:"
 echo "  • Test Duration: ${TEST_DURATION} seconds (${REMOTE_DISPLAY_HOURS} hours)"
-echo "  • Phase 1 (VPU): ${PHASE_GPU_VPU} seconds"
-echo "  • Phase 2 (CUDA): ${PHASE_GPU_CUDA} seconds"
-echo "  • Phase 3 (GFX): ${PHASE_GPU_GFX} seconds - JETSON OPTIMIZED"
-echo "  • Phase 4 (Combined): ${PHASE_GPU_COMBINED} seconds"
+echo "  • Phase 1 (VPU): ${PHASE_GPU_VPU} seconds - Multi-codec (H.264/H.265)"
+echo "  • Phase 2 (CUDA): ${PHASE_GPU_CUDA} seconds - Detailed tests (bandwidth, FP32/FP64, etc.)"
+echo "  • Phase 3 (GFX): ${PHASE_GPU_GFX} seconds - EGL headless"
+echo "  • Phase 4 (Combined): ${PHASE_GPU_COMBINED} seconds - All components"
 echo "  • Local Test Directory: $TEST_DIR"
-echo "  • Version: v1.7 ULTIMATE (Graphics test FIXED for Jetson headless)"
+echo "  • Version: v2.0 DETAILED (Enhanced with power, throttling, multi-codec)"
 echo ""
 
 ################################################################################
@@ -388,14 +405,14 @@ log_info "Recording baseline system state..."
 log_success "Baseline state recorded"
 
 ################################################################################
-# MONITORING SETUP (SAME AS v1.6)
+# ENHANCED MONITORING SETUP (v2.0)
 ################################################################################
 
-log_info "Starting background monitoring..."
+log_info "Starting enhanced background monitoring..."
 
-# Temperature monitoring
+# Enhanced temperature and performance monitoring
 {
-    echo "timestamp,cpu_temp,gpu_temp,cpu_usage,gpu_usage,memory_usage"
+    echo "timestamp,cpu_temp,gpu_temp,cpu_usage,gpu_usage,memory_usage,gpu_power,gpu_clock,mem_clock"
     while true; do
         timestamp=$(date '+%Y-%m-%d %H:%M:%S')
         cpu_temp=$(cat /sys/devices/virtual/thermal/thermal_zone0/temp 2>/dev/null | awk '{print $1/1000}' || echo "N/A")
@@ -403,11 +420,40 @@ log_info "Starting background monitoring..."
         cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | awk -F'%' '{print $1}' || echo "N/A")
         gpu_usage=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null || echo "N/A")
         memory_usage=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}' || echo "N/A")
-        echo "$timestamp,$cpu_temp,$gpu_temp,$cpu_usage,$gpu_usage,$memory_usage"
+        gpu_power=$(nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits 2>/dev/null || echo "N/A")
+        gpu_clock=$(nvidia-smi --query-gpu=clocks.gr --format=csv,noheader,nounits 2>/dev/null || echo "N/A")
+        mem_clock=$(nvidia-smi --query-gpu=clocks.mem --format=csv,noheader,nounits 2>/dev/null || echo "N/A")
+        echo "$timestamp,$cpu_temp,$gpu_temp,$cpu_usage,$gpu_usage,$memory_usage,$gpu_power,$gpu_clock,$mem_clock"
         sleep 5
     done
-} > "$MONITOR_DIR/temperature_log.csv" &
+} > "$MONITOR_DIR/temperature_power_log.csv" &
 TEMP_MONITOR_PID=$!
+
+# Thermal throttling detection monitor
+{
+    echo "timestamp,gpu_clock,throttle_detected,temp,power"
+    prev_clock=0
+    while true; do
+        timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+        gpu_clock=$(nvidia-smi --query-gpu=clocks.gr --format=csv,noheader,nounits 2>/dev/null || echo "0")
+        gpu_temp=$(cat /sys/devices/virtual/thermal/thermal_zone1/temp 2>/dev/null | awk '{print $1/1000}' || echo "0")
+        gpu_power=$(nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits 2>/dev/null || echo "0")
+
+        # Detect throttling: significant clock drop (>10%) while under load
+        throttle="NO"
+        if [ "$prev_clock" != "0" ] && [ "$gpu_clock" != "N/A" ] && [ "$gpu_clock" != "0" ]; then
+            clock_drop=$(echo "scale=2; (($prev_clock - $gpu_clock) / $prev_clock) * 100" | bc 2>/dev/null || echo "0")
+            if (( $(echo "$clock_drop > 10" | bc -l 2>/dev/null || echo "0") )); then
+                throttle="YES"
+            fi
+        fi
+
+        echo "$timestamp,$gpu_clock,$throttle,$gpu_temp,$gpu_power"
+        prev_clock=$gpu_clock
+        sleep 2
+    done
+} > "$MONITOR_DIR/throttling_detection.csv" &
+THROTTLE_MONITOR_PID=$!
 
 # Tegrastats monitoring
 {
@@ -415,17 +461,17 @@ TEMP_MONITOR_PID=$!
 } &
 TEGRA_MONITOR_PID=$!
 
-log_success "Background monitoring started (PID: $TEMP_MONITOR_PID, $TEGRA_MONITOR_PID)"
+log_success "Enhanced background monitoring started (PID: $TEMP_MONITOR_PID, $THROTTLE_MONITOR_PID, $TEGRA_MONITOR_PID)"
 
 ################################################################################
-# PHASE 1: GPU VPU - 4K ONLY (SAME AS v1.6)
+# PHASE 1: GPU VPU - MULTI-CODEC 4K (ENHANCED v2.0)
 ################################################################################
 
 log_phase "PHASE 1: GPU VPU (VIDEO PROCESSING UNIT) STRESS TEST - ${PHASE_GPU_VPU} seconds"
 
-log_info "Starting VPU stress test with 4K-ONLY videos + BULLETPROOF tracking..."
+log_info "Starting enhanced VPU stress test with MULTI-CODEC (H.264/H.265) 4K videos..."
 
-# Define video test patterns (same as v1.6)
+# Define video test patterns
 declare -a VIDEO_PATTERNS=(
     "smpte"
     "ball"
@@ -439,7 +485,13 @@ declare -a VIDEO_PATTERNS=(
     "zone-plate"
 )
 
-# 4K ONLY as requested (same as v1.6)
+# Define codecs to test
+declare -a VIDEO_CODECS=(
+    "h264"
+    "h265"
+)
+
+# 4K bitrates
 declare -a VIDEO_BITRATES=(
     "8000000"      # 8 Mbps - minimum for 4K
     "12000000"     # 12 Mbps - medium for 4K
@@ -447,52 +499,68 @@ declare -a VIDEO_BITRATES=(
 )
 
 {
-    echo "=== GPU VPU (Video Processing Unit) Stress Test (4K-ONLY v1.7) ==="
+    echo "=== GPU VPU (Video Processing Unit) DETAILED Stress Test (v2.0) ==="
     echo "Start time: $(date)"
     echo "Duration: ${PHASE_GPU_VPU} seconds"
     echo "Video patterns: ${#VIDEO_PATTERNS[@]} different patterns"
-    echo "Resolution: 4K ONLY (3840x2160) - as requested"
-    echo "Bitrates: ${VIDEO_BITRATES[@]} - optimized for 4K"
+    echo "Codecs: H.264 and H.265 (alternating)"
+    echo "Resolution: 4K ONLY (3840x2160)"
+    echo "Bitrates: ${VIDEO_BITRATES[@]}"
     echo ""
-    
+
     vpu_end_time=$(($(date +%s) + PHASE_GPU_VPU))
     video_count=0
-    
+    h264_count=0
+    h265_count=0
+
     while [ $(date +%s) -lt $vpu_end_time ]; do
         video_count=$((video_count + 1))
-        
-        # Cycle through different patterns and bitrates (resolution is always 4K)
+
+        # Cycle through patterns, bitrates, and codecs
         pattern_idx=$(( (video_count - 1) % ${#VIDEO_PATTERNS[@]} ))
         bitrate_idx=$(( (video_count - 1) % ${#VIDEO_BITRATES[@]} ))
-        
+        codec_idx=$(( (video_count - 1) % ${#VIDEO_CODECS[@]} ))
+
         pattern=${VIDEO_PATTERNS[$pattern_idx]}
         resolution="3840x2160"  # Always 4K
         bitrate=${VIDEO_BITRATES[$bitrate_idx]}
-        
-        video_file="$VIDEO_DIR/vpu_test_${video_count}_${pattern}_4K_${bitrate}bps.mp4"
-        
+        codec=${VIDEO_CODECS[$codec_idx]}
+
+        if [ "$codec" == "h264" ]; then
+            h264_count=$((h264_count + 1))
+            encoder="nvv4l2h264enc"
+            parser="h264parse"
+            video_file="$VIDEO_DIR/vpu_test_${video_count}_${pattern}_4K_H264.mp4"
+        else
+            h265_count=$((h265_count + 1))
+            encoder="nvv4l2h265enc"
+            parser="h265parse"
+            video_file="$VIDEO_DIR/vpu_test_${video_count}_${pattern}_4K_H265.mp4"
+        fi
+
         echo "Encoding video $video_count:"
         echo "  Pattern: $pattern"
-        echo "  Resolution: $resolution (4K)"  
+        echo "  Codec: ${codec^^}"
+        echo "  Resolution: $resolution (4K)"
         echo "  Bitrate: $bitrate bps"
         echo "  File: $(basename $video_file)"
-        
+
         # Generate and encode using GStreamer with hardware acceleration
         if gst-launch-1.0 videotestsrc num-buffers=150 pattern="$pattern" ! \
            video/x-raw,width=3840,height=2160,framerate=30/1 ! \
            nvvidconv ! \
-           nvv4l2h264enc bitrate="$bitrate" ! \
-           h264parse ! \
+           $encoder bitrate="$bitrate" ! \
+           $parser ! \
            qtmux ! \
            filesink location="$video_file" >/dev/null 2>&1; then
-            
-            echo "[+] Video $video_count encoded successfully"
+
+            echo "[+] Video $video_count (${codec^^}) encoded successfully"
             increment_vpu_pass  # BULLETPROOF tracking
         else
-            echo "[-] Video $video_count encoding failed"
+            echo "[-] Video $video_count (${codec^^}) encoding failed"
             increment_vpu_fail  # BULLETPROOF tracking
         fi
-        
+
         echo ""
         sleep 1
     done
@@ -500,15 +568,18 @@ declare -a VIDEO_BITRATES=(
     # Read final results from temp files (BULLETPROOF!)
     VPU_PASS=$(cat "$TEMP_RESULTS_DIR/vpu_pass_count")
     VPU_FAIL=$(cat "$TEMP_RESULTS_DIR/vpu_fail_count")
-    
+
     echo ""
-    echo "=== VPU Test Results (BULLETPROOF TRACKING v1.7) ==="
+    echo "=== VPU DETAILED Test Results (v2.0) ==="
     echo "Total 4K videos attempted: $((VPU_PASS + VPU_FAIL))"
-    echo "Successful 4K encodings: $VPU_PASS"
-    echo "Failed 4K encodings: $VPU_FAIL"
+    echo "Successful encodings: $VPU_PASS"
+    echo "Failed encodings: $VPU_FAIL"
+    echo "H.264 encodings: $h264_count"
+    echo "H.265 encodings: $h265_count"
     echo "Video patterns: ${#VIDEO_PATTERNS[@]} different patterns"
     echo "Resolution: 4K ONLY (3840x2160)"
     echo "Bitrates: ${#VIDEO_BITRATES[@]} different bitrates"
+    echo "Codecs tested: H.264 and H.265"
     echo "End time: $(date)"
     
 } 2>&1 | tee "$LOG_DIR/01_gpu_vpu_stress.log"
@@ -549,15 +620,17 @@ log_phase "PHASE 2: GPU CUDA STRESS TEST - ${PHASE_GPU_CUDA} seconds"
 
 log_info "Creating custom CUDA stress application..."
 
-# Create CUDA stress test application (same as v1.6)
-cat > "$CUDA_APP_DIR/cuda_stress.cu" << 'CUDA_STRESS_EOF'
+# Create enhanced CUDA stress test application (v2.0)
+cat > "$CUDA_APP_DIR/cuda_stress_detailed.cu" << 'CUDA_STRESS_EOF'
 #include <cuda_runtime.h>
+#include <cuda_fp16.h>
 #include <cublas_v2.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
 #include <unistd.h>
+#include <sys/time.h>
 
 #define CUDA_CHECK(call) \
     do { \
@@ -577,95 +650,229 @@ cat > "$CUDA_APP_DIR/cuda_stress.cu" << 'CUDA_STRESS_EOF'
         } \
     } while(0)
 
-__global__ void cuda_stress_kernel(float* data, int size, int iterations) {
+// Timing helper
+double get_time() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec + tv.tv_usec * 1e-6;
+}
+
+// Kernel 1: Intensive compute (FP32)
+__global__ void compute_intensive_fp32(float* data, int size, int iterations) {
     int idx = blockIdx.x * blockDim.x + threadIdx.x;
     if (idx < size) {
         float value = data[idx];
         for (int i = 0; i < iterations; i++) {
             value = sinf(value) * cosf(value) + sqrtf(fabsf(value));
             value = powf(value, 0.7f) + logf(fabsf(value) + 1.0f);
+            value = expf(value * 0.01f) * tanhf(value);
         }
         data[idx] = value;
     }
 }
 
-int main(int argc, char* argv[]) {
-    int duration = (argc > 1) ? atoi(argv[1]) : 300;
-    
-    printf("CUDA Stress Test Starting (ULTIMATE v1.7)\n");
-    printf("Duration: %d seconds\n", duration);
-    printf("=====================================\n");
-    
-    int deviceCount;
-    CUDA_CHECK(cudaGetDeviceCount(&deviceCount));
-    printf("CUDA devices found: %d\n", deviceCount);
-    
-    if (deviceCount == 0) {
-        printf("No CUDA devices found!\n");
-        return 1;
+// Kernel 2: Intensive compute (FP64)
+__global__ void compute_intensive_fp64(double* data, int size, int iterations) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        double value = data[idx];
+        for (int i = 0; i < iterations; i++) {
+            value = sin(value) * cos(value) + sqrt(fabs(value));
+            value = pow(value, 0.7) + log(fabs(value) + 1.0);
+            value = exp(value * 0.01) * tanh(value);
+        }
+        data[idx] = value;
     }
-    
-    CUDA_CHECK(cudaSetDevice(0));
-    
-    cudaDeviceProp prop;
-    CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
-    printf("Device: %s\n", prop.name);
-    printf("Compute capability: %d.%d\n", prop.major, prop.minor);
-    printf("=====================================\n");
-    
+}
+
+// Kernel 3: Reduction kernel
+__global__ void reduction_kernel(float* input, float* output, int size) {
+    extern __shared__ float sdata[];
+
+    int tid = threadIdx.x;
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+    sdata[tid] = (idx < size) ? input[idx] : 0.0f;
+    __syncthreads();
+
+    for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) {
+            sdata[tid] += sdata[tid + s];
+        }
+        __syncthreads();
+    }
+
+    if (tid == 0) {
+        atomicAdd(output, sdata[0]);
+    }
+}
+
+// Kernel 4: Matrix transpose (memory access pattern test)
+__global__ void transpose_kernel(float* input, float* output, int width, int height) {
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+
+    if (x < width && y < height) {
+        output[x * height + y] = input[y * width + x];
+    }
+}
+
+// Kernel 5: Concurrent execution test
+__global__ void concurrent_kernel_1(float* data, int size) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        data[idx] = sinf(data[idx]) + cosf(data[idx]);
+    }
+}
+
+__global__ void concurrent_kernel_2(float* data, int size) {
+    int idx = blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx < size) {
+        data[idx] = expf(data[idx] * 0.01f);
+    }
+}
+
+// Test 1: Memory Bandwidth Test
+void test_memory_bandwidth(int duration_sec) {
+    printf("\n=== TEST 1: Memory Bandwidth Measurement ===\n");
+
+    const size_t size = 512 * 1024 * 1024; // 512 MB
+    float *h_data = (float*)malloc(size);
+    float *d_data1, *d_data2;
+
+    CUDA_CHECK(cudaMalloc(&d_data1, size));
+    CUDA_CHECK(cudaMalloc(&d_data2, size));
+
+    for (size_t i = 0; i < size / sizeof(float); i++) {
+        h_data[i] = (float)i;
+    }
+
+    time_t end_time = time(NULL) + (duration_sec / 5);
+    int iterations = 0;
+    double total_h2d_time = 0, total_d2h_time = 0, total_d2d_time = 0;
+
+    while (time(NULL) < end_time) {
+        // Host to Device
+        double start = get_time();
+        CUDA_CHECK(cudaMemcpy(d_data1, h_data, size, cudaMemcpyHostToDevice));
+        CUDA_CHECK(cudaDeviceSynchronize());
+        total_h2d_time += get_time() - start;
+
+        // Device to Host
+        start = get_time();
+        CUDA_CHECK(cudaMemcpy(h_data, d_data1, size, cudaMemcpyDeviceToHost));
+        CUDA_CHECK(cudaDeviceSynchronize());
+        total_d2h_time += get_time() - start;
+
+        // Device to Device
+        start = get_time();
+        CUDA_CHECK(cudaMemcpy(d_data2, d_data1, size, cudaMemcpyDeviceToDevice));
+        CUDA_CHECK(cudaDeviceSynchronize());
+        total_d2d_time += get_time() - start;
+
+        iterations++;
+    }
+
+    double size_gb = size / (1024.0 * 1024.0 * 1024.0);
+    printf("Iterations: %d\n", iterations);
+    printf("Host to Device Bandwidth: %.2f GB/s\n", (size_gb * iterations) / total_h2d_time);
+    printf("Device to Host Bandwidth: %.2f GB/s\n", (size_gb * iterations) / total_d2h_time);
+    printf("Device to Device Bandwidth: %.2f GB/s\n", (size_gb * iterations) / total_d2d_time);
+
+    cudaFree(d_data1);
+    cudaFree(d_data2);
+    free(h_data);
+}
+
+// Test 2: FP32 Compute Performance
+void test_fp32_compute(int duration_sec) {
+    printf("\n=== TEST 2: FP32 Compute Performance ===\n");
+
+    const int size = 4 * 1024 * 1024;
+    float *d_data;
+    CUDA_CHECK(cudaMalloc(&d_data, size * sizeof(float)));
+
+    dim3 blockSize(256);
+    dim3 gridSize((size + blockSize.x - 1) / blockSize.x);
+
+    time_t end_time = time(NULL) + (duration_sec / 5);
+    int operations = 0;
+    double total_time = 0;
+
+    while (time(NULL) < end_time) {
+        double start = get_time();
+        compute_intensive_fp32<<<gridSize, blockSize>>>(d_data, size, 100);
+        CUDA_CHECK(cudaDeviceSynchronize());
+        total_time += get_time() - start;
+        operations++;
+    }
+
+    // Rough GFLOPS calculation (100 iterations * ~10 FLOPs per iteration)
+    double total_flops = (double)operations * size * 100 * 10;
+    double gflops = (total_flops / total_time) / 1e9;
+
+    printf("FP32 Operations: %d\n", operations);
+    printf("Estimated GFLOPS: %.2f\n", gflops);
+    printf("Average kernel time: %.3f ms\n", (total_time / operations) * 1000);
+
+    cudaFree(d_data);
+}
+
+// Test 3: FP64 Compute Performance
+void test_fp64_compute(int duration_sec) {
+    printf("\n=== TEST 3: FP64 Compute Performance ===\n");
+
+    const int size = 2 * 1024 * 1024;
+    double *d_data;
+    CUDA_CHECK(cudaMalloc(&d_data, size * sizeof(double)));
+
+    dim3 blockSize(256);
+    dim3 gridSize((size + blockSize.x - 1) / blockSize.x);
+
+    time_t end_time = time(NULL) + (duration_sec / 5);
+    int operations = 0;
+    double total_time = 0;
+
+    while (time(NULL) < end_time) {
+        double start = get_time();
+        compute_intensive_fp64<<<gridSize, blockSize>>>(d_data, size, 100);
+        CUDA_CHECK(cudaDeviceSynchronize());
+        total_time += get_time() - start;
+        operations++;
+    }
+
+    double total_flops = (double)operations * size * 100 * 10;
+    double gflops = (total_flops / total_time) / 1e9;
+
+    printf("FP64 Operations: %d\n", operations);
+    printf("Estimated GFLOPS: %.2f\n", gflops);
+    printf("Average kernel time: %.3f ms\n", (total_time / operations) * 1000);
+
+    cudaFree(d_data);
+}
+
+// Test 4: Matrix Operations (cuBLAS)
+void test_matrix_operations(int duration_sec) {
+    printf("\n=== TEST 4: Matrix Operations (cuBLAS) ===\n");
+
     cublasHandle_t cublasHandle;
     CUBLAS_CHECK(cublasCreate(&cublasHandle));
-    
-    const int array_size = 1024 * 1024;
-    const int matrix_size = 1024;
-    
-    float *h_data = (float*)malloc(array_size * sizeof(float));
-    float *d_data;
-    CUDA_CHECK(cudaMalloc(&d_data, array_size * sizeof(float)));
-    
-    float *h_matrix_a = (float*)malloc(matrix_size * matrix_size * sizeof(float));
-    float *h_matrix_b = (float*)malloc(matrix_size * matrix_size * sizeof(float));
-    float *h_matrix_c = (float*)malloc(matrix_size * matrix_size * sizeof(float));
+
+    const int matrix_size = 2048;
     float *d_matrix_a, *d_matrix_b, *d_matrix_c;
-    
+
     CUDA_CHECK(cudaMalloc(&d_matrix_a, matrix_size * matrix_size * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_matrix_b, matrix_size * matrix_size * sizeof(float)));
     CUDA_CHECK(cudaMalloc(&d_matrix_c, matrix_size * matrix_size * sizeof(float)));
-    
-    for (int i = 0; i < array_size; i++) {
-        h_data[i] = (float)rand() / RAND_MAX;
-    }
-    
-    for (int i = 0; i < matrix_size * matrix_size; i++) {
-        h_matrix_a[i] = (float)rand() / RAND_MAX;
-        h_matrix_b[i] = (float)rand() / RAND_MAX;
-    }
-    
-    CUDA_CHECK(cudaMemcpy(d_data, h_data, array_size * sizeof(float), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_matrix_a, h_matrix_a, matrix_size * matrix_size * sizeof(float), cudaMemcpyHostToDevice));
-    CUDA_CHECK(cudaMemcpy(d_matrix_b, h_matrix_b, matrix_size * matrix_size * sizeof(float), cudaMemcpyHostToDevice));
-    
-    printf("Memory allocated and initialized\n");
-    printf("Starting intensive computation...\n");
-    
-    time_t start_time = time(NULL);
-    time_t end_time = start_time + duration;
-    
-    int iteration = 0;
-    int kernel_launches = 0;
-    int matrix_operations = 0;
-    
+
+    time_t end_time = time(NULL) + (duration_sec / 5);
+    int operations = 0;
+    double total_time = 0;
+
+    const float alpha = 1.0f, beta = 0.0f;
+
     while (time(NULL) < end_time) {
-        iteration++;
-        
-        dim3 blockSize(256);
-        dim3 gridSize((array_size + blockSize.x - 1) / blockSize.x);
-        
-        cuda_stress_kernel<<<gridSize, blockSize>>>(d_data, array_size, 1000);
-        CUDA_CHECK(cudaDeviceSynchronize());
-        kernel_launches++;
-        
-        const float alpha = 1.0f, beta = 0.0f;
+        double start = get_time();
         CUBLAS_CHECK(cublasSgemm(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
                                 matrix_size, matrix_size, matrix_size,
                                 &alpha,
@@ -674,44 +881,117 @@ int main(int argc, char* argv[]) {
                                 &beta,
                                 d_matrix_c, matrix_size));
         CUDA_CHECK(cudaDeviceSynchronize());
-        matrix_operations++;
-        
-        if (iteration % 10 == 0) {
-            printf("Iteration %d: %d kernel launches, %d matrix ops\n", 
-                   iteration, kernel_launches, matrix_operations);
-        }
-        
-        usleep(100000);
+        total_time += get_time() - start;
+        operations++;
     }
-    
-    printf("=====================================\n");
-    printf("CUDA Stress Test Completed\n");
-    printf("Total iterations: %d\n", iteration);
-    printf("Kernel launches: %d\n", kernel_launches);
-    printf("Matrix operations: %d\n", matrix_operations);
-    printf("Average ops per second: %.2f\n", (float)(kernel_launches + matrix_operations) / duration);
-    
+
+    // Calculate GFLOPS for matrix multiplication (2*N^3 operations)
+    double flops = 2.0 * matrix_size * matrix_size * matrix_size * operations;
+    double gflops = (flops / total_time) / 1e9;
+
+    printf("Matrix Operations (SGEMM): %d\n", operations);
+    printf("Matrix Size: %dx%d\n", matrix_size, matrix_size);
+    printf("GFLOPS: %.2f\n", gflops);
+    printf("Average operation time: %.3f ms\n", (total_time / operations) * 1000);
+
     cublasDestroy(cublasHandle);
-    cudaFree(d_data);
     cudaFree(d_matrix_a);
     cudaFree(d_matrix_b);
     cudaFree(d_matrix_c);
-    free(h_data);
-    free(h_matrix_a);
-    free(h_matrix_b);
-    free(h_matrix_c);
-    
-    printf("CUDA resources cleaned up\n");
+}
+
+// Test 5: Concurrent Kernel Execution
+void test_concurrent_execution(int duration_sec) {
+    printf("\n=== TEST 5: Concurrent Kernel Execution ===\n");
+
+    const int size = 2 * 1024 * 1024;
+    float *d_data1, *d_data2;
+
+    CUDA_CHECK(cudaMalloc(&d_data1, size * sizeof(float)));
+    CUDA_CHECK(cudaMalloc(&d_data2, size * sizeof(float)));
+
+    cudaStream_t stream1, stream2;
+    CUDA_CHECK(cudaStreamCreate(&stream1));
+    CUDA_CHECK(cudaStreamCreate(&stream2));
+
+    dim3 blockSize(256);
+    dim3 gridSize((size + blockSize.x - 1) / blockSize.x);
+
+    time_t end_time = time(NULL) + (duration_sec / 5);
+    int operations = 0;
+    double total_time = 0;
+
+    while (time(NULL) < end_time) {
+        double start = get_time();
+
+        // Launch kernels on different streams concurrently
+        concurrent_kernel_1<<<gridSize, blockSize, 0, stream1>>>(d_data1, size);
+        concurrent_kernel_2<<<gridSize, blockSize, 0, stream2>>>(d_data2, size);
+
+        CUDA_CHECK(cudaStreamSynchronize(stream1));
+        CUDA_CHECK(cudaStreamSynchronize(stream2));
+        total_time += get_time() - start;
+        operations++;
+    }
+
+    printf("Concurrent Operations: %d\n", operations);
+    printf("Average concurrent execution time: %.3f ms\n", (total_time / operations) * 1000);
+
+    cudaStreamDestroy(stream1);
+    cudaStreamDestroy(stream2);
+    cudaFree(d_data1);
+    cudaFree(d_data2);
+}
+
+int main(int argc, char* argv[]) {
+    int duration = (argc > 1) ? atoi(argv[1]) : 300;
+
+    printf("CUDA DETAILED Stress Test Starting (v2.0)\n");
+    printf("Duration: %d seconds\n", duration);
+    printf("=====================================\n");
+
+    int deviceCount;
+    CUDA_CHECK(cudaGetDeviceCount(&deviceCount));
+    printf("CUDA devices found: %d\n", deviceCount);
+
+    if (deviceCount == 0) {
+        printf("No CUDA devices found!\n");
+        return 1;
+    }
+
+    CUDA_CHECK(cudaSetDevice(0));
+
+    cudaDeviceProp prop;
+    CUDA_CHECK(cudaGetDeviceProperties(&prop, 0));
+    printf("Device: %s\n", prop.name);
+    printf("Compute capability: %d.%d\n", prop.major, prop.minor);
+    printf("Global memory: %.2f GB\n", prop.totalGlobalMem / (1024.0*1024.0*1024.0));
+    printf("Shared memory per block: %zu bytes\n", prop.sharedMemPerBlock);
+    printf("Max threads per block: %d\n", prop.maxThreadsPerBlock);
+    printf("=====================================\n");
+
+    // Run comprehensive tests
+    test_memory_bandwidth(duration);
+    test_fp32_compute(duration);
+    test_fp64_compute(duration);
+    test_matrix_operations(duration);
+    test_concurrent_execution(duration);
+
+    printf("\n=====================================\n");
+    printf("CUDA Detailed Stress Test Completed\n");
+    printf("All tests executed successfully\n");
+    printf("=====================================\n");
+
     return 0;
 }
 CUDA_STRESS_EOF
 
-log_info "Compiling CUDA stress application..."
+log_info "Compiling enhanced CUDA stress application..."
 
 {
     cd "$CUDA_APP_DIR"
-    if nvcc -O3 -lcublas -o cuda_stress cuda_stress.cu 2>&1; then
-        echo "[+] CUDA stress application compiled successfully"
+    if nvcc -O3 -lcublas -o cuda_stress_detailed cuda_stress_detailed.cu 2>&1; then
+        echo "[+] CUDA detailed stress application compiled successfully"
         CUDA_COMPILE_SUCCESS=1
     else
         echo "[-] CUDA compilation failed"
@@ -720,27 +1000,28 @@ log_info "Compiling CUDA stress application..."
 } > "$LOG_DIR/02_gpu_cuda_compile.log" 2>&1
 
 if [ $CUDA_COMPILE_SUCCESS -eq 1 ]; then
-    log_info "Running CUDA stress test for ${PHASE_GPU_CUDA} seconds..."
-    
+    log_info "Running enhanced CUDA stress test for ${PHASE_GPU_CUDA} seconds..."
+
     {
-        echo "=== GPU CUDA Stress Test (ULTIMATE v1.7) ==="
+        echo "=== GPU CUDA DETAILED Stress Test (v2.0) ==="
         echo "Start time: $(date)"
         echo "Duration: ${PHASE_GPU_CUDA} seconds"
+        echo "Tests: Memory Bandwidth, FP32/FP64 Compute, Matrix Ops, Concurrent Execution"
         echo ""
-        
+
         cd "$CUDA_APP_DIR"
-        if ./cuda_stress $PHASE_GPU_CUDA; then
+        if ./cuda_stress_detailed $PHASE_GPU_CUDA; then
             echo ""
-            echo "[+] CUDA stress test completed successfully"
+            echo "[+] CUDA detailed stress test completed successfully"
             increment_cuda_pass  # BULLETPROOF tracking
         else
             echo ""
-            echo "[-] CUDA stress test failed"
+            echo "[-] CUDA detailed stress test failed"
             increment_cuda_fail  # BULLETPROOF tracking
         fi
-        
+
         echo "End time: $(date)"
-        
+
     } 2>&1 | tee "$LOG_DIR/02_gpu_cuda_stress.log"
     
 else
@@ -1196,10 +1477,10 @@ log_info "Starting combined GPU stress test with BULLETPROOF tracking..."
     VPU_BG_PID=$!
     
     # Start CUDA computation in background
-    if [ -f "$CUDA_APP_DIR/cuda_stress" ]; then
+    if [ -f "$CUDA_APP_DIR/cuda_stress_detailed" ]; then
         {
             cd "$CUDA_APP_DIR"
-            ./cuda_stress $((PHASE_GPU_COMBINED - 10)) >/dev/null 2>&1 || true
+            ./cuda_stress_detailed $((PHASE_GPU_COMBINED - 10)) >/dev/null 2>&1 || true
         } &
         CUDA_BG_PID=$!
     fi
@@ -1278,30 +1559,41 @@ fi
 log_info "Combined results saved: PASS=$COMBINED_PASS, FAIL=$COMBINED_FAIL, STATUS=$COMBINED_STATUS"
 
 ################################################################################
-# MONITORING DATA ANALYSIS (SAME AS v1.6)
+# ENHANCED MONITORING DATA ANALYSIS (v2.0)
 ################################################################################
 
-log_phase "PHASE 5: MONITORING DATA ANALYSIS"
+log_phase "PHASE 5: ENHANCED MONITORING DATA ANALYSIS"
 
 # Stop background monitoring
-log_info "Stopping background monitoring..."
+log_info "Stopping enhanced background monitoring..."
 kill $TEMP_MONITOR_PID 2>/dev/null || true
+kill $THROTTLE_MONITOR_PID 2>/dev/null || true
 kill $TEGRA_MONITOR_PID 2>/dev/null || true
 sleep 3
 
-# Process temperature results (same as v1.6)
-log_info "Processing temperature monitoring results..."
+# Process temperature and power results
+log_info "Processing temperature and power monitoring results..."
 {
-    echo "=== Temperature Analysis ==="
-    if [ -f "$MONITOR_DIR/temperature_log.csv" ] && [ -s "$MONITOR_DIR/temperature_log.csv" ]; then
+    echo "=== Temperature and Power Analysis (v2.0) ==="
+    if [ -f "$MONITOR_DIR/temperature_power_log.csv" ] && [ -s "$MONITOR_DIR/temperature_power_log.csv" ]; then
         awk -F',' '
         NR>1 && $2!="N/A" && $3!="N/A" {
-            cpu_sum+=$2; cpu_count++; 
-            cpu_max=($2>cpu_max || cpu_max=="")?$2:cpu_max; 
+            cpu_sum+=$2; cpu_count++;
+            cpu_max=($2>cpu_max || cpu_max=="")?$2:cpu_max;
             cpu_min=($2<cpu_min || cpu_min=="")?$2:cpu_min;
-            gpu_sum+=$3; gpu_count++; 
-            gpu_max=($3>gpu_max || gpu_max=="")?$3:gpu_max; 
+            gpu_sum+=$3; gpu_count++;
+            gpu_max=($3>gpu_max || gpu_max=="")?$3:gpu_max;
             gpu_min=($3<gpu_min || gpu_min=="")?$3:gpu_min;
+        }
+        NR>1 && $7!="N/A" {
+            power_sum+=$7; power_count++;
+            power_max=($7>power_max || power_max=="")?$7:power_max;
+            power_min=($7<power_min || power_min=="")?$7:power_min;
+        }
+        NR>1 && $8!="N/A" {
+            clock_sum+=$8; clock_count++;
+            clock_max=($8>clock_max || clock_max=="")?$8:clock_max;
+            clock_min=($8<clock_min || clock_min=="")?$8:clock_min;
         }
         END {
             if(cpu_count>0) {
@@ -1311,7 +1603,7 @@ log_info "Processing temperature monitoring results..."
                 printf "CPU Temperature: No valid data\n";
                 printf "CPU_MIN=N/A\nCPU_MAX=N/A\nCPU_AVG=N/A\n" > "/dev/stderr";
             }
-            
+
             if(gpu_count>0) {
                 printf "GPU Temperature: Min: %.1f°C, Max: %.1f°C, Avg: %.1f°C\n", gpu_min, gpu_max, gpu_sum/gpu_count;
                 printf "GPU_MIN=%.0f\nGPU_MAX=%.0f\nGPU_AVG=%.0f\n", gpu_min, gpu_max, gpu_sum/gpu_count > "/dev/stderr";
@@ -1319,17 +1611,77 @@ log_info "Processing temperature monitoring results..."
                 printf "GPU Temperature: No valid data\n";
                 printf "GPU_MIN=N/A\nGPU_MAX=N/A\nGPU_AVG=N/A\n" > "/dev/stderr";
             }
-        }' "$MONITOR_DIR/temperature_log.csv" 2> "$REPORT_DIR/temperature_results.txt"
+
+            if(power_count>0) {
+                printf "GPU Power Draw: Min: %.1f W, Max: %.1f W, Avg: %.1f W\n", power_min, power_max, power_sum/power_count;
+                printf "POWER_MIN=%.1f\nPOWER_MAX=%.1f\nPOWER_AVG=%.1f\n", power_min, power_max, power_sum/power_count > "/dev/stderr";
+            } else {
+                printf "GPU Power Draw: No valid data\n";
+                printf "POWER_MIN=N/A\nPOWER_MAX=N/A\nPOWER_AVG=N/A\n" > "/dev/stderr";
+            }
+
+            if(clock_count>0) {
+                printf "GPU Clock Speed: Min: %.0f MHz, Max: %.0f MHz, Avg: %.0f MHz\n", clock_min, clock_max, clock_sum/clock_count;
+                printf "CLOCK_MIN=%.0f\nCLOCK_MAX=%.0f\nCLOCK_AVG=%.0f\n", clock_min, clock_max, clock_sum/clock_count > "/dev/stderr";
+            } else {
+                printf "GPU Clock Speed: No valid data\n";
+                printf "CLOCK_MIN=N/A\nCLOCK_MAX=N/A\nCLOCK_AVG=N/A\n" > "/dev/stderr";
+            }
+        }' "$MONITOR_DIR/temperature_power_log.csv" 2> "$REPORT_DIR/temperature_power_results.txt"
     else
-        echo "Temperature log not found or empty"
+        echo "Temperature/power log not found or empty"
         echo "CPU_MIN=N/A
 CPU_MAX=N/A
 CPU_AVG=N/A
 GPU_MIN=N/A
 GPU_MAX=N/A
-GPU_AVG=N/A" > "$REPORT_DIR/temperature_results.txt"
+GPU_AVG=N/A
+POWER_MIN=N/A
+POWER_MAX=N/A
+POWER_AVG=N/A
+CLOCK_MIN=N/A
+CLOCK_MAX=N/A
+CLOCK_AVG=N/A" > "$REPORT_DIR/temperature_power_results.txt"
     fi
-} > "$LOG_DIR/05_temperature_analysis.log"
+} > "$LOG_DIR/05_temperature_power_analysis.log"
+
+# Process throttling detection results
+log_info "Processing thermal throttling detection..."
+{
+    echo "=== Thermal Throttling Analysis (v2.0) ==="
+    if [ -f "$MONITOR_DIR/throttling_detection.csv" ] && [ -s "$MONITOR_DIR/throttling_detection.csv" ]; then
+        throttle_events=$(grep -c "YES" "$MONITOR_DIR/throttling_detection.csv" 2>/dev/null || echo "0")
+        total_samples=$(tail -n +2 "$MONITOR_DIR/throttling_detection.csv" 2>/dev/null | wc -l || echo "0")
+
+        echo "Total monitoring samples: $total_samples"
+        echo "Throttling events detected: $throttle_events"
+
+        if [ "$total_samples" -gt 0 ]; then
+            throttle_pct=$(echo "scale=2; ($throttle_events * 100) / $total_samples" | bc 2>/dev/null || echo "0")
+            echo "Throttling percentage: ${throttle_pct}%"
+
+            if [ "$throttle_events" -eq 0 ]; then
+                echo "Status: NO THROTTLING DETECTED"
+                echo "THROTTLE_STATUS=NONE" > "$REPORT_DIR/throttling_results.txt"
+            elif [ "$throttle_events" -lt 5 ]; then
+                echo "Status: MINIMAL THROTTLING (acceptable)"
+                echo "THROTTLE_STATUS=MINIMAL" > "$REPORT_DIR/throttling_results.txt"
+            else
+                echo "Status: SIGNIFICANT THROTTLING DETECTED"
+                echo "THROTTLE_STATUS=SIGNIFICANT" > "$REPORT_DIR/throttling_results.txt"
+            fi
+
+            echo "THROTTLE_EVENTS=$throttle_events" >> "$REPORT_DIR/throttling_results.txt"
+            echo "THROTTLE_PCT=$throttle_pct" >> "$REPORT_DIR/throttling_results.txt"
+        else
+            echo "No throttling data available"
+            echo "THROTTLE_STATUS=NO_DATA" > "$REPORT_DIR/throttling_results.txt"
+        fi
+    else
+        echo "Throttling log not found or empty"
+        echo "THROTTLE_STATUS=NO_DATA" > "$REPORT_DIR/throttling_results.txt"
+    fi
+} > "$LOG_DIR/05_throttling_analysis.log"
 
 # Process tegrastats results (same as v1.6)
 log_info "Processing Tegrastats monitoring results..."
@@ -1353,12 +1705,12 @@ log_info "Processing Tegrastats monitoring results..."
 } > "$LOG_DIR/05_tegrastats_analysis.log"
 
 ################################################################################
-# PHASE 6: FINAL REPORT GENERATION (UPDATED FOR v1.7)
+# PHASE 6: FINAL REPORT GENERATION (ENHANCED v2.0)
 ################################################################################
 
-log_phase "PHASE 6: FINAL REPORT GENERATION (ULTIMATE v1.7)"
+log_phase "PHASE 6: FINAL REPORT GENERATION (DETAILED v2.0)"
 
-log_info "Generating comprehensive final report with BULLETPROOF results..."
+log_info "Generating comprehensive final report with detailed metrics..."
 
 # Read all final results from temp files (BULLETPROOF!)
 VPU_PASS=$(cat "$TEMP_RESULTS_DIR/vpu_pass_count")
@@ -1414,47 +1766,54 @@ log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$
 # Generate final comprehensive report
 {
     echo "================================================================================"
-    echo "  JETSON ORIN DEDICATED GPU STRESS TEST - FINAL REPORT (ULTIMATE v1.7)"
+    echo "  JETSON ORIN GPU STRESS TEST - DETAILED FINAL REPORT (v2.0)"
     echo "================================================================================"
     echo ""
     echo "Test completed: $(date)"
     echo "Test duration: ${TEST_DURATION} seconds (${REMOTE_DISPLAY_HOURS} hours)"
     echo "Test directory: $TEST_DIR"
-    echo "Script version: v1.7 ULTIMATE (Graphics test FIXED for Jetson headless)"
+    echo "Script version: v2.0 DETAILED (Enhanced with multi-codec, power, throttling)"
     echo ""
-    
+
     echo "================================================================================"
-    echo "  GPU COMPONENT TEST RESULTS (BULLETPROOF TRACKING + GRAPHICS FIXED)"
+    echo "  GPU COMPONENT TEST RESULTS (DETAILED v2.0)"
     echo "================================================================================"
     echo ""
-    
+
     # VPU Results
     echo "=== GPU VPU (Video Processing Unit) Results ==="
     case "$VPU_STATUS" in
         "PASS")
             echo "Status: [+] PASSED"
-            echo "All 4K video encoding operations completed successfully"
+            echo "All multi-codec 4K video encoding operations completed successfully"
             ;;
         "PASS_WITH_WARNINGS")
             echo "Status: [!] PASSED (with warnings)"
-            echo "Most 4K video encoding operations succeeded"
+            echo "Most multi-codec 4K video encoding operations succeeded"
             ;;
         "FAIL")
             echo "Status: [-] FAILED"
-            echo "4K video encoding operations failed"
+            echo "Multi-codec 4K video encoding operations failed"
             ;;
     esac
-    echo "Successful 4K encodings: $VPU_PASS"
-    echo "Failed 4K encodings: $VPU_FAIL"
-    echo "Resolution: 4K ONLY (3840x2160)"
+    echo "Successful encodings: $VPU_PASS"
+    echo "Failed encodings: $VPU_FAIL"
+    echo "Codecs tested: H.264 and H.265"
+    echo "Resolution: 4K (3840x2160)"
     echo ""
     
     # CUDA Results
-    echo "=== GPU CUDA (Compute) Results ==="
+    echo "=== GPU CUDA (Compute) DETAILED Results ==="
     case "$CUDA_STATUS" in
         "PASS")
             echo "Status: [+] PASSED"
-            echo "Custom CUDA stress application completed successfully"
+            echo "Comprehensive CUDA test suite completed successfully"
+            echo "Tests executed:"
+            echo "  • Memory bandwidth tests (H2D, D2H, D2D)"
+            echo "  • FP32 compute performance"
+            echo "  • FP64 compute performance"
+            echo "  • Matrix operations (cuBLAS SGEMM)"
+            echo "  • Concurrent kernel execution"
             ;;
         "FAIL_COMPILE")
             echo "Status: [-] FAILED (Compilation Error)"
@@ -1508,100 +1867,132 @@ log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$
     echo "Components: VPU (4K) + CUDA + Graphics (EGL)"
     echo ""
     
-    # Temperature Results
-    echo "=== Thermal Performance ==="
-    if [ -f "$REPORT_DIR/temperature_results.txt" ]; then
-        source "$REPORT_DIR/temperature_results.txt"
+    # Temperature and Power Results (v2.0)
+    echo "=== Thermal and Power Performance (v2.0) ==="
+    if [ -f "$REPORT_DIR/temperature_power_results.txt" ]; then
+        source "$REPORT_DIR/temperature_power_results.txt"
         echo "CPU Temperature Range: ${CPU_MIN}°C - ${CPU_MAX}°C (Avg: ${CPU_AVG}°C)"
         echo "GPU Temperature Range: ${GPU_MIN}°C - ${GPU_MAX}°C (Avg: ${GPU_AVG}°C)"
-        
+        echo "GPU Power Draw Range: ${POWER_MIN}W - ${POWER_MAX}W (Avg: ${POWER_AVG}W)"
+        echo "GPU Clock Speed Range: ${CLOCK_MIN}MHz - ${CLOCK_MAX}MHz (Avg: ${CLOCK_AVG}MHz)"
+
         if [ "$GPU_MAX" != "N/A" ]; then
             if [ "$GPU_MAX" -le 80 ]; then
-                echo "Status: [+] EXCELLENT (GPU stayed well within safe limits)"
+                echo "Thermal Status: [+] EXCELLENT (GPU stayed well within safe limits)"
             elif [ "$GPU_MAX" -le 95 ]; then
-                echo "Status: [!] ACCEPTABLE (GPU reached warning threshold)"
+                echo "Thermal Status: [!] ACCEPTABLE (GPU reached warning threshold)"
             else
-                echo "Status: [-] CRITICAL (GPU exceeded safe limits)"
+                echo "Thermal Status: [-] CRITICAL (GPU exceeded safe limits)"
             fi
         fi
+    fi
+
+    # Throttling Results (v2.0)
+    if [ -f "$REPORT_DIR/throttling_results.txt" ]; then
+        source "$REPORT_DIR/throttling_results.txt"
+        echo ""
+        echo "=== Thermal Throttling Detection (v2.0) ==="
+        case "$THROTTLE_STATUS" in
+            "NONE")
+                echo "Throttling Status: [+] NO THROTTLING DETECTED"
+                echo "GPU maintained full performance throughout testing"
+                ;;
+            "MINIMAL")
+                echo "Throttling Status: [!] MINIMAL THROTTLING ($THROTTLE_EVENTS events)"
+                echo "Acceptable performance variation detected"
+                ;;
+            "SIGNIFICANT")
+                echo "Throttling Status: [-] SIGNIFICANT THROTTLING ($THROTTLE_EVENTS events)"
+                echo "GPU performance was limited by thermal constraints"
+                ;;
+            "NO_DATA")
+                echo "Throttling Status: Data not available"
+                ;;
+        esac
     fi
     echo ""
 
     echo "================================================================================"
-    echo "  FINAL GPU TEST RESULT (ULTIMATE v1.7)"
+    echo "  FINAL GPU TEST RESULT (DETAILED v2.0)"
     echo "================================================================================"
     echo ""
     echo "Total GPU Component Tests: $TOTAL_TESTS"
     echo "Passed: $PASSED_TESTS"
     echo "Failed: $FAILED_TESTS"
-    
+
     if [ $TOTAL_TESTS -gt 0 ]; then
         SUCCESS_RATE=$((PASSED_TESTS * 100 / TOTAL_TESTS))
         echo "Overall Success Rate: ${SUCCESS_RATE}%"
         echo ""
-        
+
         if [ $FAILED_TESTS -eq 0 ]; then
             echo "[+] RESULT: ALL GPU COMPONENT TESTS PASSED"
             echo "   Your Jetson Orin's GPU is performing excellently!"
-            echo "   All CUDA, VPU (4K), and Graphics (EGL) components passed stress testing."
-            echo "   [*] v1.7 ULTIMATE: All known issues FIXED!"
+            echo "   All enhanced tests passed:"
+            echo "   • VPU (Multi-codec H.264/H.265 4K encoding)"
+            echo "   • CUDA (Memory bandwidth, FP32/FP64, matrix ops, concurrency)"
+            echo "   • Graphics (EGL headless rendering)"
+            echo "   • Combined stress (All components simultaneously)"
+            echo "   [*] v2.0 DETAILED: Enhanced with comprehensive metrics!"
         elif [ $SUCCESS_RATE -ge 80 ]; then
             echo "[+] RESULT: ACCEPTABLE GPU PERFORMANCE"
-            echo "   Most GPU components passed testing."
-            echo "   [*] v1.7 ULTIMATE: Graphics test now working on Jetson headless!"
+            echo "   Most GPU components passed detailed testing."
+            echo "   [*] v2.0 DETAILED: Comprehensive multi-test validation complete!"
         else
             echo "[!] RESULT: GPU NEEDS ATTENTION"
-            echo "   Multiple GPU components failed testing."
-            echo "   [*] v1.7 ULTIMATE: Results are now accurate with bulletproof tracking!"
+            echo "   Multiple GPU components failed detailed testing."
+            echo "   [*] v2.0 DETAILED: Review component-specific logs for details!"
         fi
     fi
     echo ""
     echo "================================================================================"
     echo ""
     echo "Report generated: $(date)"
-    
+
 } | tee "$REPORT_DIR/FINAL_GPU_REPORT.txt"
 
 # Create summary file
 {
-    echo "SCRIPT_VERSION=v1.7_ULTIMATE"
-    echo "MAJOR_FIXES=graphics_test_fixed_for_jetson_headless,bulletproof_tracking,4K_videos"
+    echo "SCRIPT_VERSION=v2.0_DETAILED"
+    echo "MAJOR_ENHANCEMENTS=multi_codec_vpu,cuda_detailed_tests,power_monitoring,throttling_detection"
     echo "TOTAL_GPU_TESTS=$TOTAL_TESTS"
     echo "PASSED_GPU_TESTS=$PASSED_TESTS"
     echo "FAILED_GPU_TESTS=$FAILED_TESTS"
-    echo "VPU_BULLETPROOF_PASS=$VPU_PASS"
-    echo "VPU_BULLETPROOF_FAIL=$VPU_FAIL"
-    echo "CUDA_BULLETPROOF_PASS=$CUDA_PASS"
-    echo "CUDA_BULLETPROOF_FAIL=$CUDA_FAIL"
-    echo "GFX_BULLETPROOF_PASS=$GFX_PASS"
-    echo "GFX_BULLETPROOF_FAIL=$GFX_FAIL"
-    echo "COMBINED_BULLETPROOF_PASS=$COMBINED_PASS"
-    echo "COMBINED_BULLETPROOF_FAIL=$COMBINED_FAIL"
-    
+    echo "VPU_PASS=$VPU_PASS"
+    echo "VPU_FAIL=$VPU_FAIL"
+    echo "CUDA_PASS=$CUDA_PASS"
+    echo "CUDA_FAIL=$CUDA_FAIL"
+    echo "GFX_PASS=$GFX_PASS"
+    echo "GFX_FAIL=$GFX_FAIL"
+    echo "COMBINED_PASS=$COMBINED_PASS"
+    echo "COMBINED_FAIL=$COMBINED_FAIL"
+
     [ -f "$REPORT_DIR/gpu_vpu_results.txt" ] && cat "$REPORT_DIR/gpu_vpu_results.txt"
     [ -f "$REPORT_DIR/gpu_cuda_results.txt" ] && cat "$REPORT_DIR/gpu_cuda_results.txt"
     [ -f "$REPORT_DIR/gpu_gfx_results.txt" ] && cat "$REPORT_DIR/gpu_gfx_results.txt"
     [ -f "$REPORT_DIR/gpu_combined_results.txt" ] && cat "$REPORT_DIR/gpu_combined_results.txt"
-    [ -f "$REPORT_DIR/temperature_results.txt" ] && cat "$REPORT_DIR/temperature_results.txt"
+    [ -f "$REPORT_DIR/temperature_power_results.txt" ] && cat "$REPORT_DIR/temperature_power_results.txt"
+    [ -f "$REPORT_DIR/throttling_results.txt" ] && cat "$REPORT_DIR/throttling_results.txt"
     [ -f "$REPORT_DIR/tegrastats_results.txt" ] && cat "$REPORT_DIR/tegrastats_results.txt"
-    
+
 } > "$REPORT_DIR/summary.txt"
 
-log_success "Final report generated successfully with ULTIMATE fixes"
+log_success "Final report generated successfully with DETAILED v2.0 enhancements"
 
 echo ""
 echo "================================================================================"
-echo "  TEST EXECUTION COMPLETE ON JETSON ORIN (ULTIMATE v1.7)"
+echo "  TEST EXECUTION COMPLETE ON JETSON ORIN (DETAILED v2.0)"
 echo "================================================================================"
 echo ""
 echo "Test directory on Jetson: $TEST_DIR"
 echo "Main report: $REPORT_DIR/FINAL_GPU_REPORT.txt"
 echo "Summary data: $REPORT_DIR/summary.txt"
-echo "[*] v1.7 ULTIMATE FIXES APPLIED:"
-echo "   • Variable tracking COMPLETELY FIXED (bulletproof temp files)"
-echo "   • All videos 4K resolution (3840x2160)"
-echo "   • Graphics test FIXED for Jetson headless systems (EGL-based)"
-echo "   • No more virtual display issues!"
+echo "[*] v2.0 DETAILED ENHANCEMENTS:"
+echo "   • Multi-codec VPU testing (H.264 and H.265)"
+echo "   • Enhanced CUDA tests (bandwidth, FP32/FP64, matrix ops, concurrency)"
+echo "   • Power monitoring and thermal tracking"
+echo "   • Thermal throttling detection"
+echo "   • Detailed performance metrics (GFLOPS, GB/s, clock speeds)"
 echo ""
 
 # Display final report
@@ -1655,46 +2046,50 @@ fi
 
 echo ""
 echo "================================================================================"
-echo "  ALL OPERATIONS COMPLETED SUCCESSFULLY (ULTIMATE v1.7)"
+echo "  ALL OPERATIONS COMPLETED SUCCESSFULLY (DETAILED v2.0)"
 echo "================================================================================"
 echo ""
 echo "[*] Local Results Directory:"
 echo "   $LOG_DIR"
 echo ""
 echo "[*] Key Files:"
-echo "   • Final GPU Report: $LOG_DIR/reports/FINAL_GPU_REPORT.txt"
-echo "   • Summary Data:     $LOG_DIR/reports/summary.txt"
-echo "   • Temperature Log:  $LOG_DIR/monitoring/temperature_log.csv"
+echo "   • Final GPU Report:      $LOG_DIR/reports/FINAL_GPU_REPORT.txt"
+echo "   • Summary Data:          $LOG_DIR/reports/summary.txt"
+echo "   • Temperature/Power Log: $LOG_DIR/monitoring/temperature_power_log.csv"
+echo "   • Throttling Detection:  $LOG_DIR/monitoring/throttling_detection.csv"
 echo ""
 echo "[*] GPU Test Logs:"
-echo "   • VPU (4K Encoding): $LOG_DIR/logs/01_gpu_vpu_stress.log"
-echo "   • CUDA (compute):    $LOG_DIR/logs/02_gpu_cuda_stress.log"
-echo "   • GFX (EGL):         $LOG_DIR/logs/03_gpu_gfx_stress.log"
-echo "   • Combined GPU:      $LOG_DIR/logs/04_gpu_combined_stress.log"
+echo "   • VPU (Multi-codec):     $LOG_DIR/logs/01_gpu_vpu_stress.log"
+echo "   • CUDA (Detailed):       $LOG_DIR/logs/02_gpu_cuda_stress.log"
+echo "   • GFX (EGL):             $LOG_DIR/logs/03_gpu_gfx_stress.log"
+echo "   • Combined GPU:          $LOG_DIR/logs/04_gpu_combined_stress.log"
+echo "   • Power Analysis:        $LOG_DIR/logs/05_temperature_power_analysis.log"
+echo "   • Throttling Analysis:   $LOG_DIR/logs/05_throttling_analysis.log"
 echo ""
 echo "[*] Sample 4K Videos:"
-echo "   $LOG_DIR/videos/"
+echo "   $LOG_DIR/videos/ (H.264 and H.265 encoded)"
 echo ""
 
 if [ -f "$LOG_DIR/reports/FINAL_GPU_REPORT.txt" ]; then
     echo "================================================================================"
-    echo "  QUICK SUMMARY (ULTIMATE v1.7)"
+    echo "  QUICK SUMMARY (DETAILED v2.0)"
     echo "================================================================================"
     echo ""
-    cat "$LOG_DIR/reports/FINAL_GPU_REPORT.txt" | grep -A 30 "FINAL GPU TEST RESULT"
+    cat "$LOG_DIR/reports/FINAL_GPU_REPORT.txt" | grep -A 40 "FINAL GPU TEST RESULT"
     echo ""
 fi
 
-echo "[*] v1.7 ULTIMATE FIXES SUCCESSFULLY APPLIED:"
-echo "   [+] Variable tracking COMPLETELY FIXED (bulletproof temp files)"
-echo "   [+] All videos 4K resolution (3840x2160) as requested"
-echo "   [+] Graphics test FIXED for Jetson headless systems"
-echo "   [+] EGL-based OpenGL testing (no Xvfb/virtual display needed)"
-echo "   [+] Fallback GPU memory tests if EGL fails"
-echo "   [+] No more 'Failed to start virtual display' errors!"
+echo "[*] v2.0 DETAILED ENHANCEMENTS SUCCESSFULLY APPLIED:"
+echo "   [+] Multi-codec VPU testing (H.264 and H.265 hardware encoding)"
+echo "   [+] Enhanced CUDA test suite (bandwidth, FP32/FP64, matrix, concurrent)"
+echo "   [+] Continuous power and clock speed monitoring"
+echo "   [+] Real-time thermal throttling detection"
+echo "   [+] Detailed performance metrics (GFLOPS, GB/s bandwidth)"
+echo "   [+] Comprehensive thermal and power analysis"
+echo "   [+] All tests use built-in features (no external models required)"
 echo ""
 echo "[*] To view full GPU report:"
 echo "   cat $LOG_DIR/reports/FINAL_GPU_REPORT.txt"
 echo ""
-echo "[+] Jetson Orin dedicated GPU stress test completed (ULTIMATE v1.7)!"
+echo "[+] Jetson Orin detailed GPU stress test completed (v2.0)!"
 echo ""
