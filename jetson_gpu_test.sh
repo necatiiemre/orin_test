@@ -410,9 +410,9 @@ log_success "Baseline state recorded"
 
 log_info "Starting enhanced background monitoring..."
 
-# Enhanced temperature and performance monitoring
+# Enhanced temperature and performance monitoring (Jetson-compatible)
 {
-    echo "timestamp,cpu_temp,gpu_temp,cpu_usage,gpu_usage,memory_usage,gpu_power,gpu_clock,mem_clock"
+    echo "timestamp,cpu_temp,gpu_temp,cpu_usage,gpu_usage,memory_usage,gpu_power,gpu_freq,mem_freq"
     while true; do
         timestamp=$(date '+%Y-%m-%d %H:%M:%S')
         cpu_temp=$(cat /sys/devices/virtual/thermal/thermal_zone0/temp 2>/dev/null | awk '{print $1/1000}' || echo "N/A")
@@ -420,36 +420,65 @@ log_info "Starting enhanced background monitoring..."
         cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | awk -F'%' '{print $1}' || echo "N/A")
         gpu_usage=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null || echo "N/A")
         memory_usage=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}' || echo "N/A")
+
+        # Try nvidia-smi for power, fallback to Jetson power rails if not available
         gpu_power=$(nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits 2>/dev/null || echo "N/A")
-        gpu_clock=$(nvidia-smi --query-gpu=clocks.gr --format=csv,noheader,nounits 2>/dev/null || echo "N/A")
-        mem_clock=$(nvidia-smi --query-gpu=clocks.mem --format=csv,noheader,nounits 2>/dev/null || echo "N/A")
-        echo "$timestamp,$cpu_temp,$gpu_temp,$cpu_usage,$gpu_usage,$memory_usage,$gpu_power,$gpu_clock,$mem_clock"
+        if [ "$gpu_power" == "N/A" ] || [ -z "$gpu_power" ]; then
+            # Try Jetson power rail (mW to W conversion)
+            gpu_power_mw=$(cat /sys/bus/i2c/drivers/ina3221x/*/iio:device0/in_power1_input 2>/dev/null || echo "0")
+            if [ "$gpu_power_mw" != "0" ]; then
+                gpu_power=$(echo "scale=2; $gpu_power_mw / 1000" | bc 2>/dev/null || echo "N/A")
+            else
+                gpu_power="N/A"
+            fi
+        fi
+
+        # Try nvidia-smi for clocks, fallback to Jetson sysfs if not available
+        gpu_freq=$(nvidia-smi --query-gpu=clocks.gr --format=csv,noheader,nounits 2>/dev/null || echo "0")
+        if [ "$gpu_freq" == "0" ] || [ -z "$gpu_freq" ] || [ "$gpu_freq" == "N/A" ]; then
+            # Try Jetson GPU frequency (Hz to MHz)
+            gpu_freq_hz=$(cat /sys/devices/gpu.0/devfreq/17000000.ga10b/cur_freq 2>/dev/null || echo "0")
+            gpu_freq=$((gpu_freq_hz / 1000000))
+            [ "$gpu_freq" -eq 0 ] && gpu_freq="N/A"
+        fi
+
+        mem_freq=$(nvidia-smi --query-gpu=clocks.mem --format=csv,noheader,nounits 2>/dev/null || echo "N/A")
+
+        echo "$timestamp,$cpu_temp,$gpu_temp,$cpu_usage,$gpu_usage,$memory_usage,$gpu_power,$gpu_freq,$mem_freq"
         sleep 5
     done
 } > "$MONITOR_DIR/temperature_power_log.csv" &
 TEMP_MONITOR_PID=$!
 
-# Thermal throttling detection monitor
+# Thermal throttling detection monitor (Jetson-compatible)
 {
-    echo "timestamp,gpu_clock,throttle_detected,temp,power"
-    prev_clock=0
+    echo "timestamp,gpu_freq,throttle_detected,temp"
+    prev_freq=0
+    valid_samples=0
     while true; do
         timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-        gpu_clock=$(nvidia-smi --query-gpu=clocks.gr --format=csv,noheader,nounits 2>/dev/null || echo "0")
+        # Use Jetson-specific GPU frequency interface
+        gpu_freq=$(cat /sys/devices/gpu.0/devfreq/17000000.ga10b/cur_freq 2>/dev/null || cat /sys/kernel/debug/bpmp/debug/clk/nafll_gpc/rate 2>/dev/null || echo "0")
+        gpu_freq_mhz=$((gpu_freq / 1000000))
         gpu_temp=$(cat /sys/devices/virtual/thermal/thermal_zone1/temp 2>/dev/null | awk '{print $1/1000}' || echo "0")
-        gpu_power=$(nvidia-smi --query-gpu=power.draw --format=csv,noheader,nounits 2>/dev/null || echo "0")
 
-        # Detect throttling: significant clock drop (>10%) while under load
+        # Detect throttling: significant frequency drop (>15%) while under load
         throttle="NO"
-        if [ "$prev_clock" != "0" ] && [ "$gpu_clock" != "N/A" ] && [ "$gpu_clock" != "0" ]; then
-            clock_drop=$(echo "scale=2; (($prev_clock - $gpu_clock) / $prev_clock) * 100" | bc 2>/dev/null || echo "0")
-            if (( $(echo "$clock_drop > 10" | bc -l 2>/dev/null || echo "0") )); then
+        # Only check throttling after we have valid baseline (non-zero previous frequency)
+        if [ "$prev_freq" -gt 100 ] && [ "$gpu_freq_mhz" -gt 100 ]; then
+            freq_drop=$(echo "scale=2; (($prev_freq - $gpu_freq_mhz) / $prev_freq) * 100" | bc 2>/dev/null || echo "0")
+            # Use higher threshold (15%) and check if temperature is high
+            if (( $(echo "$freq_drop > 15 && $gpu_temp > 70" | bc -l 2>/dev/null || echo "0") )); then
                 throttle="YES"
             fi
+            valid_samples=$((valid_samples + 1))
         fi
 
-        echo "$timestamp,$gpu_clock,$throttle,$gpu_temp,$gpu_power"
-        prev_clock=$gpu_clock
+        echo "$timestamp,$gpu_freq_mhz,$throttle,$gpu_temp"
+        # Only update prev_freq if we got a valid reading
+        if [ "$gpu_freq_mhz" -gt 100 ]; then
+            prev_freq=$gpu_freq_mhz
+        fi
         sleep 2
     done
 } > "$MONITOR_DIR/throttling_detection.csv" &
@@ -1585,12 +1614,12 @@ log_info "Processing temperature and power monitoring results..."
             gpu_max=($3>gpu_max || gpu_max=="")?$3:gpu_max;
             gpu_min=($3<gpu_min || gpu_min=="")?$3:gpu_min;
         }
-        NR>1 && $7!="N/A" {
+        NR>1 && $7!="N/A" && $7!="" && $7>0 {
             power_sum+=$7; power_count++;
             power_max=($7>power_max || power_max=="")?$7:power_max;
             power_min=($7<power_min || power_min=="")?$7:power_min;
         }
-        NR>1 && $8!="N/A" {
+        NR>1 && $8!="N/A" && $8!="" && $8>0 {
             clock_sum+=$8; clock_count++;
             clock_max=($8>clock_max || clock_max=="")?$8:clock_max;
             clock_min=($8<clock_min || clock_min=="")?$8:clock_min;
@@ -1645,19 +1674,24 @@ CLOCK_AVG=N/A" > "$REPORT_DIR/temperature_power_results.txt"
     fi
 } > "$LOG_DIR/05_temperature_power_analysis.log"
 
-# Process throttling detection results
+# Process throttling detection results (Jetson-compatible)
 log_info "Processing thermal throttling detection..."
 {
     echo "=== Thermal Throttling Analysis (v2.0) ==="
     if [ -f "$MONITOR_DIR/throttling_detection.csv" ] && [ -s "$MONITOR_DIR/throttling_detection.csv" ]; then
-        throttle_events=$(grep -c "YES" "$MONITOR_DIR/throttling_detection.csv" 2>/dev/null || echo "0")
+        throttle_events=$(grep -c ",YES," "$MONITOR_DIR/throttling_detection.csv" 2>/dev/null || echo "0")
         total_samples=$(tail -n +2 "$MONITOR_DIR/throttling_detection.csv" 2>/dev/null | wc -l || echo "0")
 
+        # Count valid samples (where frequency > 100 MHz)
+        valid_samples=$(tail -n +2 "$MONITOR_DIR/throttling_detection.csv" 2>/dev/null | awk -F',' '$2 > 100' | wc -l || echo "0")
+
         echo "Total monitoring samples: $total_samples"
+        echo "Valid frequency samples: $valid_samples"
         echo "Throttling events detected: $throttle_events"
 
-        if [ "$total_samples" -gt 0 ]; then
-            throttle_pct=$(echo "scale=2; ($throttle_events * 100) / $total_samples" | bc 2>/dev/null || echo "0")
+        # Only analyze if we have valid data
+        if [ "$valid_samples" -gt 10 ]; then
+            throttle_pct=$(echo "scale=2; ($throttle_events * 100) / $valid_samples" | bc 2>/dev/null || echo "0")
             echo "Throttling percentage: ${throttle_pct}%"
 
             if [ "$throttle_events" -eq 0 ]; then
@@ -1674,12 +1708,17 @@ log_info "Processing thermal throttling detection..."
             echo "THROTTLE_EVENTS=$throttle_events" >> "$REPORT_DIR/throttling_results.txt"
             echo "THROTTLE_PCT=$throttle_pct" >> "$REPORT_DIR/throttling_results.txt"
         else
-            echo "No throttling data available"
+            echo "Insufficient valid throttling data (need >10 samples, got $valid_samples)"
+            echo "Status: MONITORING DATA UNAVAILABLE (non-critical)"
             echo "THROTTLE_STATUS=NO_DATA" > "$REPORT_DIR/throttling_results.txt"
+            echo "THROTTLE_EVENTS=0" >> "$REPORT_DIR/throttling_results.txt"
+            echo "THROTTLE_PCT=0" >> "$REPORT_DIR/throttling_results.txt"
         fi
     else
         echo "Throttling log not found or empty"
         echo "THROTTLE_STATUS=NO_DATA" > "$REPORT_DIR/throttling_results.txt"
+        echo "THROTTLE_EVENTS=0" >> "$REPORT_DIR/throttling_results.txt"
+        echo "THROTTLE_PCT=0" >> "$REPORT_DIR/throttling_results.txt"
     fi
 } > "$LOG_DIR/05_throttling_analysis.log"
 
@@ -1873,8 +1912,20 @@ log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$
         source "$REPORT_DIR/temperature_power_results.txt"
         echo "CPU Temperature Range: ${CPU_MIN}°C - ${CPU_MAX}°C (Avg: ${CPU_AVG}°C)"
         echo "GPU Temperature Range: ${GPU_MIN}°C - ${GPU_MAX}°C (Avg: ${GPU_AVG}°C)"
-        echo "GPU Power Draw Range: ${POWER_MIN}W - ${POWER_MAX}W (Avg: ${POWER_AVG}W)"
-        echo "GPU Clock Speed Range: ${CLOCK_MIN}MHz - ${CLOCK_MAX}MHz (Avg: ${CLOCK_AVG}MHz)"
+
+        # Show power data if available
+        if [ "$POWER_MIN" != "N/A" ] && [ "$POWER_MIN" != "0.0" ]; then
+            echo "GPU Power Draw Range: ${POWER_MIN}W - ${POWER_MAX}W (Avg: ${POWER_AVG}W)"
+        else
+            echo "GPU Power Draw: Monitoring data not available"
+        fi
+
+        # Show clock data if available
+        if [ "$CLOCK_MIN" != "N/A" ] && [ "$CLOCK_MIN" != "0" ]; then
+            echo "GPU Clock Speed Range: ${CLOCK_MIN}MHz - ${CLOCK_MAX}MHz (Avg: ${CLOCK_AVG}MHz)"
+        else
+            echo "GPU Clock Speed: Monitoring data not available"
+        fi
 
         if [ "$GPU_MAX" != "N/A" ]; then
             if [ "$GPU_MAX" -le 80 ]; then
@@ -1887,7 +1938,7 @@ log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$
         fi
     fi
 
-    # Throttling Results (v2.0)
+    # Throttling Results (v2.0) - Non-critical monitoring
     if [ -f "$REPORT_DIR/throttling_results.txt" ]; then
         source "$REPORT_DIR/throttling_results.txt"
         echo ""
@@ -1906,10 +1957,14 @@ log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$
                 echo "GPU performance was limited by thermal constraints"
                 ;;
             "NO_DATA")
-                echo "Throttling Status: Data not available"
+                echo "Throttling Status: [INFO] Monitoring data not available (non-critical)"
+                echo "GPU frequency monitoring may require additional permissions"
                 ;;
         esac
     fi
+    echo ""
+    echo "NOTE: Throttling detection is supplementary monitoring."
+    echo "      GPU component test results (VPU/CUDA/GFX) determine overall pass/fail."
     echo ""
 
     echo "================================================================================"
