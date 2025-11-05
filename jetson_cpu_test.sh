@@ -211,6 +211,12 @@ echo ""
 
 log_phase "[STARTING ULTRA CPU STRESS TEST]"
 
+echo ""
+echo "Test Personnel:"
+echo "  Tester: $TESTER_NAME"
+echo "  Quality Checker: $QUALITY_CHECKER_NAME"
+echo ""
+
 # Start intensive temperature monitoring (1-second intervals)
 start_temperature_monitoring "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$LOG_DIR/logs/cpu_temperature.csv" 1
 

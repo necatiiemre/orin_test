@@ -87,6 +87,10 @@ echo ""
 log_info "Target: $ORIN_USER@$ORIN_IP"
 log_info "Duration: $TEST_DURATION_HOURS hours ($TEST_DURATION seconds / $((TEST_DURATION / 60)) minutes)"
 echo ""
+echo "Test Personnel:"
+echo "  Tester: $TESTER_NAME"
+echo "  Quality Checker: $QUALITY_CHECKER_NAME"
+echo ""
 
 # Create log directories
 ensure_directory "$LOG_DIR"

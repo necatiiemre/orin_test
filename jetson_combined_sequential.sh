@@ -109,6 +109,10 @@ echo "  • Duration per component: $TEST_DURATION_HOURS hours"
 echo "  • Test Mode: SEQUENTIAL (CPU → GPU → RAM → Storage)"
 echo "  • Total estimated time: $((TEST_DURATION_HOURS * 4)) hours"
 echo ""
+echo "Test Personnel:"
+echo "  • Tester: $TESTER_NAME"
+echo "  • Quality Checker: $QUALITY_CHECKER_NAME"
+echo ""
 
 # Check prerequisites
 check_prerequisites "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS"
