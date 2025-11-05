@@ -37,6 +37,10 @@ else
     collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
 fi
 
+# Get tester information (parameters 6 and 7 from orchestrator, or from environment if from collect_test_parameters)
+TESTER_NAME="${6:-${TESTER_NAME:-N/A}}"
+QUALITY_CHECKER_NAME="${7:-${QUALITY_CHECKER_NAME:-N/A}}"
+
 ################################################################################
 # CONFIGURATION
 ################################################################################
@@ -740,6 +744,9 @@ echo ""
 echo "================================================================================"
 echo "  CORRECTED RAM TEST COMPLETED"
 echo "================================================================================"
+echo ""
+echo "Tester: $TESTER_NAME"
+echo "Quality Checker: $QUALITY_CHECKER_NAME"
 echo ""
 
 if [ $RAM_TEST_RESULT -eq 0 ]; then

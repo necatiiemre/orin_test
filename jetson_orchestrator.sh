@@ -84,6 +84,21 @@ collect_credentials() {
     echo ""
     echo ""
 
+    # Prompt for tester name
+    read -p "$(echo -e ${BOLD}Enter tester name${NC}): " TESTER_NAME
+    while [ -z "$TESTER_NAME" ]; do
+        echo -e "${RED}Tester name is required${NC}"
+        read -p "$(echo -e ${BOLD}Enter tester name${NC}): " TESTER_NAME
+    done
+
+    # Prompt for quality checker name
+    read -p "$(echo -e ${BOLD}Enter quality checker name${NC}): " QUALITY_CHECKER_NAME
+    while [ -z "$QUALITY_CHECKER_NAME" ]; do
+        echo -e "${RED}Quality checker name is required${NC}"
+        read -p "$(echo -e ${BOLD}Enter quality checker name${NC}): " QUALITY_CHECKER_NAME
+    done
+    echo ""
+
     # Test SSH connection
     echo -e "${CYAN}Testing SSH connection to $ORIN_USER@$ORIN_IP...${NC}"
 
@@ -394,7 +409,7 @@ run_test() {
     esac
 
     # Run the test
-    if bash "$SCRIPT_DIR/$TEST_SCRIPT" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR"; then
+    if bash "$SCRIPT_DIR/$TEST_SCRIPT" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR" "$TESTER_NAME" "$QUALITY_CHECKER_NAME"; then
         echo ""
         echo -e "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
         echo -e "${BOLD}${GREEN}  ✓ TEST PASSED: $TEST_NAME${NC}"

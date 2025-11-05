@@ -241,6 +241,21 @@ collect_test_parameters() {
         echo ""
         ORIN_PASS="$input_pass"
     fi
+    echo ""
+
+    # Collect tester name
+    read -p "$(echo -e ${BOLD}Tester name${NC}): " TESTER_NAME
+    while [ -z "$TESTER_NAME" ]; do
+        echo -e "${RED}Tester name is required${NC}"
+        read -p "$(echo -e ${BOLD}Tester name${NC}): " TESTER_NAME
+    done
+
+    # Collect quality checker name
+    read -p "$(echo -e ${BOLD}Quality checker name${NC}): " QUALITY_CHECKER_NAME
+    while [ -z "$QUALITY_CHECKER_NAME" ]; do
+        echo -e "${RED}Quality checker name is required${NC}"
+        read -p "$(echo -e ${BOLD}Quality checker name${NC}): " QUALITY_CHECKER_NAME
+    done
 
     # Collect test duration
     read -p "$(echo -e ${BOLD}Test duration in hours${NC}) [$default_duration]: " input_duration
@@ -258,10 +273,12 @@ collect_test_parameters() {
     echo -e "${GREEN}${BOLD}  TEST CONFIGURATION${NC}"
     echo -e "${GREEN}═══════════════════════════════════════════════════════════════════════════════${NC}"
     echo ""
-    echo -e "${BOLD}Target IP:${NC}        $ORIN_IP"
-    echo -e "${BOLD}Username:${NC}         $ORIN_USER"
-    echo -e "${BOLD}Password:${NC}         $(echo "$ORIN_PASS" | sed 's/./*/g')"
-    echo -e "${BOLD}Test duration:${NC}    $TEST_DURATION_HOURS hours"
+    echo -e "${BOLD}Target IP:${NC}          $ORIN_IP"
+    echo -e "${BOLD}Username:${NC}           $ORIN_USER"
+    echo -e "${BOLD}Password:${NC}           $(echo "$ORIN_PASS" | sed 's/./*/g')"
+    echo -e "${BOLD}Tester name:${NC}        $TESTER_NAME"
+    echo -e "${BOLD}Quality checker:${NC}    $QUALITY_CHECKER_NAME"
+    echo -e "${BOLD}Test duration:${NC}      $TEST_DURATION_HOURS hours"
     echo ""
 
     # Ask for confirmation
@@ -282,6 +299,8 @@ collect_test_parameters() {
     export ORIN_IP
     export ORIN_USER
     export ORIN_PASS
+    export TESTER_NAME
+    export QUALITY_CHECKER_NAME
     export TEST_DURATION_HOURS
 }
 

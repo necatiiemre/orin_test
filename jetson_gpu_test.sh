@@ -48,6 +48,10 @@ else
     collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-2}"
 fi
 
+# Get tester information (parameters 6 and 7 from orchestrator, or from environment if from collect_test_parameters)
+TESTER_NAME="${6:-${TESTER_NAME:-N/A}}"
+QUALITY_CHECKER_NAME="${7:-${QUALITY_CHECKER_NAME:-N/A}}"
+
 ################################################################################
 # CONFIGURATION
 ################################################################################
@@ -1812,6 +1816,9 @@ log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$
     echo "Test duration: ${TEST_DURATION} seconds (${REMOTE_DISPLAY_HOURS} hours)"
     echo "Test directory: $TEST_DIR"
     echo "Script version: v2.0 DETAILED (Enhanced with multi-codec, power, throttling)"
+    echo ""
+    echo "Tester: $TESTER_NAME"
+    echo "Quality Checker: $QUALITY_CHECKER_NAME"
     echo ""
 
     echo "================================================================================"

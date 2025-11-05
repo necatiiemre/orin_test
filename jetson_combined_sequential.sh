@@ -38,6 +38,10 @@ else
     collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
 fi
 
+# Get tester information (parameters 6 and 7 from orchestrator, or from environment if from collect_test_parameters)
+TESTER_NAME="${6:-${TESTER_NAME:-N/A}}"
+QUALITY_CHECKER_NAME="${7:-${QUALITY_CHECKER_NAME:-N/A}}"
+
 ################################################################################
 # CONFIGURATION
 ################################################################################
@@ -167,7 +171,7 @@ run_component_test() {
     echo ""
 
     # Run the test
-    if bash "$SCRIPT_DIR/$test_script" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$test_log_dir"; then
+    if bash "$SCRIPT_DIR/$test_script" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$test_log_dir" "$TESTER_NAME" "$QUALITY_CHECKER_NAME"; then
         TEST_RESULTS[$test_num]="PASSED"
         log_success "$test_name PASSED"
     else
@@ -246,6 +250,9 @@ echo ""
 echo "Test Date: $(date)"
 echo "Total Duration: $((TOTAL_DURATION / 3600)) hours $((TOTAL_DURATION % 3600 / 60)) minutes"
 echo "Results Directory: $LOG_DIR"
+echo ""
+echo "Tester: $TESTER_NAME"
+echo "Quality Checker: $QUALITY_CHECKER_NAME"
 echo ""
 echo "================================================================================"
 echo "  COMPONENT RESULTS"
