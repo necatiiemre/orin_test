@@ -1,11 +1,11 @@
 #!/bin/bash
 
 ################################################################################
-# JETSON ORIN AGX - COMBINED PARALLEL STRESS TEST
+# JETSON ORIN - COMBINED PARALLEL STRESS TEST
 ################################################################################
 # Description: Run CPU, GPU, RAM, and Storage tests simultaneously
-# Version: 1.0
-# Purpose: Maximum system stress with all components under load
+# Features: Parallel execution, real-time monitoring, comprehensive reporting
+# Version: 1.0 - Initial Release
 ################################################################################
 
 set -e
@@ -35,54 +35,60 @@ if [ -n "$1" ] && [ -n "$2" ] && [ -n "$3" ] && [ -n "$4" ]; then
     fi
 else
     # Interactive mode: collect parameters
-    collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
+    collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-2}"
 fi
 
 ################################################################################
 # CONFIGURATION
 ################################################################################
 
-TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Convert hours to seconds (handle decimals)
+TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)
 
-LOG_DIR="${5:-./combined_parallel_test_$(date +%Y%m%d_%H%M%S)}"
+# Master log directory
+LOG_DIR="./combined_parallel_test_$(date +%Y%m%d_%H%M%S)"
 
 ################################################################################
-# USAGE
+# USAGE & HELP
 ################################################################################
 
 show_usage() {
     cat << 'EOF'
 ================================================================================
-  JETSON ORIN AGX - COMBINED PARALLEL STRESS TEST
+  JETSON ORIN COMBINED PARALLEL STRESS TEST
 ================================================================================
 
-Usage: ./jetson_combined_parallel_test.sh [ip] [user] [password] [hours] [log_dir]
+Usage: ./jetson_combined_parallel_test.sh [orin_ip] [orin_user] [password] [hours]
 
 Parameters:
-  ip       : Jetson Orin IP (default: 192.168.55.69)
-  user     : SSH username (default: orin)
-  password : SSH password (will prompt if not provided)
-  hours    : Test duration in hours (default: 1)
-  log_dir  : Log directory (default: ./combined_parallel_test_YYYYMMDD_HHMMSS)
+  orin_ip     : IP address of Jetson Orin (default: 192.168.55.69)
+  orin_user   : SSH username (default: orin)
+  password    : SSH password (will prompt if not provided)
+  hours       : Test duration in hours (default: 2, supports decimals like 0.5)
 
-TEST STRATEGY:
-  This test runs ALL components simultaneously:
-  • CPU stress (all cores at 100%)
-  • GPU stress (CUDA + VPU + Graphics)
-  • RAM stress (75% memory usage)
-  • Storage stress (I/O operations)
-  • Real-time monitoring (temps, power, utilization)
+What This Test Does:
+  Runs ALL stress tests SIMULTANEOUSLY:
+  • CPU Test      - Multi-core stress, thermal monitoring
+  • GPU Test      - CUDA, VPU, Graphics workloads
+  • RAM Test      - Memory integrity and pattern tests
+  • Storage Test  - I/O performance and health checks
 
-INTENSITY LEVEL: MAXIMUM
-  This is the most demanding test possible. It will:
-  - Push all hardware to absolute limits
-  - Generate maximum heat
-  - Consume maximum power
-  - Test system stability under extreme load
+Why Parallel Testing:
+  • Simulates real-world heavy workload scenarios
+  • Tests system under maximum combined stress
+  • Validates thermal management under full load
+  • Identifies interaction issues between components
+  • Ensures system stability under extreme conditions
 
 Examples:
-  ./jetson_combined_parallel_test.sh                    # 1 hour test
-  ./jetson_combined_parallel_test.sh 192.168.55.69 orin mypass 2  # 2 hour test
+  ./jetson_combined_parallel_test.sh                      # 2 hour combined test
+  ./jetson_combined_parallel_test.sh 192.168.55.69 orin q 1  # 1 hour test
+  ./jetson_combined_parallel_test.sh 192.168.55.69 orin q 0.5  # 30 minute test
+
+Output:
+  • Individual test results in separate directories
+  • Combined system health report
+  • Performance analysis across all components
+  • Recommendations based on overall system behavior
 
 ================================================================================
 EOF
@@ -97,714 +103,622 @@ fi
 # INITIALIZATION
 ################################################################################
 
-log_phase "JETSON ORIN COMBINED PARALLEL STRESS TEST"
-
-echo "[COMBINED PARALLEL TEST CONFIGURATION]"
-echo "  • Target: $ORIN_USER@$ORIN_IP"
-echo "  • Duration: $TEST_DURATION_HOURS hours ($TEST_DURATION seconds)"
-echo "  • Test Mode: ALL COMPONENTS SIMULTANEOUSLY"
-echo "  • Intensity: MAXIMUM"
-echo "  • Components: CPU + GPU + RAM + Storage"
+echo "================================================================================"
+echo "  JETSON ORIN COMBINED PARALLEL STRESS TEST"
+echo "================================================================================"
+echo ""
+echo "Test Configuration:"
+echo "  • Target Device: $ORIN_IP"
+echo "  • SSH User: $ORIN_USER"
+echo "  • Test Duration: ${TEST_DURATION_HOURS} hours ($TEST_DURATION seconds)"
+echo "  • Test Mode: PARALLEL (All components simultaneously)"
+echo ""
+echo "Tests to Run:"
+echo "  [1] CPU Stress Test    - Multi-core performance"
+echo "  [2] GPU Stress Test    - CUDA/VPU/Graphics"
+echo "  [3] RAM Stress Test    - Memory integrity"
+echo "  [4] Storage Test       - I/O and health"
 echo ""
 
-# Check prerequisites
-check_prerequisites "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS"
+# Check for sshpass
+if ! command -v sshpass &> /dev/null; then
+    log_error "sshpass not found. Install with: sudo apt install sshpass"
+    exit 1
+fi
 
-# Create log directories
-ensure_directory "$LOG_DIR/logs"
-ensure_directory "$LOG_DIR/reports"
-ensure_directory "$LOG_DIR/monitoring"
+# Test SSH connection
+log_info "Testing SSH connection..."
+if ! sshpass -p "$ORIN_PASS" ssh -o ConnectTimeout=10 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "echo 'OK'" 2>/dev/null | grep -q "OK"; then
+    log_error "SSH connection failed"
+    exit 1
+fi
+log_success "SSH connection established"
+echo ""
+
+# Create directory structure
+mkdir -p "$LOG_DIR/cpu_test"
+mkdir -p "$LOG_DIR/gpu_test"
+mkdir -p "$LOG_DIR/ram_test"
+mkdir -p "$LOG_DIR/storage_test"
+mkdir -p "$LOG_DIR/monitoring"
+mkdir -p "$LOG_DIR/logs"
+mkdir -p "$LOG_DIR/reports"
 
 # Convert to absolute path
 LOG_DIR=$(cd "$LOG_DIR" && pwd)
 
-log_success "Initialization complete"
-log_info "Results will be saved to: $LOG_DIR"
+log_info "Master results directory: $LOG_DIR"
 echo ""
 
 ################################################################################
-# REMOTE COMBINED PARALLEL TEST
+# SYSTEM BASELINE CAPTURE
 ################################################################################
 
-log_phase "STARTING COMBINED PARALLEL STRESS TEST"
+log_phase "PHASE 0: CAPTURING SYSTEM BASELINE"
 
-ssh_execute_with_output "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "
-export ORIN_PASS='$ORIN_PASS'
-export TEST_DURATION=$TEST_DURATION
-bash -s" << 'REMOTE_COMBINED_START' | tee "$LOG_DIR/logs/combined_parallel_test.log"
+log_info "Capturing system state before stress tests..."
 
+sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "bash -s" << 'BASELINE_SCRIPT' > "$LOG_DIR/logs/baseline.log" 2>&1
 #!/bin/bash
 
-set -e
-
-# Test directory
-TEST_DIR="/tmp/jetson_combined_parallel_$(date +%Y%m%d_%H%M%S)"
-LOG_DIR="$TEST_DIR/logs"
-REPORT_DIR="$TEST_DIR/reports"
-MONITOR_DIR="$TEST_DIR/monitoring"
-
-mkdir -p "$TEST_DIR" "$LOG_DIR" "$REPORT_DIR" "$MONITOR_DIR"
-
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-MAGENTA='\033[0;35m'
-CYAN='\033[0;36m'
-NC='\033[0m'
-
-log_info() { echo -e "${CYAN}[INFO]${NC} $(date '+%H:%M:%S') $1"; }
-log_success() { echo -e "${GREEN}[SUCCESS]${NC} $(date '+%H:%M:%S') $1"; }
-log_warning() { echo -e "${YELLOW}[WARNING]${NC} $(date '+%H:%M:%S') $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $(date '+%H:%M:%S') $1"; }
-log_phase() { echo -e "\n${MAGENTA}========================================\n$1\n========================================${NC}\n"; }
-
-################################################################################
-# SYSTEM INFORMATION
-################################################################################
-
-log_phase "SYSTEM INFORMATION COLLECTION"
-
-{
-    echo "=== JETSON ORIN COMBINED PARALLEL STRESS TEST ==="
-    echo "Start Time: $(date)"
-    echo "Test Duration: $TEST_DURATION seconds"
-    echo ""
-    echo "=== HARDWARE INFO ==="
-    echo "Hostname: $(hostname)"
-    echo "Kernel: $(uname -r)"
-    if [ -f /etc/nv_tegra_release ]; then
-        echo "JetPack: $(cat /etc/nv_tegra_release)"
-    fi
-    echo ""
-    echo "CPU Cores: $(nproc)"
-    echo "Total RAM: $(free -h | awk 'NR==2 {print $2}')"
-    echo "Available RAM: $(free -h | awk 'NR==2 {print $7}')"
-    echo ""
-    echo "=== INITIAL TEMPERATURES ==="
-    for i in $(seq 0 5); do
-        if [ -f "/sys/devices/virtual/thermal/thermal_zone$i/temp" ]; then
-            temp=$(cat /sys/devices/virtual/thermal/thermal_zone$i/temp 2>/dev/null)
-            temp_c=$((temp / 1000))
-            zone_type=$(cat /sys/devices/virtual/thermal/thermal_zone$i/type 2>/dev/null)
-            echo "$zone_type: ${temp_c}°C"
-        fi
-    done
-    echo ""
-} > "$LOG_DIR/system_info.log"
-
-log_success "System information collected"
-
-################################################################################
-# MONITORING SETUP
-################################################################################
-
-log_info "Starting comprehensive system monitoring..."
-
-# Temperature and utilization monitoring
-{
-    echo "timestamp,cpu_temp,gpu_temp,cpu_usage,gpu_usage,memory_usage,cpu_freq,gpu_freq,power"
-    while true; do
-        timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-        cpu_temp=$(cat /sys/devices/virtual/thermal/thermal_zone0/temp 2>/dev/null | awk '{print $1/1000}' || echo "N/A")
-        gpu_temp=$(cat /sys/devices/virtual/thermal/thermal_zone1/temp 2>/dev/null | awk '{print $1/1000}' || echo "N/A")
-        cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | awk -F'%' '{print $1}' || echo "N/A")
-        gpu_usage=$(nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits 2>/dev/null || echo "N/A")
-        memory_usage=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}' || echo "N/A")
-        cpu_freq=$(cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq 2>/dev/null | awk '{print $1/1000}' || echo "N/A")
-        gpu_freq="N/A"
-        power="N/A"
-
-        echo "$timestamp,$cpu_temp,$gpu_temp,$cpu_usage,$gpu_usage,$memory_usage,$cpu_freq,$gpu_freq,$power"
-        sleep 5
-    done
-} > "$MONITOR_DIR/system_monitoring.csv" &
-MONITOR_PID=$!
-
-log_success "Monitoring started (PID: $MONITOR_PID)"
-
-################################################################################
-# COMPONENT STRESS TEST FUNCTIONS
-################################################################################
-
-log_phase "PREPARING COMPONENT STRESS TESTS"
-
-# Get memory info for RAM test
-TOTAL_RAM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-AVAILABLE_RAM_KB=$(grep MemAvailable /proc/meminfo | awk '{print $2}')
-AVAILABLE_RAM_MB=$((AVAILABLE_RAM_KB / 1024))
-TEST_MEMORY_MB=$((AVAILABLE_RAM_MB * 75 / 100 - 500))  # 75% - 500MB safety margin
-
-log_info "Memory allocation for RAM test: ${TEST_MEMORY_MB}MB"
-
-# CPU cores for parallel tests
-CPU_CORES=$(nproc)
-log_info "CPU cores available: $CPU_CORES"
-
-################################################################################
-# CREATE CPU STRESS TEST
-################################################################################
-
-log_info "Creating CPU stress component..."
-
-cat > "$TEST_DIR/cpu_stress.sh" << 'CPU_STRESS_EOF'
-#!/bin/bash
-DURATION=$1
-LOG_FILE=$2
-
-log_cpu() { echo "[CPU] $(date '+%H:%M:%S') $1" >> "$LOG_FILE"; }
-
-log_cpu "Starting CPU stress test for $DURATION seconds"
-
-# Use stress-ng if available, otherwise fallback
-if command -v stress-ng >/dev/null 2>&1; then
-    log_cpu "Using stress-ng for CPU stress"
-    stress-ng --cpu $(nproc) --cpu-method all --timeout ${DURATION}s --metrics-brief >> "$LOG_FILE" 2>&1
-    CPU_RESULT=$?
-else
-    log_cpu "Using fallback CPU stress (all cores)"
-    # Fallback: CPU intensive loop on all cores
-    for i in $(seq 1 $(nproc)); do
-        {
-            END=$(($(date +%s) + DURATION))
-            while [ $(date +%s) -lt $END ]; do
-                echo "scale=5000; a(1)*4" | bc -l >/dev/null 2>&1
-            done
-        } &
-    done
-    wait
-    CPU_RESULT=0
-fi
-
-log_cpu "CPU stress test completed with result: $CPU_RESULT"
-exit $CPU_RESULT
-CPU_STRESS_EOF
-
-chmod +x "$TEST_DIR/cpu_stress.sh"
-
-################################################################################
-# CREATE GPU STRESS TEST
-################################################################################
-
-log_info "Creating GPU stress component..."
-
-cat > "$TEST_DIR/gpu_stress.sh" << 'GPU_STRESS_EOF'
-#!/bin/bash
-DURATION=$1
-LOG_FILE=$2
-
-log_gpu() { echo "[GPU] $(date '+%H:%M:%S') $1" >> "$LOG_FILE"; }
-
-log_gpu "Starting GPU stress test for $DURATION seconds"
-
-GPU_RESULT=0
-
-# CUDA stress if nvcc available
-if command -v nvcc >/dev/null 2>&1; then
-    log_gpu "Running CUDA compute stress"
-
-    cat > /tmp/gpu_stress.cu << 'CUDA_EOF'
-#include <cuda_runtime.h>
-#include <stdio.h>
-#include <time.h>
-
-__global__ void intensive_kernel(float *data, int size) {
-    int idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (idx < size) {
-        float val = data[idx];
-        for (int i = 0; i < 1000; i++) {
-            val = sinf(val) * cosf(val) + sqrtf(fabsf(val));
-        }
-        data[idx] = val;
-    }
-}
-
-int main(int argc, char *argv[]) {
-    int duration = argc > 1 ? atoi(argv[1]) : 60;
-    int size = 10000000;
-    float *d_data;
-
-    cudaMalloc(&d_data, size * sizeof(float));
-
-    time_t start = time(NULL);
-    int ops = 0;
-
-    while (difftime(time(NULL), start) < duration) {
-        intensive_kernel<<<10000, 1000>>>(d_data, size);
-        cudaDeviceSynchronize();
-        ops++;
-    }
-
-    cudaFree(d_data);
-    printf("GPU operations: %d\n", ops);
-    return 0;
-}
-CUDA_EOF
-
-    if nvcc -o /tmp/gpu_stress /tmp/gpu_stress.cu 2>&1 | tee -a "$LOG_FILE"; then
-        /tmp/gpu_stress $DURATION >> "$LOG_FILE" 2>&1 || GPU_RESULT=1
-    else
-        log_gpu "CUDA compilation failed"
-        GPU_RESULT=1
-    fi
-else
-    log_gpu "CUDA not available, using nvidia-smi monitoring"
-    # Just monitor GPU while other tests run
-    END=$(($(date +%s) + DURATION))
-    while [ $(date +%s) -lt $END ]; do
-        nvidia-smi --query-gpu=utilization.gpu,temperature.gpu --format=csv,noheader >> "$LOG_FILE" 2>&1 || true
-        sleep 10
-    done
-fi
-
-log_gpu "GPU stress test completed with result: $GPU_RESULT"
-exit $GPU_RESULT
-GPU_STRESS_EOF
-
-chmod +x "$TEST_DIR/gpu_stress.sh"
-
-################################################################################
-# CREATE RAM STRESS TEST
-################################################################################
-
-log_info "Creating RAM stress component..."
-
-cat > "$TEST_DIR/ram_stress.py" << 'RAM_STRESS_EOF'
-#!/usr/bin/env python3
-import sys
-import time
-import random
-
-def ram_stress(memory_mb, duration):
-    print(f"[RAM] Starting RAM stress: {memory_mb}MB for {duration}s", flush=True)
-
-    try:
-        # Allocate memory in 50MB chunks
-        blocks = []
-        block_size = 50 * 1024 * 1024  # 50MB
-        target_blocks = memory_mb // 50
-
-        print(f"[RAM] Allocating {target_blocks} blocks of 50MB each", flush=True)
-
-        for i in range(target_blocks):
-            block = bytearray(block_size)
-            # Fill with random data
-            for j in range(0, block_size, 4096):
-                block[j] = random.randint(0, 255)
-            blocks.append(block)
-
-            if (i + 1) % 10 == 0:
-                print(f"[RAM] Allocated {i+1}/{target_blocks} blocks", flush=True)
-
-        print(f"[RAM] Allocation complete. Running stress operations...", flush=True)
-
-        # Stress test: continuous read/write
-        start = time.time()
-        operations = 0
-
-        while time.time() - start < duration:
-            # Random block selection and modification
-            for _ in range(100):
-                block_idx = random.randint(0, len(blocks) - 1)
-                pos = random.randint(0, len(blocks[block_idx]) - 8)
-                value = random.randint(0, 255)
-                blocks[block_idx][pos] = value
-
-                # Verify
-                if blocks[block_idx][pos] != value:
-                    print(f"[RAM] ERROR: Memory verification failed!", flush=True)
-                    return 1
-
-            operations += 1
-
-            if operations % 100 == 0:
-                elapsed = time.time() - start
-                remaining = duration - elapsed
-                print(f"[RAM] Operations: {operations}, Remaining: {remaining:.0f}s", flush=True)
-
-        print(f"[RAM] Stress test completed. Total operations: {operations}", flush=True)
-        return 0
-
-    except MemoryError:
-        print(f"[RAM] ERROR: Memory allocation failed", flush=True)
-        return 1
-    except Exception as e:
-        print(f"[RAM] ERROR: {e}", flush=True)
-        return 1
-
-if __name__ == "__main__":
-    memory_mb = int(sys.argv[1]) if len(sys.argv) > 1 else 1000
-    duration = int(sys.argv[2]) if len(sys.argv) > 2 else 60
-    sys.exit(ram_stress(memory_mb, duration))
-RAM_STRESS_EOF
-
-chmod +x "$TEST_DIR/ram_stress.py"
-
-################################################################################
-# CREATE STORAGE STRESS TEST
-################################################################################
-
-log_info "Creating storage stress component..."
-
-cat > "$TEST_DIR/storage_stress.sh" << 'STORAGE_STRESS_EOF'
-#!/bin/bash
-DURATION=$1
-LOG_FILE=$2
-TEST_DIR=$3
-
-log_storage() { echo "[STORAGE] $(date '+%H:%M:%S') $1" >> "$LOG_FILE"; }
-
-log_storage "Starting storage stress test for $DURATION seconds"
-
-STORAGE_DIR="$TEST_DIR/storage_test"
-mkdir -p "$STORAGE_DIR"
-
-STORAGE_RESULT=0
-END=$(($(date +%s) + DURATION))
-OPERATIONS=0
-
-while [ $(date +%s) -lt $END ]; do
-    # Write test
-    dd if=/dev/urandom of="$STORAGE_DIR/test_$OPERATIONS.dat" bs=1M count=50 2>/dev/null || STORAGE_RESULT=1
-
-    # Read test
-    dd if="$STORAGE_DIR/test_$OPERATIONS.dat" of=/dev/null bs=1M 2>/dev/null || STORAGE_RESULT=1
-
-    # Delete test
-    rm -f "$STORAGE_DIR/test_$OPERATIONS.dat"
-
-    OPERATIONS=$((OPERATIONS + 1))
-
-    if [ $((OPERATIONS % 10)) -eq 0 ]; then
-        log_storage "Operations completed: $OPERATIONS"
-    fi
-done
-
-log_storage "Storage stress test completed. Total operations: $OPERATIONS, Result: $STORAGE_RESULT"
-
-# Cleanup
-rm -rf "$STORAGE_DIR"
-
-exit $STORAGE_RESULT
-STORAGE_STRESS_EOF
-
-chmod +x "$TEST_DIR/storage_stress.sh"
-
-log_success "All component stress tests created"
-
-################################################################################
-# EXECUTE COMBINED PARALLEL STRESS TEST
-################################################################################
-
-log_phase "STARTING ALL COMPONENTS IN PARALLEL"
-
-echo "WARNING: This will push ALL hardware to absolute limits simultaneously!"
-echo "Duration: $TEST_DURATION seconds"
+echo "=== SYSTEM BASELINE BEFORE PARALLEL STRESS TEST ==="
+echo "Timestamp: $(date)"
 echo ""
 
-# Start all components in parallel
-log_info "Launching CPU stress..."
-"$TEST_DIR/cpu_stress.sh" $TEST_DURATION "$LOG_DIR/cpu_stress.log" &
+echo "=== CPU INFO ==="
+lscpu | grep -E "Model name|CPU\(s\)|Thread|Core|Socket|MHz"
+echo ""
+
+echo "=== MEMORY INFO ==="
+free -h
+echo ""
+
+echo "=== GPU INFO ==="
+nvidia-smi 2>/dev/null || echo "nvidia-smi not available"
+echo ""
+
+echo "=== THERMAL BASELINE ==="
+cat /sys/devices/virtual/thermal/thermal_zone*/temp 2>/dev/null | awk '{print "Thermal Zone: " $1/1000 "°C"}' || echo "Temperature sensors not available"
+echo ""
+
+echo "=== STORAGE INFO ==="
+df -h
+echo ""
+
+echo "=== LOAD AVERAGE ==="
+uptime
+echo ""
+
+BASELINE_SCRIPT
+
+log_success "Baseline captured"
+echo ""
+
+################################################################################
+# LAUNCH PARALLEL TESTS
+################################################################################
+
+log_phase "PHASE 1: LAUNCHING PARALLEL STRESS TESTS"
+
+TEST_START_TIME=$(date +%s)
+
+# CPU Test
+log_info "[1/4] Launching CPU stress test..."
+"$SCRIPT_DIR/jetson_cpu_test.sh" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR/cpu_test" > "$LOG_DIR/logs/cpu_test.log" 2>&1 &
 CPU_PID=$!
+log_success "CPU test launched (PID: $CPU_PID)"
 
-log_info "Launching GPU stress..."
-"$TEST_DIR/gpu_stress.sh" $TEST_DURATION "$LOG_DIR/gpu_stress.log" &
+sleep 2
+
+# GPU Test
+log_info "[2/4] Launching GPU stress test..."
+"$SCRIPT_DIR/jetson_gpu_test.sh" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR/gpu_test" > "$LOG_DIR/logs/gpu_test.log" 2>&1 &
 GPU_PID=$!
+log_success "GPU test launched (PID: $GPU_PID)"
 
-log_info "Launching RAM stress..."
-python3 "$TEST_DIR/ram_stress.py" $TEST_MEMORY_MB $TEST_DURATION > "$LOG_DIR/ram_stress.log" 2>&1 &
+sleep 2
+
+# RAM Test
+log_info "[3/4] Launching RAM stress test..."
+"$SCRIPT_DIR/jetson_ram_test.sh" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR/ram_test" > "$LOG_DIR/logs/ram_test.log" 2>&1 &
 RAM_PID=$!
+log_success "RAM test launched (PID: $RAM_PID)"
 
-log_info "Launching Storage stress..."
-"$TEST_DIR/storage_stress.sh" $TEST_DURATION "$LOG_DIR/storage_stress.log" "$TEST_DIR" &
+sleep 2
+
+# Storage Test
+log_info "[4/4] Launching Storage stress test..."
+"$SCRIPT_DIR/jetson_storage_test.sh" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR/storage_test" > "$LOG_DIR/logs/storage_test.log" 2>&1 &
 STORAGE_PID=$!
+log_success "Storage test launched (PID: $STORAGE_PID)"
 
-log_success "All components launched in parallel"
+echo ""
+log_success "All tests launched successfully!"
 echo ""
 echo "Process IDs:"
-echo "  CPU:     $CPU_PID"
-echo "  GPU:     $GPU_PID"
-echo "  RAM:     $RAM_PID"
-echo "  Storage: $STORAGE_PID"
+echo "  • CPU Test:     $CPU_PID"
+echo "  • GPU Test:     $GPU_PID"
+echo "  • RAM Test:     $RAM_PID"
+echo "  • Storage Test: $STORAGE_PID"
 echo ""
 
-# Monitor progress
-log_info "Monitoring parallel execution..."
-START_TIME=$(date +%s)
+################################################################################
+# MONITORING LOOP
+################################################################################
+
+log_phase "PHASE 2: MONITORING PARALLEL EXECUTION"
+
+log_info "Monitoring all tests in real-time..."
+log_info "Test duration: ${TEST_DURATION_HOURS} hours ($TEST_DURATION seconds)"
+echo ""
+
+# Create monitoring script
+MONITOR_LOG="$LOG_DIR/monitoring/system_monitor.log"
+
+# Start system monitoring in background
+(
+    echo "=== SYSTEM MONITORING DURING PARALLEL STRESS TEST ==="
+    echo "Start Time: $(date)"
+    echo ""
+
+    MONITOR_INTERVAL=30  # Monitor every 30 seconds
+    MONITOR_COUNT=0
+
+    while kill -0 $CPU_PID 2>/dev/null || kill -0 $GPU_PID 2>/dev/null || kill -0 $RAM_PID 2>/dev/null || kill -0 $STORAGE_PID 2>/dev/null; do
+        MONITOR_COUNT=$((MONITOR_COUNT + 1))
+
+        echo "=== MONITOR SAMPLE #$MONITOR_COUNT - $(date) ==="
+
+        # Get system stats from remote
+        sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "bash -s" << 'MONITOR_REMOTE'
+#!/bin/bash
+
+echo "--- CPU Load ---"
+uptime | awk '{print "Load Average: " $(NF-2) " " $(NF-1) " " $NF}'
+echo ""
+
+echo "--- Memory Usage ---"
+free -h | grep -E "Mem:|Swap:"
+echo ""
+
+echo "--- Temperature ---"
+cat /sys/devices/virtual/thermal/thermal_zone*/temp 2>/dev/null | awk '{printf "Zone: %.1f°C\n", $1/1000}' || echo "N/A"
+echo ""
+
+echo "--- GPU Status ---"
+nvidia-smi --query-gpu=utilization.gpu,utilization.memory,temperature.gpu,power.draw --format=csv,noheader,nounits 2>/dev/null || echo "N/A"
+echo ""
+
+echo "--- Storage I/O ---"
+iostat -x 1 2 2>/dev/null | tail -n +4 | head -5 || echo "N/A"
+echo ""
+
+MONITOR_REMOTE
+
+        echo "----------------------------------------"
+        echo ""
+
+        sleep $MONITOR_INTERVAL
+    done
+
+    echo "=== MONITORING COMPLETED ==="
+    echo "End Time: $(date)"
+
+) > "$MONITOR_LOG" 2>&1 &
+
+MONITOR_PID=$!
+
+# Status checking loop
+CHECK_INTERVAL=60  # Check status every 60 seconds
+LAST_STATUS_TIME=$(date +%s)
 
 while true; do
     CURRENT_TIME=$(date +%s)
-    ELAPSED=$((CURRENT_TIME - START_TIME))
+    ELAPSED=$((CURRENT_TIME - TEST_START_TIME))
     REMAINING=$((TEST_DURATION - ELAPSED))
 
-    # Check if all processes are still running
-    RUNNING=0
-    kill -0 $CPU_PID 2>/dev/null && RUNNING=$((RUNNING + 1))
-    kill -0 $GPU_PID 2>/dev/null && RUNNING=$((RUNNING + 1))
-    kill -0 $RAM_PID 2>/dev/null && RUNNING=$((RUNNING + 1))
-    kill -0 $STORAGE_PID 2>/dev/null && RUNNING=$((RUNNING + 1))
+    # Check if all tests are still running
+    CPU_RUNNING=false
+    GPU_RUNNING=false
+    RAM_RUNNING=false
+    STORAGE_RUNNING=false
 
-    if [ $RUNNING -eq 0 ]; then
-        log_info "All components completed"
+    kill -0 $CPU_PID 2>/dev/null && CPU_RUNNING=true
+    kill -0 $GPU_PID 2>/dev/null && GPU_RUNNING=true
+    kill -0 $RAM_PID 2>/dev/null && RAM_RUNNING=true
+    kill -0 $STORAGE_PID 2>/dev/null && STORAGE_RUNNING=true
+
+    # If all tests completed, break
+    if ! $CPU_RUNNING && ! $GPU_RUNNING && ! $RAM_RUNNING && ! $STORAGE_RUNNING; then
+        log_success "All tests completed!"
         break
     fi
 
-    if [ $REMAINING -le 0 ]; then
-        log_info "Duration reached, waiting for processes to finish..."
-        break
-    fi
-
-    # Status update every 30 seconds
-    if [ $((ELAPSED % 30)) -eq 0 ]; then
-        echo "========================================"
-        echo "PROGRESS UPDATE - Elapsed: ${ELAPSED}s / Remaining: ${REMAINING}s"
-        echo "Active components: $RUNNING/4"
-
-        # Get current temps
-        CPU_TEMP=$(cat /sys/devices/virtual/thermal/thermal_zone0/temp 2>/dev/null | awk '{print $1/1000}')
-        GPU_TEMP=$(cat /sys/devices/virtual/thermal/thermal_zone1/temp 2>/dev/null | awk '{print $1/1000}')
-        echo "Temperatures: CPU ${CPU_TEMP}°C, GPU ${GPU_TEMP}°C"
-
-        # Get memory usage
-        MEM_USAGE=$(free | grep Mem | awk '{printf "%.1f", $3/$2 * 100.0}')
-        echo "Memory usage: ${MEM_USAGE}%"
-        echo "========================================"
+    # Print status update every CHECK_INTERVAL seconds
+    if [ $((CURRENT_TIME - LAST_STATUS_TIME)) -ge $CHECK_INTERVAL ]; then
+        echo "$(date '+%Y-%m-%d %H:%M:%S') - Status Update:"
+        echo "  Time Elapsed: $(($ELAPSED / 60)) minutes / $(($TEST_DURATION / 60)) minutes"
+        echo "  Time Remaining: $(($REMAINING / 60)) minutes"
+        echo "  CPU Test:     $($CPU_RUNNING && echo "RUNNING" || echo "COMPLETED")"
+        echo "  GPU Test:     $($GPU_RUNNING && echo "RUNNING" || echo "COMPLETED")"
+        echo "  RAM Test:     $($RAM_RUNNING && echo "RUNNING" || echo "COMPLETED")"
+        echo "  Storage Test: $($STORAGE_RUNNING && echo "RUNNING" || echo "COMPLETED")"
         echo ""
+
+        LAST_STATUS_TIME=$CURRENT_TIME
     fi
 
     sleep 5
 done
 
-# Wait for all processes to complete
-log_info "Waiting for all components to finish..."
-
-wait $CPU_PID 2>/dev/null
-CPU_RESULT=$?
-
-wait $GPU_PID 2>/dev/null
-GPU_RESULT=$?
-
-wait $RAM_PID 2>/dev/null
-RAM_RESULT=$?
-
-wait $STORAGE_PID 2>/dev/null
-STORAGE_RESULT=$?
-
 # Stop monitoring
 kill $MONITOR_PID 2>/dev/null || true
 wait $MONITOR_PID 2>/dev/null || true
 
-log_success "All parallel components completed"
+echo ""
 
 ################################################################################
-# RESULTS ANALYSIS
+# WAIT FOR ALL TESTS TO COMPLETE
 ################################################################################
 
-log_phase "ANALYZING RESULTS"
+log_phase "PHASE 3: COLLECTING TEST RESULTS"
 
-# Collect results
-TOTAL_FAILURES=0
+log_info "Waiting for all tests to complete..."
 
-echo "Component Results:"
-echo "=================="
+# Wait for each test and capture exit codes
+wait $CPU_PID 2>/dev/null
+CPU_EXIT=$?
+log_info "CPU test finished with exit code: $CPU_EXIT"
 
-if [ $CPU_RESULT -eq 0 ]; then
-    echo "[+] CPU:     PASSED"
-else
-    echo "[-] CPU:     FAILED (exit code: $CPU_RESULT)"
-    TOTAL_FAILURES=$((TOTAL_FAILURES + 1))
-fi
+wait $GPU_PID 2>/dev/null
+GPU_EXIT=$?
+log_info "GPU test finished with exit code: $GPU_EXIT"
 
-if [ $GPU_RESULT -eq 0 ]; then
-    echo "[+] GPU:     PASSED"
-else
-    echo "[-] GPU:     FAILED (exit code: $GPU_RESULT)"
-    TOTAL_FAILURES=$((TOTAL_FAILURES + 1))
-fi
+wait $RAM_PID 2>/dev/null
+RAM_EXIT=$?
+log_info "RAM test finished with exit code: $RAM_EXIT"
 
-if [ $RAM_RESULT -eq 0 ]; then
-    echo "[+] RAM:     PASSED"
-else
-    echo "[-] RAM:     FAILED (exit code: $RAM_RESULT)"
-    TOTAL_FAILURES=$((TOTAL_FAILURES + 1))
-fi
+wait $STORAGE_PID 2>/dev/null
+STORAGE_EXIT=$?
+log_info "Storage test finished with exit code: $STORAGE_EXIT"
 
-if [ $STORAGE_RESULT -eq 0 ]; then
-    echo "[+] Storage: PASSED"
-else
-    echo "[-] Storage: FAILED (exit code: $STORAGE_RESULT)"
-    TOTAL_FAILURES=$((TOTAL_FAILURES + 1))
-fi
+TEST_END_TIME=$(date +%s)
+TOTAL_DURATION=$((TEST_END_TIME - TEST_START_TIME))
 
 echo ""
-echo "Summary: $((4 - TOTAL_FAILURES))/4 components passed"
-
-# Analyze monitoring data
-if [ -f "$MONITOR_DIR/system_monitoring.csv" ]; then
-    log_info "Analyzing system monitoring data..."
-
-    {
-        echo "=== THERMAL ANALYSIS ==="
-        awk -F',' 'NR>1 && $2!="N/A" && $3!="N/A" {
-            cpu_sum+=$2; cpu_count++;
-            cpu_max=($2>cpu_max || cpu_max=="")?$2:cpu_max;
-            gpu_sum+=$3; gpu_count++;
-            gpu_max=($3>gpu_max || gpu_max=="")?$3:gpu_max;
-        }
-        END {
-            if(cpu_count>0) printf "CPU Temp: Avg %.1f°C, Max %.1f°C\n", cpu_sum/cpu_count, cpu_max;
-            if(gpu_count>0) printf "GPU Temp: Avg %.1f°C, Max %.1f°C\n", gpu_sum/gpu_count, gpu_max;
-        }' "$MONITOR_DIR/system_monitoring.csv"
-
-        echo ""
-        echo "=== UTILIZATION ANALYSIS ==="
-        awk -F',' 'NR>1 && $4!="N/A" && $5!="N/A" {
-            cpu_util+=$4; cpu_samples++;
-            gpu_util+=$5; gpu_samples++;
-        }
-        END {
-            if(cpu_samples>0) printf "CPU Utilization: Avg %.1f%%\n", cpu_util/cpu_samples;
-            if(gpu_samples>0) printf "GPU Utilization: Avg %.1f%%\n", gpu_util/gpu_samples;
-        }' "$MONITOR_DIR/system_monitoring.csv"
-
-    } > "$REPORT_DIR/monitoring_analysis.txt"
-
-    cat "$REPORT_DIR/monitoring_analysis.txt"
-fi
+log_success "All tests have completed!"
+echo ""
 
 ################################################################################
-# FINAL REPORT
+# CAPTURE FINAL SYSTEM STATE
 ################################################################################
+
+log_info "Capturing final system state..."
+
+sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "bash -s" << 'FINAL_SCRIPT' > "$LOG_DIR/logs/final_state.log" 2>&1
+#!/bin/bash
+
+echo "=== SYSTEM STATE AFTER PARALLEL STRESS TEST ==="
+echo "Timestamp: $(date)"
+echo ""
+
+echo "=== THERMAL STATE ==="
+cat /sys/devices/virtual/thermal/thermal_zone*/temp 2>/dev/null | awk '{print "Thermal Zone: " $1/1000 "°C"}' || echo "Temperature sensors not available"
+echo ""
+
+echo "=== MEMORY STATE ==="
+free -h
+echo ""
+
+echo "=== GPU STATE ==="
+nvidia-smi 2>/dev/null || echo "nvidia-smi not available"
+echo ""
+
+echo "=== SYSTEM ERRORS ==="
+dmesg | tail -100 | grep -i "error\|fail\|warn" | tail -20 || echo "No recent errors"
+echo ""
+
+echo "=== LOAD AVERAGE ==="
+uptime
+echo ""
+
+FINAL_SCRIPT
+
+log_success "Final state captured"
+echo ""
+
+################################################################################
+# GENERATE COMBINED REPORT
+################################################################################
+
+log_phase "PHASE 4: GENERATING COMBINED REPORT"
+
+REPORT_FILE="$LOG_DIR/reports/COMBINED_TEST_REPORT.txt"
 
 {
     echo "================================================================================"
     echo "  JETSON ORIN COMBINED PARALLEL STRESS TEST - FINAL REPORT"
     echo "================================================================================"
     echo ""
-    echo "Test Date: $(date)"
-    echo "Duration: $TEST_DURATION seconds"
-    echo "Test Directory: $TEST_DIR"
-    echo ""
-    echo "================================================================================"
-    echo "  COMPONENT RESULTS"
-    echo "================================================================================"
-    echo ""
-    printf "%-12s : %s\n" "CPU" "$([ $CPU_RESULT -eq 0 ] && echo 'PASSED' || echo 'FAILED')"
-    printf "%-12s : %s\n" "GPU" "$([ $GPU_RESULT -eq 0 ] && echo 'PASSED' || echo 'FAILED')"
-    printf "%-12s : %s\n" "RAM" "$([ $RAM_RESULT -eq 0 ] && echo 'PASSED' || echo 'FAILED')"
-    printf "%-12s : %s\n" "Storage" "$([ $STORAGE_RESULT -eq 0 ] && echo 'PASSED' || echo 'FAILED')"
-    echo ""
-    echo "Total Failures: $TOTAL_FAILURES/4"
+    echo "Test Information:"
+    echo "  • Device IP: $ORIN_IP"
+    echo "  • Test Duration: ${TEST_DURATION_HOURS} hours ($TEST_DURATION seconds)"
+    echo "  • Actual Duration: $(($TOTAL_DURATION / 60)) minutes"
+    echo "  • Start Time: $(date -d @$TEST_START_TIME '+%Y-%m-%d %H:%M:%S')"
+    echo "  • End Time: $(date -d @$TEST_END_TIME '+%Y-%m-%d %H:%M:%S')"
     echo ""
 
-    if [ -f "$REPORT_DIR/monitoring_analysis.txt" ]; then
-        cat "$REPORT_DIR/monitoring_analysis.txt"
-    fi
-
-    echo ""
     echo "================================================================================"
-    echo "  OVERALL RESULT"
+    echo "  TEST RESULTS SUMMARY"
     echo "================================================================================"
     echo ""
 
-    if [ $TOTAL_FAILURES -eq 0 ]; then
-        echo "[+] RESULT: ALL COMPONENTS PASSED UNDER PARALLEL STRESS"
-        echo ""
-        echo "Your Jetson Orin successfully handled maximum simultaneous load across"
-        echo "all components (CPU, GPU, RAM, Storage). The system is stable and ready"
-        echo "for demanding parallel workloads."
+    # CPU Test Results
+    echo "--- CPU STRESS TEST ---"
+    if [ $CPU_EXIT -eq 0 ]; then
+        echo "  Status: ✓ PASSED"
     else
-        echo "[-] RESULT: $TOTAL_FAILURES COMPONENT(S) FAILED UNDER PARALLEL STRESS"
-        echo ""
-        echo "The system experienced failures when all components were stressed"
-        echo "simultaneously. This may indicate:"
-        echo "  • Power supply insufficiency"
-        echo "  • Thermal management issues"
-        echo "  • Hardware defects"
-        echo "  • Resource contention problems"
-        echo ""
-        echo "Review individual component logs for details."
+        echo "  Status: ✗ FAILED (Exit Code: $CPU_EXIT)"
     fi
 
+    if [ -f "$LOG_DIR/cpu_test/reports/CPU_PERFORMANCE_REPORT.txt" ]; then
+        echo "  Report: Available at cpu_test/reports/CPU_PERFORMANCE_REPORT.txt"
+        # Extract key metrics if available
+        grep -A 5 "OVERALL CPU HEALTH" "$LOG_DIR/cpu_test/reports/CPU_PERFORMANCE_REPORT.txt" 2>/dev/null | head -10 || echo "  Details in full report"
+    else
+        echo "  Report: Not generated (test may have failed early)"
+    fi
+    echo ""
+
+    # GPU Test Results
+    echo "--- GPU STRESS TEST ---"
+    if [ $GPU_EXIT -eq 0 ]; then
+        echo "  Status: ✓ PASSED"
+    else
+        echo "  Status: ✗ FAILED (Exit Code: $GPU_EXIT)"
+    fi
+
+    if [ -f "$LOG_DIR/gpu_test/reports/GPU_TEST_REPORT.txt" ]; then
+        echo "  Report: Available at gpu_test/reports/GPU_TEST_REPORT.txt"
+        grep -A 5 "FINAL VERDICT" "$LOG_DIR/gpu_test/reports/GPU_TEST_REPORT.txt" 2>/dev/null | head -10 || echo "  Details in full report"
+    else
+        echo "  Report: Not generated (test may have failed early)"
+    fi
+    echo ""
+
+    # RAM Test Results
+    echo "--- RAM STRESS TEST ---"
+    if [ $RAM_EXIT -eq 0 ]; then
+        echo "  Status: ✓ PASSED"
+    else
+        echo "  Status: ✗ FAILED (Exit Code: $RAM_EXIT)"
+    fi
+
+    if [ -f "$LOG_DIR/ram_test/reports/ram_test_summary.txt" ]; then
+        echo "  Report: Available at ram_test/reports/ram_test_summary.txt"
+        grep -A 3 "VERDICT" "$LOG_DIR/ram_test/reports/ram_test_summary.txt" 2>/dev/null || echo "  Details in full report"
+    else
+        echo "  Report: Not generated (test may have failed early)"
+    fi
+    echo ""
+
+    # Storage Test Results
+    echo "--- STORAGE STRESS TEST ---"
+    if [ $STORAGE_EXIT -eq 0 ]; then
+        echo "  Status: ✓ PASSED"
+    else
+        echo "  Status: ✗ FAILED (Exit Code: $STORAGE_EXIT)"
+    fi
+
+    if [ -f "$LOG_DIR/storage_test/reports/DISK_PERFORMANCE_REPORT.txt" ]; then
+        echo "  Report: Available at storage_test/reports/DISK_PERFORMANCE_REPORT.txt"
+        grep -A 5 "PERFORMANCE RATING" "$LOG_DIR/storage_test/reports/DISK_PERFORMANCE_REPORT.txt" 2>/dev/null | head -10 || echo "  Details in full report"
+    else
+        echo "  Report: Not generated (test may have failed early)"
+    fi
+    echo ""
+
+    echo "================================================================================"
+    echo "  OVERALL SYSTEM ASSESSMENT"
+    echo "================================================================================"
+    echo ""
+
+    # Calculate overall pass/fail
+    TOTAL_TESTS=4
+    PASSED_TESTS=0
+    [ $CPU_EXIT -eq 0 ] && PASSED_TESTS=$((PASSED_TESTS + 1))
+    [ $GPU_EXIT -eq 0 ] && PASSED_TESTS=$((PASSED_TESTS + 1))
+    [ $RAM_EXIT -eq 0 ] && PASSED_TESTS=$((PASSED_TESTS + 1))
+    [ $STORAGE_EXIT -eq 0 ] && PASSED_TESTS=$((PASSED_TESTS + 1))
+
+    PASS_RATE=$((PASSED_TESTS * 100 / TOTAL_TESTS))
+
+    echo "Test Pass Rate: $PASSED_TESTS/$TOTAL_TESTS tests passed ($PASS_RATE%)"
+    echo ""
+
+    if [ $PASS_RATE -eq 100 ]; then
+        echo "═══════════════════════════════════════════════════════════════════════════════"
+        echo "  ✓✓✓ OVERALL VERDICT: EXCELLENT ✓✓✓"
+        echo "═══════════════════════════════════════════════════════════════════════════════"
+        echo ""
+        echo "All stress tests passed successfully under parallel load!"
+        echo ""
+        echo "System Capabilities:"
+        echo "  ✓ CPU can handle intensive multi-core workloads"
+        echo "  ✓ GPU performs well under combined CUDA/VPU/Graphics stress"
+        echo "  ✓ RAM maintains integrity under memory-intensive operations"
+        echo "  ✓ Storage I/O remains stable under sustained load"
+        echo ""
+        echo "Conclusion:"
+        echo "  This Jetson Orin system demonstrates excellent stability and performance"
+        echo "  under maximum combined stress conditions. It is suitable for demanding"
+        echo "  production workloads that require simultaneous CPU, GPU, RAM, and I/O"
+        echo "  intensive operations."
+        echo ""
+    elif [ $PASS_RATE -ge 75 ]; then
+        echo "═══════════════════════════════════════════════════════════════════════════════"
+        echo "  ⚠ OVERALL VERDICT: ACCEPTABLE WITH CONCERNS ⚠"
+        echo "═══════════════════════════════════════════════════════════════════════════════"
+        echo ""
+        echo "Most tests passed, but some components showed issues under parallel load."
+        echo ""
+        echo "Recommendations:"
+        echo "  • Review individual test reports for failed components"
+        echo "  • Run individual tests to isolate issues"
+        echo "  • Check thermal management and cooling"
+        echo "  • Monitor system during production workloads"
+        echo ""
+    else
+        echo "═══════════════════════════════════════════════════════════════════════════════"
+        echo "  ✗✗✗ OVERALL VERDICT: SYSTEM ISSUES DETECTED ✗✗✗"
+        echo "═══════════════════════════════════════════════════════════════════════════════"
+        echo ""
+        echo "Multiple components failed under parallel stress conditions."
+        echo ""
+        echo "Critical Actions Required:"
+        echo "  • Review all individual test reports immediately"
+        echo "  • Check system logs for hardware errors"
+        echo "  • Verify thermal management and cooling systems"
+        echo "  • Consider hardware diagnostics or replacement"
+        echo "  • Do not use for critical production workloads until issues are resolved"
+        echo ""
+    fi
+
+    echo "================================================================================"
+    echo "  DETAILED RESULTS LOCATION"
+    echo "================================================================================"
+    echo ""
+    echo "All test results are available in: $LOG_DIR"
+    echo ""
+    echo "Directory Structure:"
+    echo "  • cpu_test/      - CPU stress test results"
+    echo "  • gpu_test/      - GPU stress test results"
+    echo "  • ram_test/      - RAM stress test results"
+    echo "  • storage_test/  - Storage test results"
+    echo "  • monitoring/    - System monitoring logs during parallel execution"
+    echo "  • logs/          - Orchestration and baseline logs"
+    echo "  • reports/       - This combined report"
+    echo ""
+
+    echo "================================================================================"
+    echo "  SYSTEM MONITORING SUMMARY"
+    echo "================================================================================"
+    echo ""
+
+    if [ -f "$LOG_DIR/monitoring/system_monitor.log" ]; then
+        echo "System was monitored throughout the test. Key observations:"
+        echo ""
+
+        # Extract thermal data
+        MAX_TEMP=$(grep "Zone:" "$LOG_DIR/monitoring/system_monitor.log" | grep -oP '\d+\.\d+' | sort -n | tail -1)
+        if [ -n "$MAX_TEMP" ]; then
+            echo "  • Maximum Temperature: ${MAX_TEMP}°C"
+
+            if (( $(echo "$MAX_TEMP > 90" | bc -l) )); then
+                echo "    ⚠ WARNING: High temperature detected! Check cooling."
+            elif (( $(echo "$MAX_TEMP > 80" | bc -l) )); then
+                echo "    Note: Elevated temperature, consider improved cooling."
+            else
+                echo "    ✓ Temperature remained within normal range."
+            fi
+        fi
+        echo ""
+
+        echo "  Full monitoring log: monitoring/system_monitor.log"
+    else
+        echo "  Monitoring data not available"
+    fi
+    echo ""
+
+    echo "================================================================================"
+    echo "  RECOMMENDATIONS"
+    echo "================================================================================"
+    echo ""
+
+    if [ $PASS_RATE -eq 100 ]; then
+        echo "General Best Practices:"
+        echo "  • Run combined parallel tests monthly for production systems"
+        echo "  • Monitor temperatures during heavy workloads"
+        echo "  • Keep system firmware and drivers updated"
+        echo "  • Ensure adequate cooling for sustained operations"
+        echo "  • Consider thermal pads/heatsinks for intensive 24/7 workloads"
+    else
+        echo "Troubleshooting Steps:"
+        echo "  1. Review individual test reports to identify failing components"
+        echo "  2. Run tests individually to isolate issues"
+        echo "  3. Check system logs: dmesg, syslog for hardware errors"
+        echo "  4. Verify thermal management (fans, heatsinks, thermal paste)"
+        echo "  5. Test with reduced workload to see if issues persist"
+        echo "  6. Contact NVIDIA support if hardware issues suspected"
+    fi
+    echo ""
+
+    echo "================================================================================"
+    echo ""
+    echo "Report Generated: $(date)"
+    echo "Test System: Jetson Orin @ $ORIN_IP"
     echo ""
     echo "================================================================================"
-    echo "  LOG FILES"
-    echo "================================================================================"
-    echo ""
-    echo "System Info:      $LOG_DIR/system_info.log"
-    echo "CPU Log:          $LOG_DIR/cpu_stress.log"
-    echo "GPU Log:          $LOG_DIR/gpu_stress.log"
-    echo "RAM Log:          $LOG_DIR/ram_stress.log"
-    echo "Storage Log:      $LOG_DIR/storage_stress.log"
-    echo "Monitoring Data:  $MONITOR_DIR/system_monitoring.csv"
-    echo ""
 
-} | tee "$REPORT_DIR/combined_parallel_report.txt"
+} > "$REPORT_FILE"
 
-# Save summary
-{
-    echo "COMBINED_RESULT=$([  $TOTAL_FAILURES -eq 0 ] && echo 'PASSED' || echo 'FAILED')"
-    echo "CPU_RESULT=$CPU_RESULT"
-    echo "GPU_RESULT=$GPU_RESULT"
-    echo "RAM_RESULT=$RAM_RESULT"
-    echo "STORAGE_RESULT=$STORAGE_RESULT"
-    echo "TOTAL_FAILURES=$TOTAL_FAILURES"
-    echo "TEST_DURATION=$TEST_DURATION"
-    echo "TEST_DIR=$TEST_DIR"
-} > "$REPORT_DIR/test_summary.txt"
-
-log_phase "COMBINED PARALLEL STRESS TEST COMPLETED"
-
-echo "Test directory: $TEST_DIR"
-echo "Main report: $REPORT_DIR/combined_parallel_report.txt"
+log_success "Combined report generated: $REPORT_FILE"
 echo ""
 
-# Display final result
-cat "$REPORT_DIR/combined_parallel_report.txt" | grep -A 20 "OVERALL RESULT"
-
-REMOTE_COMBINED_START
-
 ################################################################################
-# COPY RESULTS TO HOST
+# DISPLAY FINAL SUMMARY
 ################################################################################
 
-log_phase "COPYING RESULTS TO HOST"
+echo "================================================================================"
+echo "  COMBINED PARALLEL STRESS TEST - COMPLETED"
+echo "================================================================================"
+echo ""
+echo "Test Results:"
+echo "  • CPU Test:     $([ $CPU_EXIT -eq 0 ] && echo "✓ PASSED" || echo "✗ FAILED")"
+echo "  • GPU Test:     $([ $GPU_EXIT -eq 0 ] && echo "✓ PASSED" || echo "✗ FAILED")"
+echo "  • RAM Test:     $([ $RAM_EXIT -eq 0 ] && echo "✓ PASSED" || echo "✗ FAILED")"
+echo "  • Storage Test: $([ $STORAGE_EXIT -eq 0 ] && echo "✓ PASSED" || echo "✗ FAILED")"
+echo ""
 
-REMOTE_DIR=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "ls -td /tmp/jetson_combined_parallel_* 2>/dev/null | head -1")
+TOTAL_TESTS=4
+PASSED_TESTS=0
+[ $CPU_EXIT -eq 0 ] && PASSED_TESTS=$((PASSED_TESTS + 1))
+[ $GPU_EXIT -eq 0 ] && PASSED_TESTS=$((PASSED_TESTS + 1))
+[ $RAM_EXIT -eq 0 ] && PASSED_TESTS=$((PASSED_TESTS + 1))
+[ $STORAGE_EXIT -eq 0 ] && PASSED_TESTS=$((PASSED_TESTS + 1))
 
-if [ -n "$REMOTE_DIR" ]; then
-    echo "Remote test directory: $REMOTE_DIR"
+PASS_RATE=$((PASSED_TESTS * 100 / TOTAL_TESTS))
 
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP:$REMOTE_DIR/logs/* "$LOG_DIR/logs/" 2>/dev/null
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP:$REMOTE_DIR/reports/* "$LOG_DIR/reports/" 2>/dev/null
-    sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP:$REMOTE_DIR/monitoring/* "$LOG_DIR/monitoring/" 2>/dev/null
+echo "Overall: $PASSED_TESTS/$TOTAL_TESTS tests passed ($PASS_RATE%)"
+echo ""
+echo "Results Directory: $LOG_DIR"
+echo ""
+echo "Key Files:"
+echo "  • Combined Report:   $LOG_DIR/reports/COMBINED_TEST_REPORT.txt"
+echo "  • System Monitoring: $LOG_DIR/monitoring/system_monitor.log"
+echo "  • Baseline State:    $LOG_DIR/logs/baseline.log"
+echo "  • Final State:       $LOG_DIR/logs/final_state.log"
+echo ""
+echo "Individual Test Reports:"
+echo "  • CPU:     $LOG_DIR/cpu_test/reports/"
+echo "  • GPU:     $LOG_DIR/gpu_test/reports/"
+echo "  • RAM:     $LOG_DIR/ram_test/reports/"
+echo "  • Storage: $LOG_DIR/storage_test/reports/"
+echo ""
 
-    sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "rm -rf $REMOTE_DIR" 2>/dev/null
+# Display excerpt from combined report
+echo "================================================================================"
+cat "$REPORT_FILE" | grep -A 30 "OVERALL SYSTEM ASSESSMENT"
+echo "================================================================================"
+echo ""
 
-    log_success "Results copied and remote directory cleaned"
+if [ $PASS_RATE -eq 100 ]; then
+    log_success "All tests passed! System is performing excellently under combined load."
+    exit 0
+elif [ $PASS_RATE -ge 75 ]; then
+    log_warning "Most tests passed, but some issues detected. Review individual reports."
+    exit 1
 else
-    log_error "Remote directory not found"
+    log_error "Multiple tests failed. System requires attention."
+    exit 1
 fi
-
-################################################################################
-# FINAL STATUS
-################################################################################
-
-echo ""
-echo "================================================================================"
-echo "  COMBINED PARALLEL STRESS TEST COMPLETED"
-echo "================================================================================"
-echo ""
-echo "Results directory: $LOG_DIR"
-echo ""
-
-if [ -f "$LOG_DIR/reports/combined_parallel_report.txt" ]; then
-    cat "$LOG_DIR/reports/combined_parallel_report.txt" | grep -A 30 "OVERALL RESULT"
-fi
-
-echo ""
-echo "For full details, see: $LOG_DIR/reports/combined_parallel_report.txt"
-echo ""
-
-exit 0
