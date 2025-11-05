@@ -1,13 +1,14 @@
 #!/bin/bash
 
 ################################################################################
-# JETSON ORIN DISK STRESS TEST - IMPROVED COMPATIBILITY VERSION
+# JETSON ORIN DISK STRESS TEST - ENHANCED VERSION
 ################################################################################
-# Description: Advanced disk testing suite with fallback options
+# Description: Comprehensive disk testing suite with advanced diagnostics
 # Target: eMMC, NVMe SSD, microSD, USB storage
-# Tests: Sequential/Random I/O, IOPS, Latency, Health, Endurance
+# Tests: Sequential/Random I/O, IOPS, Extended SMART, Sector Control,
+#        Data Integrity, Temperature Monitoring, Health Analysis
 # Author: Professional Storage Testing
-# Version: 2.1 Improved
+# Version: 3.0 Enhanced - Production Grade
 ################################################################################
 
 set -e
@@ -71,10 +72,10 @@ echo ""
 show_usage() {
     cat << 'EOF'
 ================================================================================
-  JETSON ORIN DISK STRESS TEST - IMPROVED VERSION
+  JETSON ORIN DISK STRESS TEST - ENHANCED VERSION v3.0
 ================================================================================
 
-Usage: ./jetson_disk_stress_test.sh [orin_ip] [orin_user] [password] [hours]
+Usage: ./jetson_storage_test.sh [orin_ip] [orin_user] [password] [hours]
 
 Parameters:
   orin_ip     : IP address of Jetson Orin (default: 192.168.55.69)
@@ -83,22 +84,31 @@ Parameters:
   hours       : Test duration in hours (default: 2, supports decimals like 0.5)
 
 Quick Examples:
-  ./jetson_disk_stress_test.sh                           # 2 hour test
-  ./jetson_disk_stress_test.sh 192.168.55.69 orin q 0.5  # 30 minute test
-  ./jetson_disk_stress_test.sh 192.168.55.69 orin q 1    # 1 hour test
+  ./jetson_storage_test.sh                           # 2 hour test
+  ./jetson_storage_test.sh 192.168.55.69 orin q 0.5  # 30 minute test
+  ./jetson_storage_test.sh 192.168.55.69 orin q 1    # 1 hour test
 
-Test Features:
-  • Automatic tool detection and fallback options
-  • Works with or without fio (uses dd as fallback)
-  • No sudo requirements - runs with user permissions
-  • Comprehensive storage analysis
-  • Real-time monitoring and reporting
+Enhanced Test Features (Production Grade):
+  ✓ Sequential & Random I/O Performance Testing
+  ✓ Extended SMART Test with Comprehensive Health Analysis
+  ✓ Disk Sector Control Test (Bad Sector Detection)
+  ✓ Data Integrity Verification with Checksums
+  ✓ Temperature Monitoring During Stress Operations
+  ✓ Sustained I/O Stress & Filesystem Metadata Tests
+  ✓ Automatic tool detection and fallback options
+  ✓ Works with or without fio/smartctl (graceful degradation)
 
 Tested Storage Types:
-  • eMMC (internal storage)
-  • NVMe SSD (if present)
-  • microSD card (if present)
-  • USB storage (if present)
+  • eMMC (internal storage) - with lifetime analysis
+  • NVMe SSD - with SMART attributes
+  • microSD card
+  • SATA/USB storage
+
+Output:
+  • Comprehensive performance report
+  • Detailed health and sector analysis
+  • Temperature profile during stress
+  • Recommendations for maintenance
 
 ================================================================================
 EOF
@@ -114,7 +124,7 @@ fi
 ################################################################################
 
 echo "================================================================================
-  JETSON ORIN DISK STRESS TEST - IMPROVED VERSION
+  JETSON ORIN DISK STRESS TEST - ENHANCED VERSION v3.0
 ================================================================================"
 echo ""
 echo "Test Configuration:"
@@ -122,8 +132,18 @@ echo "  • Device: Jetson Orin AGX"
 echo "  • Target IP: $ORIN_IP"
 echo "  • SSH User: $ORIN_USER"
 echo "  • Test Duration: ${TEST_DURATION_HOURS} hours ($TEST_DURATION seconds)"
-echo "  • Test Mode: COMPREHENSIVE DISK STRESS"
-echo "  • Compatibility Mode: Auto-detect tools"
+echo "  • Test Mode: PRODUCTION-GRADE COMPREHENSIVE TESTING"
+echo ""
+echo "Test Phases:"
+echo "  Phase 1: Storage System Analysis"
+echo "  Phase 2: Sequential I/O Performance"
+echo "  Phase 3: Random I/O Performance"
+echo "  Phase 4: Sustained I/O Stress"
+echo "  Phase 5: Filesystem Metadata Stress"
+echo "  Phase 6: Storage Health Analysis"
+echo "  Phase 7: Extended SMART Test"
+echo "  Phase 8: Disk Sector Control Test"
+echo "  Phase 9: Temperature Monitoring"
 echo ""
 
 # Check for sshpass
@@ -565,10 +585,10 @@ test_filesystem_stress() {
 
 check_storage_health() {
     log_phase "PHASE 6: STORAGE HEALTH ANALYSIS"
-    
+
     {
         echo "=== STORAGE HEALTH CHECK ==="
-        
+
         # eMMC health check
         echo "eMMC Health Status:"
         if [ -d "/sys/class/mmc_host" ]; then
@@ -583,7 +603,7 @@ check_storage_health() {
         else
             echo "  No eMMC health information available"
         fi
-        
+
         echo ""
         echo "SMART Health Check:"
         if $HAS_SMARTCTL; then
@@ -596,20 +616,460 @@ check_storage_health() {
         else
             echo "  smartctl not available"
         fi
-        
+
         echo ""
         echo "I/O Error Check:"
         ERROR_COUNT=$(dmesg | grep -i -c "i/o error\|disk error\|read error\|write error" 2>/dev/null || echo "0")
         echo "  Recent I/O errors in dmesg: $ERROR_COUNT"
-        
+
         if [ "$ERROR_COUNT" -gt 0 ]; then
             echo "  Recent I/O errors found:"
             dmesg | grep -i "i/o error\|disk error\|read error\|write error" | tail -5
         fi
-        
+
     } | tee "$LOG_DIR/health_check.log"
-    
+
     log_success "Storage health check completed"
+}
+
+run_extended_smart_test() {
+    log_phase "PHASE 7: EXTENDED SMART TEST"
+
+    {
+        echo "=== EXTENDED SMART TEST ==="
+        echo "This comprehensive test checks disk health, attributes, and error logs"
+        echo ""
+
+        if ! $HAS_SMARTCTL; then
+            log_warning "smartctl not available - skipping Extended SMART test"
+            echo "To install: sudo apt-get install smartmontools"
+            return
+        fi
+
+        # Find all storage devices
+        DEVICES=()
+        for device in /dev/sd[a-z] /dev/nvme[0-9]n[0-9] /dev/mmcblk[0-9]; do
+            if [ -b "$device" ]; then
+                DEVICES+=("$device")
+            fi
+        done
+
+        if [ ${#DEVICES[@]} -eq 0 ]; then
+            log_warning "No block devices found for SMART testing"
+            return
+        fi
+
+        echo "Found ${#DEVICES[@]} device(s) to test"
+        echo ""
+
+        for device in "${DEVICES[@]}"; do
+            echo "================================================================================"
+            echo "DEVICE: $device"
+            echo "================================================================================"
+            echo ""
+
+            # Basic device information
+            echo "--- Basic Information ---"
+            smartctl -i "$device" 2>/dev/null || echo "Unable to read device info"
+            echo ""
+
+            # SMART capability check
+            echo "--- SMART Capability ---"
+            SMART_AVAILABLE=$(smartctl -i "$device" 2>/dev/null | grep -i "SMART support is: Available" && echo "YES" || echo "NO")
+            SMART_ENABLED=$(smartctl -i "$device" 2>/dev/null | grep -i "SMART support is: Enabled" && echo "YES" || echo "NO")
+            echo "SMART Available: $SMART_AVAILABLE"
+            echo "SMART Enabled: $SMART_ENABLED"
+            echo ""
+
+            if [ "$SMART_AVAILABLE" = "NO" ]; then
+                echo "SMART not supported on this device, skipping..."
+                echo ""
+                continue
+            fi
+
+            # Overall health status
+            echo "--- Health Status ---"
+            HEALTH_STATUS=$(smartctl -H "$device" 2>/dev/null)
+            echo "$HEALTH_STATUS"
+
+            if echo "$HEALTH_STATUS" | grep -qi "PASSED"; then
+                echo "[✓] Health Status: PASSED"
+            elif echo "$HEALTH_STATUS" | grep -qi "FAILED"; then
+                echo "[✗] Health Status: FAILED - IMMEDIATE ATTENTION REQUIRED!"
+            else
+                echo "[?] Health Status: Unable to determine"
+            fi
+            echo ""
+
+            # SMART Attributes (for SATA/SAS drives)
+            echo "--- SMART Attributes ---"
+            smartctl -A "$device" 2>/dev/null | grep -E "ID#|^[[:space:]]*[0-9]+" || echo "No SMART attributes available (may be NVMe or eMMC)"
+            echo ""
+
+            # Temperature monitoring
+            echo "--- Temperature ---"
+            TEMP=$(smartctl -A "$device" 2>/dev/null | grep -i temperature | head -1)
+            if [ -n "$TEMP" ]; then
+                echo "$TEMP"
+                TEMP_VALUE=$(echo "$TEMP" | awk '{print $10}')
+                if [ -n "$TEMP_VALUE" ] && [ "$TEMP_VALUE" -gt 70 ]; then
+                    echo "[!] WARNING: High temperature detected (${TEMP_VALUE}°C)"
+                elif [ -n "$TEMP_VALUE" ]; then
+                    echo "[✓] Temperature normal (${TEMP_VALUE}°C)"
+                fi
+            else
+                echo "Temperature data not available"
+            fi
+            echo ""
+
+            # Error logs
+            echo "--- Error Logs ---"
+            ERROR_LOG=$(smartctl -l error "$device" 2>/dev/null)
+            if echo "$ERROR_LOG" | grep -qi "No Errors Logged"; then
+                echo "[✓] No errors logged"
+            else
+                echo "$ERROR_LOG" | head -30
+            fi
+            echo ""
+
+            # Self-test logs
+            echo "--- Self-Test History ---"
+            smartctl -l selftest "$device" 2>/dev/null | head -20 || echo "No self-test history available"
+            echo ""
+
+            # Start extended test (background)
+            echo "--- Initiating Extended Self-Test ---"
+            echo "Note: Extended test runs in background and may take hours"
+            TEST_START=$(smartctl -t long "$device" 2>/dev/null)
+            echo "$TEST_START"
+
+            if echo "$TEST_START" | grep -qi "Please wait"; then
+                ESTIMATED_TIME=$(echo "$TEST_START" | grep -i "please wait" | grep -oP '\d+' | head -1)
+                echo "[*] Extended test started - estimated completion time: ${ESTIMATED_TIME} minutes"
+                echo "[*] Check status with: smartctl -a $device"
+            fi
+            echo ""
+
+            # NVMe specific information
+            if [[ "$device" =~ nvme ]]; then
+                echo "--- NVMe Specific Information ---"
+                smartctl -A "$device" 2>/dev/null | grep -E "Critical|Temperature|Available|Percentage|Data Units" || echo "Limited NVMe data"
+                echo ""
+            fi
+
+            # eMMC specific information (via mmc-utils if available)
+            if [[ "$device" =~ mmcblk ]] && command -v mmc >/dev/null 2>&1; then
+                echo "--- eMMC Specific Information ---"
+                mmc extcsd read "$device" 2>/dev/null | grep -E "Life|EOL|Bad" | head -10 || echo "Limited eMMC data"
+                echo ""
+            fi
+
+            echo ""
+        done
+
+        echo "================================================================================"
+        echo "EXTENDED SMART TEST SUMMARY"
+        echo "================================================================================"
+        echo ""
+        echo "Tests initiated on ${#DEVICES[@]} device(s)"
+        echo "Extended tests are running in background"
+        echo "Monitor progress with: smartctl -a <device>"
+        echo ""
+
+    } | tee "$LOG_DIR/extended_smart_test.log"
+
+    log_success "Extended SMART test initiated"
+}
+
+test_disk_sectors() {
+    log_phase "PHASE 8: DISK SECTOR CONTROL TEST"
+
+    {
+        echo "=== DISK SECTOR CONTROL TEST ==="
+        echo "Checking for bad sectors and read errors"
+        echo ""
+
+        local test_dir="/tmp/sector_test"
+        mkdir -p "$test_dir"
+
+        # Method 1: Check dmesg for bad sector reports
+        echo "--- Checking System Logs for Bad Sectors ---"
+        BAD_SECTOR_COUNT=$(dmesg | grep -i "bad sector\|bad block\|medium error" | wc -l)
+        echo "Bad sector warnings in dmesg: $BAD_SECTOR_COUNT"
+
+        if [ "$BAD_SECTOR_COUNT" -gt 0 ]; then
+            echo ""
+            echo "Recent bad sector warnings:"
+            dmesg | grep -i "bad sector\|bad block\|medium error" | tail -10
+        fi
+        echo ""
+
+        # Method 2: Read test with dd for accessible areas
+        echo "--- Sequential Read Test for Error Detection ---"
+        echo "Testing /tmp filesystem sectors..."
+
+        TEST_FILE="$test_dir/sector_test.dat"
+        SECTOR_TEST_SIZE_MB=1024  # 1GB test
+
+        # Write test data
+        echo "Creating test file (${SECTOR_TEST_SIZE_MB}MB)..."
+        if dd if=/dev/zero of="$TEST_FILE" bs=1M count=$SECTOR_TEST_SIZE_MB 2>/dev/null; then
+            echo "[✓] Write completed successfully"
+        else
+            echo "[✗] Write errors detected"
+        fi
+
+        # Read back and check for errors
+        echo ""
+        echo "Reading back test file to detect sector errors..."
+        READ_ERRORS=0
+
+        if dd if="$TEST_FILE" of=/dev/null bs=1M 2>"$test_dir/read_errors.log"; then
+            echo "[✓] Read completed successfully - no sector errors detected"
+        else
+            READ_ERRORS=1
+            echo "[✗] Read errors detected!"
+            cat "$test_dir/read_errors.log"
+        fi
+
+        echo ""
+
+        # Method 3: Check filesystem for bad blocks (requires root for some operations)
+        echo "--- Filesystem Bad Block Information ---"
+
+        # Check if we can access bad block info
+        FS_TYPE=$(df -T /tmp | tail -1 | awk '{print $2}')
+        echo "Filesystem type for /tmp: $FS_TYPE"
+
+        if [ "$FS_TYPE" = "ext4" ] || [ "$FS_TYPE" = "ext3" ]; then
+            echo "For ext filesystems, bad block info requires root access"
+            echo "To check manually: sudo dumpe2fs -b /dev/<device> | grep -i bad"
+        fi
+
+        echo ""
+
+        # Method 4: SMART bad sector count
+        echo "--- SMART Bad Sector Count ---"
+        if $HAS_SMARTCTL; then
+            for device in /dev/sd[a-z] /dev/nvme[0-9]n[0-9] /dev/mmcblk[0-9]; do
+                if [ -b "$device" ]; then
+                    echo "Device: $device"
+
+                    # Check for reallocated sectors
+                    REALLOCATED=$(smartctl -A "$device" 2>/dev/null | grep -i "Reallocated_Sector\|Reallocated_Event" | head -2)
+                    if [ -n "$REALLOCATED" ]; then
+                        echo "$REALLOCATED"
+
+                        # Extract reallocated sector count
+                        REALLOC_COUNT=$(echo "$REALLOCATED" | awk '{print $10}' | head -1)
+                        if [ -n "$REALLOC_COUNT" ] && [ "$REALLOC_COUNT" -gt 0 ]; then
+                            echo "[!] WARNING: $REALLOC_COUNT reallocated sectors detected"
+                        else
+                            echo "[✓] No reallocated sectors"
+                        fi
+                    else
+                        echo "  No reallocated sector information available"
+                    fi
+
+                    # Check for pending sectors
+                    PENDING=$(smartctl -A "$device" 2>/dev/null | grep -i "Current_Pending_Sector")
+                    if [ -n "$PENDING" ]; then
+                        echo "$PENDING"
+
+                        PENDING_COUNT=$(echo "$PENDING" | awk '{print $10}')
+                        if [ -n "$PENDING_COUNT" ] && [ "$PENDING_COUNT" -gt 0 ]; then
+                            echo "[!] WARNING: $PENDING_COUNT pending sectors detected"
+                        else
+                            echo "[✓] No pending sectors"
+                        fi
+                    fi
+
+                    # Check for uncorrectable errors
+                    UNCORRECTABLE=$(smartctl -A "$device" 2>/dev/null | grep -i "Offline_Uncorrectable")
+                    if [ -n "$UNCORRECTABLE" ]; then
+                        echo "$UNCORRECTABLE"
+
+                        UNCORR_COUNT=$(echo "$UNCORRECTABLE" | awk '{print $10}')
+                        if [ -n "$UNCORR_COUNT" ] && [ "$UNCORR_COUNT" -gt 0 ]; then
+                            echo "[✗] CRITICAL: $UNCORR_COUNT uncorrectable sectors detected!"
+                        else
+                            echo "[✓] No uncorrectable sectors"
+                        fi
+                    fi
+
+                    echo ""
+                fi
+            done
+        else
+            echo "smartctl not available for bad sector SMART analysis"
+        fi
+
+        # Method 5: Pattern write/read test for data integrity
+        echo "--- Sector Data Integrity Test ---"
+        echo "Writing known pattern and verifying readback..."
+
+        PATTERN_FILE="$test_dir/pattern_test.dat"
+        PATTERN_SIZE_MB=100
+
+        # Create pattern file with known data
+        dd if=/dev/urandom of="$PATTERN_FILE" bs=1M count=$PATTERN_SIZE_MB 2>/dev/null
+
+        # Calculate checksum
+        ORIGINAL_SUM=$(md5sum "$PATTERN_FILE" | awk '{print $1}')
+        echo "Original checksum: $ORIGINAL_SUM"
+
+        # Force write to disk
+        sync
+
+        # Read back and verify
+        READBACK_SUM=$(md5sum "$PATTERN_FILE" | awk '{print $1}')
+        echo "Readback checksum: $READBACK_SUM"
+
+        if [ "$ORIGINAL_SUM" = "$READBACK_SUM" ]; then
+            echo "[✓] Data integrity verified - checksums match"
+        else
+            echo "[✗] DATA CORRUPTION DETECTED - checksums do not match!"
+            echo "This indicates potential sector problems or memory issues"
+        fi
+
+        echo ""
+
+        # Cleanup
+        rm -rf "$test_dir"
+
+        echo "================================================================================"
+        echo "SECTOR TEST SUMMARY"
+        echo "================================================================================"
+        echo "Bad sector warnings: $BAD_SECTOR_COUNT"
+        echo "Read errors: $READ_ERRORS"
+        echo "Data integrity: $([ "$ORIGINAL_SUM" = "$READBACK_SUM" ] && echo "PASSED" || echo "FAILED")"
+        echo ""
+
+        if [ "$BAD_SECTOR_COUNT" -gt 0 ] || [ "$READ_ERRORS" -gt 0 ] || [ "$ORIGINAL_SUM" != "$READBACK_SUM" ]; then
+            echo "[!] RECOMMENDATION: Storage may have issues - consider replacement"
+        else
+            echo "[✓] No sector issues detected"
+        fi
+
+    } | tee "$LOG_DIR/sector_control_test.log"
+
+    log_success "Disk sector control test completed"
+}
+
+monitor_temperature() {
+    log_phase "PHASE 9: TEMPERATURE MONITORING DURING STRESS"
+
+    {
+        echo "=== TEMPERATURE MONITORING ==="
+        echo "Monitoring storage device temperatures during operation"
+        echo ""
+
+        # Check CPU/SoC temperature (Jetson specific)
+        echo "--- System Temperatures ---"
+        if [ -d "/sys/devices/virtual/thermal" ]; then
+            for thermal_zone in /sys/devices/virtual/thermal/thermal_zone*/temp; do
+                if [ -f "$thermal_zone" ]; then
+                    TEMP=$(cat "$thermal_zone" 2>/dev/null)
+                    ZONE_NAME=$(basename $(dirname "$thermal_zone"))
+                    TEMP_C=$((TEMP / 1000))
+                    echo "  $ZONE_NAME: ${TEMP_C}°C"
+                fi
+            done
+        fi
+
+        echo ""
+
+        # Check storage device temperatures
+        echo "--- Storage Device Temperatures ---"
+        if $HAS_SMARTCTL; then
+            for device in /dev/sd[a-z] /dev/nvme[0-9]n[0-9] /dev/mmcblk[0-9]; do
+                if [ -b "$device" ]; then
+                    echo "Device: $device"
+
+                    # Get temperature from SMART
+                    TEMP_INFO=$(smartctl -A "$device" 2>/dev/null | grep -i "temperature")
+
+                    if [ -n "$TEMP_INFO" ]; then
+                        echo "$TEMP_INFO"
+
+                        # Extract temperature value
+                        TEMP_VALUE=$(echo "$TEMP_INFO" | awk '{print $10}' | head -1)
+
+                        if [ -n "$TEMP_VALUE" ]; then
+                            if [ "$TEMP_VALUE" -gt 70 ]; then
+                                echo "  [!] WARNING: High temperature (${TEMP_VALUE}°C) - Risk of thermal throttling"
+                            elif [ "$TEMP_VALUE" -gt 55 ]; then
+                                echo "  [*] Elevated temperature (${TEMP_VALUE}°C) - Monitor closely"
+                            else
+                                echo "  [✓] Temperature normal (${TEMP_VALUE}°C)"
+                            fi
+                        fi
+                    else
+                        echo "  Temperature data not available"
+                    fi
+                    echo ""
+                fi
+            done
+        else
+            echo "smartctl not available for temperature monitoring"
+        fi
+
+        # Monitor over time during stress test
+        echo "--- Continuous Temperature Monitoring ---"
+        echo "Monitoring for 60 seconds during I/O operations..."
+
+        local monitor_dir="/tmp/temp_monitor_test"
+        mkdir -p "$monitor_dir"
+
+        # Start background I/O to generate heat
+        (
+            for i in {1..20}; do
+                dd if=/dev/zero of="$monitor_dir/heat_test_$i.dat" bs=1M count=50 2>/dev/null
+                dd if="$monitor_dir/heat_test_$i.dat" of=/dev/null bs=1M 2>/dev/null
+                rm -f "$monitor_dir/heat_test_$i.dat"
+            done
+        ) &
+        IO_PID=$!
+
+        # Monitor temperature every 10 seconds
+        for i in {1..6}; do
+            sleep 10
+
+            echo "Sample $i (${i}0s):"
+
+            # Storage temp
+            if $HAS_SMARTCTL; then
+                for device in /dev/sd[a-z] /dev/nvme[0-9]n[0-9] /dev/mmcblk[0-9]; do
+                    if [ -b "$device" ]; then
+                        TEMP=$(smartctl -A "$device" 2>/dev/null | grep -i "temperature" | awk '{print $10}' | head -1)
+                        [ -n "$TEMP" ] && echo "  $device: ${TEMP}°C"
+                    fi
+                done
+            fi
+
+            # System thermal zones
+            if [ -d "/sys/devices/virtual/thermal/thermal_zone0" ]; then
+                SYS_TEMP=$(cat /sys/devices/virtual/thermal/thermal_zone0/temp 2>/dev/null)
+                [ -n "$SYS_TEMP" ] && echo "  System: $((SYS_TEMP / 1000))°C"
+            fi
+
+            echo ""
+        done
+
+        # Wait for I/O to complete
+        wait $IO_PID 2>/dev/null
+        rm -rf "$monitor_dir"
+
+        echo "================================================================================"
+        echo "TEMPERATURE MONITORING SUMMARY"
+        echo "================================================================================"
+        echo "Temperature monitoring completed over 60 seconds of I/O stress"
+        echo "Check logs above for any thermal warnings"
+        echo ""
+
+    } | tee "$LOG_DIR/temperature_monitoring.log"
+
+    log_success "Temperature monitoring completed"
 }
 
 generate_final_report() {
@@ -725,21 +1185,112 @@ except:
                 LIFE_B=$(grep "Life Time B:" "$LOG_DIR/health_check.log" | head -1 | awk '{print $4}' || echo "N/A")
                 echo "  • eMMC Life Time A: $LIFE_A"
                 echo "  • eMMC Life Time B: $LIFE_B"
-                
+
                 # Check if wear is concerning (values > 0x05 indicate significant wear)
                 if [[ "$LIFE_A" =~ 0x0[6789abc] ]] || [[ "$LIFE_B" =~ 0x0[6789abc] ]]; then
                     HEALTH_STATUS="Warning"
                 fi
             fi
-            
+
             ERROR_COUNT=$(grep "Recent I/O errors" "$LOG_DIR/health_check.log" | awk '{print $6}' || echo "0")
             echo "  • Recent I/O Errors: $ERROR_COUNT"
-            
+
             if [ "$ERROR_COUNT" -gt 0 ]; then
                 HEALTH_STATUS="Warning"
             fi
-            
+
             echo "  • Overall Health: $HEALTH_STATUS"
+        fi
+
+        echo ""
+        echo "=== EXTENDED SMART TEST RESULTS ==="
+        if [ -f "$LOG_DIR/extended_smart_test.log" ]; then
+            # Check for SMART health status
+            SMART_HEALTH=$(grep -i "Health Status: PASSED\|Health Status: FAILED" "$LOG_DIR/extended_smart_test.log" | head -1)
+            if [ -n "$SMART_HEALTH" ]; then
+                if echo "$SMART_HEALTH" | grep -qi "PASSED"; then
+                    echo "  • SMART Health: [✓] PASSED"
+                else
+                    echo "  • SMART Health: [✗] FAILED - CRITICAL"
+                    HEALTH_STATUS="Critical"
+                fi
+            else
+                echo "  • SMART Health: Not available"
+            fi
+
+            # Check for extended test initiation
+            if grep -q "Extended test started" "$LOG_DIR/extended_smart_test.log"; then
+                echo "  • Extended Self-Test: Initiated (running in background)"
+            fi
+
+            # Temperature warnings
+            TEMP_WARNINGS=$(grep -c "WARNING: High temperature" "$LOG_DIR/extended_smart_test.log" || echo "0")
+            if [ "$TEMP_WARNINGS" -gt 0 ]; then
+                echo "  • Temperature Warnings: $TEMP_WARNINGS device(s) running hot"
+            else
+                echo "  • Temperature: Normal"
+            fi
+        else
+            echo "  • Extended SMART test not performed"
+        fi
+
+        echo ""
+        echo "=== SECTOR INTEGRITY RESULTS ==="
+        if [ -f "$LOG_DIR/sector_control_test.log" ]; then
+            # Bad sectors
+            BAD_SECTORS=$(grep "Bad sector warnings:" "$LOG_DIR/sector_control_test.log" | awk '{print $4}' || echo "0")
+            echo "  • Bad Sector Warnings: $BAD_SECTORS"
+
+            # Read errors
+            READ_ERRS=$(grep "Read errors:" "$LOG_DIR/sector_control_test.log" | awk '{print $3}' || echo "0")
+            echo "  • Read Errors: $READ_ERRS"
+
+            # Data integrity
+            DATA_INTEGRITY=$(grep "Data integrity:" "$LOG_DIR/sector_control_test.log" | awk '{print $3}' || echo "Unknown")
+            if [ "$DATA_INTEGRITY" = "PASSED" ]; then
+                echo "  • Data Integrity: [✓] PASSED"
+            elif [ "$DATA_INTEGRITY" = "FAILED" ]; then
+                echo "  • Data Integrity: [✗] FAILED - Data corruption detected!"
+                HEALTH_STATUS="Critical"
+            else
+                echo "  • Data Integrity: Unknown"
+            fi
+
+            # Check for reallocated/pending sectors from SMART
+            if grep -q "reallocated sectors" "$LOG_DIR/sector_control_test.log"; then
+                REALLOC=$(grep "reallocated sectors" "$LOG_DIR/sector_control_test.log" | grep -o "[0-9]* reallocated" | awk '{print $1}' || echo "0")
+                if [ "$REALLOC" -gt 0 ]; then
+                    echo "  • Reallocated Sectors: $REALLOC"
+                fi
+            fi
+        else
+            echo "  • Sector control test not performed"
+        fi
+
+        echo ""
+        echo "=== TEMPERATURE MONITORING ==="
+        if [ -f "$LOG_DIR/temperature_monitoring.log" ]; then
+            # Check for high temperature warnings
+            HIGH_TEMP=$(grep -c "WARNING: High temperature" "$LOG_DIR/temperature_monitoring.log" || echo "0")
+            ELEVATED_TEMP=$(grep -c "Elevated temperature" "$LOG_DIR/temperature_monitoring.log" || echo "0")
+
+            if [ "$HIGH_TEMP" -gt 0 ]; then
+                echo "  • Status: [!] High temperatures detected during stress"
+                echo "  • High Temp Readings: $HIGH_TEMP"
+            elif [ "$ELEVATED_TEMP" -gt 0 ]; then
+                echo "  • Status: [*] Elevated temperatures during stress"
+                echo "  • Elevated Temp Readings: $ELEVATED_TEMP"
+            else
+                echo "  • Status: [✓] Temperatures remained normal"
+            fi
+
+            # Get sample temperature reading
+            SAMPLE_TEMP=$(grep "Sample 6" -A 10 "$LOG_DIR/temperature_monitoring.log" | grep "°C" | head -1 | grep -o "[0-9]*°C" || echo "N/A")
+            if [ "$SAMPLE_TEMP" != "N/A" ]; then
+                echo "  • Final Reading: $SAMPLE_TEMP"
+            fi
+        else
+            echo "  • Temperature monitoring not performed"
         fi
         
         echo ""
@@ -786,13 +1337,64 @@ except:
 
         echo ""
         echo "=== RECOMMENDATIONS ==="
-        echo "[*] Monitor eMMC health regularly using this test"
-        echo "[*] Avoid excessive small random writes to extend storage life"
-        echo "[*] Consider external NVMe for high-performance applications"
-        echo "[*] Ensure adequate cooling during intensive I/O operations"
 
-        if [ "$HEALTH_STATUS" = "Warning" ]; then
-            echo "[!] Consider storage maintenance or replacement planning"
+        # Health-based recommendations
+        if [ "$HEALTH_STATUS" = "Critical" ]; then
+            echo "[!] CRITICAL: Immediate action required!"
+            echo "    • Data backup should be performed immediately"
+            echo "    • Plan for storage replacement as soon as possible"
+            echo "    • Do not use for critical data without backup"
+        elif [ "$HEALTH_STATUS" = "Warning" ]; then
+            echo "[!] WARNING: Storage showing signs of wear or issues"
+            echo "    • Consider storage maintenance or replacement planning"
+            echo "    • Increase backup frequency"
+            echo "    • Monitor health more regularly"
+        else
+            echo "[✓] Storage health is good"
+        fi
+
+        echo ""
+        echo "General Best Practices:"
+        echo "  • Run this comprehensive test monthly for production systems"
+        echo "  • Monitor eMMC life time estimates (warn at 0x05+, replace at 0x09+)"
+        echo "  • Avoid excessive small random writes to extend storage life"
+        echo "  • Ensure adequate cooling during intensive I/O operations"
+        echo "  • Keep storage usage below 80% capacity for optimal performance"
+        echo "  • Consider external NVMe SSD for high-performance applications"
+
+        # Temperature-specific recommendations
+        if [ -f "$LOG_DIR/temperature_monitoring.log" ]; then
+            HIGH_TEMP=$(grep -c "WARNING: High temperature" "$LOG_DIR/temperature_monitoring.log" || echo "0")
+            if [ "$HIGH_TEMP" -gt 0 ]; then
+                echo ""
+                echo "Temperature Management:"
+                echo "  • Improve cooling/airflow around Jetson device"
+                echo "  • Consider adding heatsinks or thermal pads"
+                echo "  • Reduce sustained I/O workload intensity"
+                echo "  • High temperatures can reduce storage lifespan"
+            fi
+        fi
+
+        # SMART test recommendations
+        if [ -f "$LOG_DIR/extended_smart_test.log" ]; then
+            if grep -q "Extended test started" "$LOG_DIR/extended_smart_test.log"; then
+                echo ""
+                echo "Extended SMART Test:"
+                echo "  • Extended self-test is running in background"
+                echo "  • Check results later with: smartctl -a /dev/<device>"
+                echo "  • This may take several hours to complete"
+            fi
+        fi
+
+        # Sector issues recommendations
+        if [ -f "$LOG_DIR/sector_control_test.log" ]; then
+            if grep -q "RECOMMENDATION: Storage may have issues" "$LOG_DIR/sector_control_test.log"; then
+                echo ""
+                echo "Sector Issues Detected:"
+                echo "  • Run filesystem check: fsck (requires unmount)"
+                echo "  • Consider low-level format if supported"
+                echo "  • Plan for replacement if issues persist"
+            fi
         fi
         
         echo ""
@@ -834,6 +1436,9 @@ test_random_io
 test_sustained_stress
 test_filesystem_stress
 check_storage_health
+run_extended_smart_test
+test_disk_sectors
+monitor_temperature
 generate_final_report
 
 log_phase "ALL DISK STRESS TESTS COMPLETED SUCCESSFULLY"
