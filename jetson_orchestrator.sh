@@ -319,6 +319,9 @@ confirm_and_run() {
     else
         echo -e "${BOLD}Total duration:${NC}      $TEST_DURATION_HOURS hours"
     fi
+    echo ""
+    echo -e "${BOLD}Tester:${NC}              $TESTER_NAME"
+    echo -e "${BOLD}Quality Checker:${NC}     $QUALITY_CHECKER_NAME"
 
     echo ""
     echo -e "${BOLD}Start time:${NC}          $(date '+%Y-%m-%d %H:%M:%S')"
