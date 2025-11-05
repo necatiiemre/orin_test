@@ -5,7 +5,8 @@
 ################################################################################
 # Description: Simple PCI device test for sending/receiving data and speed test
 # Hardware: x16 PCIe slot supporting x8 PCIe Gen4 (16GT/s, ~15.75 GB/s)
-# Version: 1.1
+# Requirements: Remote user must have sudo privileges (passwordless sudo recommended)
+# Version: 1.2
 ################################################################################
 
 # Source utilities
@@ -85,7 +86,7 @@ test_pci_speed() {
 
     log_info "Testing PCI device speed against Gen4 x8 specification..."
 
-    # Get PCI device link speed and width
+    # Get PCI device link speed and width (requires sudo for full access)
     ssh_execute_with_output "$ip" "$user" "$pass" "
         echo '=== PCI Link Speed Test ==='
         echo 'Expected: PCIe Gen4 x8 (16GT/s, 8 lanes)'
@@ -99,8 +100,8 @@ test_pci_speed() {
             echo \"Name: \$device_name\"
             echo ''
 
-            # Get detailed link information
-            link_info=\$(lspci -vv -s \$device 2>/dev/null)
+            # Get detailed link information (use sudo for full access)
+            link_info=\$(sudo lspci -vv -s \$device 2>/dev/null)
 
             if echo \"\$link_info\" | grep -q 'LnkCap:'; then
                 # Extract link capabilities
@@ -216,23 +217,25 @@ test_pci_data_transfer() {
         # Test device resource access
         echo ''
         echo 'Device resources:'
-        lspci -v -s \$device_addr | grep -A 5 'Memory at'
+        sudo lspci -v -s \$device_addr | grep -A 5 'Memory at'
 
         echo ''
         echo '=== Data Transfer Simulation ==='
         # Simulate data transfer by checking device activity
-        if [ -d \"/sys/bus/pci/devices/0000:\$device_addr\" ]; then
+        if sudo test -d \"/sys/bus/pci/devices/0000:\$device_addr\"; then
             echo '✓ Device is accessible'
 
             # Check if device supports DMA
-            if [ -f \"/sys/bus/pci/devices/0000:\$device_addr/dma_mask_bits\" ]; then
-                dma_bits=\$(cat /sys/bus/pci/devices/0000:\$device_addr/dma_mask_bits)
-                echo \"✓ Device supports \${dma_bits}-bit DMA\"
+            if sudo test -f \"/sys/bus/pci/devices/0000:\$device_addr/dma_mask_bits\"; then
+                dma_bits=\$(sudo cat /sys/bus/pci/devices/0000:\$device_addr/dma_mask_bits 2>/dev/null)
+                if [ -n \"\$dma_bits\" ]; then
+                    echo \"✓ Device supports \${dma_bits}-bit DMA\"
+                fi
             fi
 
             # Check device enable status
-            if [ -f \"/sys/bus/pci/devices/0000:\$device_addr/enable\" ]; then
-                enabled=\$(cat /sys/bus/pci/devices/0000:\$device_addr/enable)
+            if sudo test -f \"/sys/bus/pci/devices/0000:\$device_addr/enable\"; then
+                enabled=\$(sudo cat /sys/bus/pci/devices/0000:\$device_addr/enable 2>/dev/null)
                 if [ \"\$enabled\" = \"1\" ]; then
                     echo '✓ Device is enabled'
                 else
@@ -258,30 +261,30 @@ check_pci_health() {
     ssh_execute_with_output "$ip" "$user" "$pass" "
         echo '=== PCI Device Health Check ==='
 
-        # Check for PCI errors
+        # Check for PCI errors (requires sudo)
         echo 'Checking for PCI errors...'
-        if dmesg | tail -100 | grep -i 'pci.*error' > /dev/null 2>&1; then
+        if sudo dmesg 2>/dev/null | tail -100 | grep -i 'pci.*error' > /dev/null 2>&1; then
             echo '⚠ PCI errors found in kernel log:'
-            dmesg | tail -100 | grep -i 'pci.*error' | tail -5
+            sudo dmesg | tail -100 | grep -i 'pci.*error' | tail -5
         else
             echo '✓ No PCI errors in recent kernel log'
         fi
 
         echo ''
 
-        # Check device status for all PCI devices
+        # Check device status for all PCI devices (requires sudo for full info)
         for device in \$(lspci | grep -v 'Host bridge\|ISA bridge\|PCI bridge' | awk '{print \$1}'); do
             echo \"Device \$device:\"
 
             # Check device status register
-            if lspci -vv -s \$device 2>/dev/null | grep -q 'Status:'; then
-                echo \"  Status: \$(lspci -vv -s \$device | grep 'Status:' | head -1)\"
+            if sudo lspci -vv -s \$device 2>/dev/null | grep -q 'Status:'; then
+                echo \"  Status: \$(sudo lspci -vv -s \$device | grep 'Status:' | head -1)\"
             fi
 
             # Check for correctable/uncorrectable errors
-            if lspci -vv -s \$device 2>/dev/null | grep -E 'CESta:|UESta:' > /dev/null; then
-                correctable=\$(lspci -vv -s \$device | grep 'CESta:' | head -1)
-                uncorrectable=\$(lspci -vv -s \$device | grep 'UESta:' | head -1)
+            if sudo lspci -vv -s \$device 2>/dev/null | grep -E 'CESta:|UESta:' > /dev/null; then
+                correctable=\$(sudo lspci -vv -s \$device | grep 'CESta:' | head -1)
+                uncorrectable=\$(sudo lspci -vv -s \$device | grep 'UESta:' | head -1)
 
                 if [ -n \"\$correctable\" ]; then
                     echo \"  \$correctable\"
@@ -296,7 +299,7 @@ check_pci_health() {
 
         # Overall health assessment
         echo '=== Overall Health Assessment ==='
-        error_count=\$(dmesg | grep -i 'pci.*error' | wc -l)
+        error_count=\$(sudo dmesg 2>/dev/null | grep -i 'pci.*error' | wc -l)
         if [ \$error_count -eq 0 ]; then
             echo '✓ PCI subsystem health: GOOD'
         elif [ \$error_count -lt 5 ]; then
@@ -339,6 +342,9 @@ main() {
     echo "================================================================================"
     echo "  JETSON ORIN - PCI DEVICE TEST"
     echo "================================================================================"
+    echo ""
+    echo "NOTE: This test requires sudo privileges on the remote Jetson Orin system"
+    echo "      for full PCIe capability inspection and health monitoring."
     echo ""
 
     # Collect parameters if not set
