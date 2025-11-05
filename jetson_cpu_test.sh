@@ -1335,6 +1335,7 @@ log_info "Test 4.2: Floating-Point Operations Throughput"
 cat > "$REMOTE_TEST_DIR/fp_throughput.c" << 'FP_THROUGHPUT_EOF'
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <time.h>
 #include <math.h>
 
@@ -1416,6 +1417,7 @@ log_info "Test 4.3: Branch Prediction Performance"
 cat > "$REMOTE_TEST_DIR/branch_test.c" << 'BRANCH_TEST_EOF'
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <time.h>
 
 int main(int argc, char *argv[]) {
