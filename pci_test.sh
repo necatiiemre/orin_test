@@ -4,7 +4,8 @@
 # JETSON ORIN - PCI DEVICE TEST
 ################################################################################
 # Description: Simple PCI device test for sending/receiving data and speed test
-# Version: 1.0
+# Hardware: x16 PCIe slot supporting x8 PCIe Gen4 (16GT/s, ~15.75 GB/s)
+# Version: 1.1
 ################################################################################
 
 # Source utilities
@@ -32,6 +33,12 @@ ORIN_PASS="${ORIN_PASS}"
 
 OUTPUT_DIR="pci_test_results_$(date +%Y%m%d_%H%M%S)"
 PCI_LOG="$OUTPUT_DIR/pci_test.log"
+
+# Jetson Orin PCIe Specifications
+# x16 physical slot supporting x8 PCIe Gen4
+EXPECTED_PCIE_GEN="4"
+EXPECTED_PCIE_LANES="8"
+EXPECTED_PCIE_SPEED="16GT/s"  # Gen4 = 16GT/s per lane
 
 ################################################################################
 # FUNCTIONS
@@ -76,16 +83,82 @@ test_pci_speed() {
     local user="$2"
     local pass="$3"
 
-    log_info "Testing PCI device speed..."
+    log_info "Testing PCI device speed against Gen4 x8 specification..."
 
     # Get PCI device link speed and width
     ssh_execute_with_output "$ip" "$user" "$pass" "
         echo '=== PCI Link Speed Test ==='
+        echo 'Expected: PCIe Gen4 x8 (16GT/s, 8 lanes)'
+        echo 'Physical slot: x16 (supporting x8 electrically)'
+        echo ''
+
         for device in \$(lspci | grep -v 'Host bridge\|ISA bridge\|PCI bridge' | awk '{print \$1}'); do
+            echo \"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\"
             echo \"Device: \$device\"
-            lspci -vv -s \$device 2>/dev/null | grep -E 'LnkCap:|LnkSta:' || echo 'Link info not available'
+            device_name=\$(lspci -s \$device | cut -d' ' -f2-)
+            echo \"Name: \$device_name\"
+            echo ''
+
+            # Get detailed link information
+            link_info=\$(lspci -vv -s \$device 2>/dev/null)
+
+            if echo \"\$link_info\" | grep -q 'LnkCap:'; then
+                # Extract link capabilities
+                lnk_cap=\$(echo \"\$link_info\" | grep 'LnkCap:')
+                lnk_sta=\$(echo \"\$link_info\" | grep 'LnkSta:' | head -1)
+
+                echo \"Link Capabilities:\"
+                echo \"  \$lnk_cap\"
+                echo \"Link Status (Current):\"
+                echo \"  \$lnk_sta\"
+                echo ''
+
+                # Parse current speed and width
+                current_speed=\$(echo \"\$lnk_sta\" | grep -oP 'Speed \K[^,]+' || echo 'Unknown')
+                current_width=\$(echo \"\$lnk_sta\" | grep -oP 'Width x\K[0-9]+' || echo 'Unknown')
+
+                echo \"Current Configuration:\"
+                echo \"  Speed: \$current_speed\"
+                echo \"  Width: x\$current_width\"
+                echo ''
+
+                # Validate against expected specifications
+                echo \"Specification Check:\"
+                if echo \"\$current_speed\" | grep -q '16GT/s'; then
+                    echo \"  ✓ Speed: Gen4 (16GT/s) - PASS\"
+                elif echo \"\$current_speed\" | grep -q '8GT/s'; then
+                    echo \"  ⚠ Speed: Gen3 (8GT/s) - Device running slower than Gen4\"
+                elif echo \"\$current_speed\" | grep -q '5GT/s'; then
+                    echo \"  ⚠ Speed: Gen2 (5GT/s) - Device running slower than Gen4\"
+                elif echo \"\$current_speed\" | grep -q '2.5GT/s'; then
+                    echo \"  ⚠ Speed: Gen1 (2.5GT/s) - Device running much slower than Gen4\"
+                else
+                    echo \"  ? Speed: \$current_speed - Unable to determine\"
+                fi
+
+                if [ \"\$current_width\" = \"8\" ]; then
+                    echo \"  ✓ Width: x8 lanes - PASS\"
+                elif [ \"\$current_width\" = \"16\" ]; then
+                    echo \"  ⚠ Width: x16 lanes - Device requesting more lanes than supported (x8 max)\"
+                elif [ \"\$current_width\" -lt 8 ] 2>/dev/null; then
+                    echo \"  ⚠ Width: x\$current_width lanes - Device using fewer lanes than available (x8 max)\"
+                else
+                    echo \"  ? Width: x\$current_width - Unable to validate\"
+                fi
+
+                # Calculate theoretical bandwidth
+                if echo \"\$current_speed\" | grep -q '16GT/s' && [ \"\$current_width\" = \"8\" ]; then
+                    # Gen4 x8 = 16 GT/s * 8 lanes * 128b/130b encoding / 8 bits = ~15.75 GB/s
+                    echo ''
+                    echo \"Theoretical Bandwidth: ~15.75 GB/s (Gen4 x8)\"
+                fi
+            else
+                echo \"  Link information not available for this device\"
+            fi
             echo ''
         done
+
+        echo \"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\"
     " | tee -a "$PCI_LOG"
 
     log_success "PCI speed test completed"
@@ -311,8 +384,16 @@ main() {
             echo -e "${GREEN}PCI TEST COMPLETED SUCCESSFULLY${NC}"
             echo "================================================================================"
             echo ""
+            echo "Jetson Orin PCIe Specification:"
+            echo "  Physical slot: x16"
+            echo "  Electrical support: x8 PCIe Gen4"
+            echo "  Max speed: 16GT/s per lane"
+            echo "  Theoretical bandwidth: ~15.75 GB/s"
+            echo ""
             echo "Results saved to: $OUTPUT_DIR"
             echo "Log file: $PCI_LOG"
+            echo ""
+            echo "Review the log file for detailed speed validation and health status"
             echo ""
         else
             log_error "No PCI devices detected by system"
