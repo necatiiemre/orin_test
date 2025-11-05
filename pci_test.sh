@@ -6,7 +6,8 @@
 # Description: Simple PCI device test for sending/receiving data and speed test
 # Hardware: x16 PCIe slot supporting x8 PCIe Gen4 (16GT/s, ~15.75 GB/s)
 # Requirements: Remote user must have sudo privileges (passwordless sudo recommended)
-# Version: 1.2
+# Note: Test will FAIL if PCIe link speed cannot be validated
+# Version: 1.3
 ################################################################################
 
 # Source utilities
@@ -87,11 +88,13 @@ test_pci_speed() {
     log_info "Testing PCI device speed against Gen4 x8 specification..."
 
     # Get PCI device link speed and width (requires sudo for full access)
-    ssh_execute_with_output "$ip" "$user" "$pass" "
+    local test_output=$(ssh_execute_with_output "$ip" "$user" "$pass" "
         echo '=== PCI Link Speed Test ==='
         echo 'Expected: PCIe Gen4 x8 (16GT/s, 8 lanes)'
         echo 'Physical slot: x16 (supporting x8 electrically)'
         echo ''
+
+        link_found=0
 
         for device in \$(lspci | grep -v 'Host bridge\|ISA bridge\|PCI bridge' | awk '{print \$1}'); do
             echo \"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\"
@@ -104,6 +107,7 @@ test_pci_speed() {
             link_info=\$(sudo lspci -vv -s \$device 2>/dev/null)
 
             if echo \"\$link_info\" | grep -q 'LnkCap:'; then
+                link_found=1
                 # Extract link capabilities
                 lnk_cap=\$(echo \"\$link_info\" | grep 'LnkCap:')
                 lnk_sta=\$(echo \"\$link_info\" | grep 'LnkSta:' | head -1)
@@ -154,15 +158,29 @@ test_pci_speed() {
                     echo \"Theoretical Bandwidth: ~15.75 GB/s (Gen4 x8)\"
                 fi
             else
-                echo \"  Link information not available for this device\"
+                echo \"  ✗ Link information not available for this device\"
+                echo \"  Possible causes:\"
+                echo \"    - Device doesn't support standard PCIe capabilities\"
+                echo \"    - Sudo access not configured properly\"
+                echo \"    - Device driver issue\"
             fi
             echo ''
         done
 
         echo \"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\"
-    " | tee -a "$PCI_LOG"
+        exit \$link_found
+    ")
 
-    log_success "PCI speed test completed"
+    local exit_code=$?
+    echo "$test_output" | tee -a "$PCI_LOG"
+
+    if [ $exit_code -eq 1 ]; then
+        log_success "PCI speed test completed - Link information retrieved"
+        return 0
+    else
+        log_error "PCI speed test failed - Could not retrieve PCIe link information"
+        return 1
+    fi
 }
 
 # Send and receive data test
@@ -373,8 +391,11 @@ main() {
         if check_pci_device "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS"; then
             echo ""
 
-            # Run speed test
-            test_pci_speed "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS"
+            # Run speed test (critical - must pass)
+            speed_test_passed=0
+            if test_pci_speed "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS"; then
+                speed_test_passed=1
+            fi
             echo ""
 
             # Run data transfer test
@@ -387,9 +408,27 @@ main() {
 
             # Summary
             echo "================================================================================"
-            echo -e "${GREEN}PCI TEST COMPLETED SUCCESSFULLY${NC}"
-            echo "================================================================================"
-            echo ""
+            if [ $speed_test_passed -eq 1 ]; then
+                echo -e "${GREEN}PCI TEST COMPLETED SUCCESSFULLY${NC}"
+                echo "================================================================================"
+                echo ""
+                echo "✓ PCIe link speed and capabilities validated"
+            else
+                echo -e "${RED}PCI TEST COMPLETED WITH WARNINGS${NC}"
+                echo "================================================================================"
+                echo ""
+                echo "✗ Could not validate PCIe Gen4 x8 specification"
+                echo ""
+                echo "The test detected a PCI device but could not read PCIe link information."
+                echo "This is required to verify the device is running at Gen4 x8 speeds."
+                echo ""
+                echo "Troubleshooting steps:"
+                echo "  1. Ensure 'orin' user has passwordless sudo access"
+                echo "  2. Check if the device supports standard PCIe capabilities"
+                echo "  3. Try running: sudo lspci -vv on the Jetson to verify manually"
+                echo "  4. Verify the device is properly seated in the PCIe slot"
+                echo ""
+            fi
             echo "Jetson Orin PCIe Specification:"
             echo "  Physical slot: x16"
             echo "  Electrical support: x8 PCIe Gen4"
@@ -399,8 +438,12 @@ main() {
             echo "Results saved to: $OUTPUT_DIR"
             echo "Log file: $PCI_LOG"
             echo ""
-            echo "Review the log file for detailed speed validation and health status"
+            echo "Review the log file for detailed information"
             echo ""
+
+            if [ $speed_test_passed -eq 0 ]; then
+                exit 1
+            fi
         else
             log_error "No PCI devices detected by system"
             echo ""
