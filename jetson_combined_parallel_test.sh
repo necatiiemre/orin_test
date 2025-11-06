@@ -724,6 +724,29 @@ cat "$REPORT_FILE" | grep -A 30 "OVERALL SYSTEM ASSESSMENT"
 echo "================================================================================"
 echo ""
 
+################################################################################
+# AUTOMATIC PDF GENERATION
+################################################################################
+
+echo ""
+log_info "Generating PDF reports..."
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PDF_GENERATOR="$SCRIPT_DIR/generate_pdf_reports.sh"
+
+if [ -f "$PDF_GENERATOR" ]; then
+    if "$PDF_GENERATOR" "$LOG_DIR" > /dev/null 2>&1; then
+        log_success "PDF reports generated successfully"
+        echo "[*] PDF Reports: $LOG_DIR/pdf_reports/"
+    else
+        log_warning "PDF generation failed (test results still available)"
+    fi
+else
+    log_warning "PDF generator not found (test results still available)"
+fi
+echo ""
+
 if [ $PASS_RATE -eq 100 ]; then
     log_success "All tests passed! System is performing excellently under combined load."
     exit 0

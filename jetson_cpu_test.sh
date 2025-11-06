@@ -2373,6 +2373,29 @@ if [ -f "$LOG_DIR/reports/ultra_cpu_results.txt" ]; then
     echo "[*] View complete report: cat $LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
 fi
 
+################################################################################
+# AUTOMATIC PDF GENERATION
+################################################################################
+
+echo ""
+log_info "Generating PDF reports..."
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PDF_GENERATOR="$SCRIPT_DIR/generate_pdf_reports.sh"
+
+if [ -f "$PDF_GENERATOR" ]; then
+    if "$PDF_GENERATOR" "$LOG_DIR" > /dev/null 2>&1; then
+        log_success "PDF reports generated successfully"
+        echo "[*] PDF Reports: $LOG_DIR/pdf_reports/"
+    else
+        log_warning "PDF generation failed (test results still available)"
+    fi
+else
+    log_warning "PDF generator not found (test results still available)"
+fi
+echo ""
+
 # Return appropriate exit code based on health
 if [ -f "$LOG_DIR/reports/ultra_cpu_results.txt" ]; then
     source "$LOG_DIR/reports/ultra_cpu_results.txt"
