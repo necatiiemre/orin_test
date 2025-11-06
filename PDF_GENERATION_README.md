@@ -91,6 +91,48 @@ python3 pdf_report_generator.py \
 ./generate_pdf_reports.sh --no-charts test_output_20250106_120000
 ```
 
+### 5. Add Logo to PDF Background
+
+You can add a company logo or branding to the PDF background in various positions:
+
+```bash
+# Add logo as centered watermark (default, 10% opacity)
+./generate_pdf_reports.sh --logo /path/to/logo.png test_output_20250106_120000
+
+# Add logo in top-right corner
+./generate_pdf_reports.sh --logo /path/to/logo.png --logo-position top-right test_output_20250106_120000
+
+# Add logo with custom opacity (30% visible)
+./generate_pdf_reports.sh --logo /path/to/logo.png --logo-opacity 0.3 test_output_20250106_120000
+
+# Add logo in bottom-right corner with 50% opacity
+./generate_pdf_reports.sh \
+    --logo /path/to/logo.png \
+    --logo-position bottom-right \
+    --logo-opacity 0.5 \
+    test_output_20250106_120000
+```
+
+**Logo Positions:**
+- `watermark` - Centered, large (4x4 inches), perfect for background branding
+- `top-right` - Top-right corner (1.5x1.5 inches)
+- `top-left` - Top-left corner (1.5x1.5 inches)
+- `bottom-right` - Bottom-right corner (1.5x1.5 inches)
+- `bottom-left` - Bottom-left corner (1.5x1.5 inches)
+
+**Logo Opacity:**
+- `0.0` - Completely invisible
+- `0.1` - Very subtle (10% visible, default for watermarks)
+- `0.3` - Light (30% visible, good for corners)
+- `0.5` - Medium (50% visible)
+- `1.0` - Fully opaque (100% visible)
+
+**Supported Logo Formats:**
+- PNG (recommended, supports transparency)
+- JPG/JPEG
+- GIF
+- BMP
+
 ## Python API Usage
 
 You can also use the PDF generator programmatically in your Python scripts:
@@ -98,8 +140,24 @@ You can also use the PDF generator programmatically in your Python scripts:
 ```python
 from pdf_report_generator import PDFReportGenerator
 
-# Initialize generator
+# Initialize generator without logo
 generator = PDFReportGenerator(output_dir='/path/to/output')
+
+# Initialize generator with logo (watermark style)
+generator_with_logo = PDFReportGenerator(
+    output_dir='/path/to/output',
+    logo_path='/path/to/logo.png',
+    logo_position='watermark',
+    logo_opacity=0.1
+)
+
+# Initialize generator with logo in corner
+generator_corner_logo = PDFReportGenerator(
+    output_dir='/path/to/output',
+    logo_path='/path/to/company_logo.png',
+    logo_position='top-right',
+    logo_opacity=0.3
+)
 
 # Convert single TXT report
 generator.convert_txt_report_to_pdf(
@@ -206,9 +264,13 @@ The combined PDF includes:
 ./generate_pdf_reports.sh [OPTIONS] <test_output_directory>
 
 Options:
-  --combined-only     Generate only combined PDF (skip individual PDFs)
-  --no-charts         Disable chart generation for CSV files
-  --help              Show help message
+  --combined-only         Generate only combined PDF (skip individual PDFs)
+  --no-charts             Disable chart generation for CSV files
+  --test-type TYPE        Test type for organization (cpu, gpu, ram, storage, etc.)
+  --logo FILE             Path to logo image file (PNG, JPG, etc.)
+  --logo-position POS     Logo position: watermark, top-right, top-left, bottom-right, bottom-left
+  --logo-opacity OPACITY  Logo opacity from 0.0 to 1.0 (default: 0.1)
+  --help                  Show help message
 ```
 
 ### Python Script (`pdf_report_generator.py`)
@@ -217,12 +279,17 @@ Options:
 python3 pdf_report_generator.py [OPTIONS]
 
 Options:
-  --txt-report FILE   Convert single TXT report to PDF
-  --csv-log FILE      Convert single CSV log to PDF
-  --batch DIR         Convert all files in directory (individual + combined)
-  --combined DIR      Create only combined PDF from directory
-  -o, --output FILE   Output PDF file path (for single conversions)
-  --no-charts         Disable chart generation for CSV files
+  --txt-report FILE       Convert single TXT report to PDF
+  --csv-log FILE          Convert single CSV log to PDF
+  --batch DIR             Convert all files in directory (individual + combined)
+  --combined DIR          Create only combined PDF from directory
+  -o, --output FILE       Output PDF file path (for single conversions)
+  --no-charts             Disable chart generation for CSV files
+  --test-type TYPE        Test type for organization
+  --output-base-dir DIR   Base directory for PDF output
+  --logo FILE             Path to logo image file
+  --logo-position POS     Logo position (watermark, top-right, etc.)
+  --logo-opacity OPACITY  Logo opacity from 0.0 to 1.0
 ```
 
 ## Output Structure
