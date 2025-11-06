@@ -97,6 +97,22 @@ collect_credentials() {
         echo -e "${RED}Quality checker name is required${NC}"
         read -p "$(echo -e ${BOLD}Enter quality checker name${NC}): " QUALITY_CHECKER_NAME
     done
+
+    # Prompt for device serial number
+    read -p "$(echo -e ${BOLD}Enter device serial number${NC}): " DEVICE_SERIAL
+    while true; do
+        if [ -z "$DEVICE_SERIAL" ]; then
+            echo -e "${RED}Device serial number is required${NC}"
+            read -p "$(echo -e ${BOLD}Enter device serial number${NC}): " DEVICE_SERIAL
+        elif ! [[ "$DEVICE_SERIAL" =~ ^[a-zA-Z0-9]+$ ]]; then
+            echo -e "${RED}Device serial number must contain only letters and numbers${NC}"
+            read -p "$(echo -e ${BOLD}Enter device serial number${NC}): " DEVICE_SERIAL
+        else
+            # Convert to uppercase
+            DEVICE_SERIAL=$(echo "$DEVICE_SERIAL" | tr '[:lower:]' '[:upper:]')
+            break
+        fi
+    done
     echo ""
 
     # Test SSH connection
@@ -322,6 +338,7 @@ confirm_and_run() {
     echo ""
     echo -e "${BOLD}Tester:${NC}              $TESTER_NAME"
     echo -e "${BOLD}Quality Checker:${NC}     $QUALITY_CHECKER_NAME"
+    echo -e "${BOLD}Device Serial:${NC}       $DEVICE_SERIAL"
 
     echo ""
     echo -e "${BOLD}Start time:${NC}          $(date '+%Y-%m-%d %H:%M:%S')"
@@ -412,7 +429,7 @@ run_test() {
     esac
 
     # Run the test
-    if bash "$SCRIPT_DIR/$TEST_SCRIPT" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR" "$TESTER_NAME" "$QUALITY_CHECKER_NAME"; then
+    if bash "$SCRIPT_DIR/$TEST_SCRIPT" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR" "$TESTER_NAME" "$QUALITY_CHECKER_NAME" "$DEVICE_SERIAL"; then
         echo ""
         echo -e "${BOLD}${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
         echo -e "${BOLD}${GREEN}  ✓ TEST PASSED: $TEST_NAME${NC}"

@@ -41,6 +41,7 @@ fi
 # Get tester information (parameters 6 and 7 from orchestrator, or from environment if from collect_test_parameters)
 TESTER_NAME="${6:-${TESTER_NAME:-N/A}}"
 QUALITY_CHECKER_NAME="${7:-${QUALITY_CHECKER_NAME:-N/A}}"
+DEVICE_SERIAL="${8:-${DEVICE_SERIAL:-N/A}}"
 
 ################################################################################
 # CONFIGURATION
@@ -215,6 +216,7 @@ echo ""
 echo "Test Personnel:"
 echo "  Tester: $TESTER_NAME"
 echo "  Quality Checker: $QUALITY_CHECKER_NAME"
+echo "  Device Serial: $DEVICE_SERIAL"
 echo ""
 
 # Start intensive temperature monitoring (1-second intervals)
@@ -2087,6 +2089,7 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
     echo ""
     echo "Tester: $TESTER_NAME"
     echo "Quality Checker: $QUALITY_CHECKER_NAME"
+    echo "Device Serial: $DEVICE_SERIAL"
     echo ""
     
     if [ -f "$LOG_DIR/reports/ultra_cpu_results.txt" ]; then

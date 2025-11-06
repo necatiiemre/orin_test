@@ -257,6 +257,22 @@ collect_test_parameters() {
         read -p "$(echo -e ${BOLD}Quality checker name${NC}): " QUALITY_CHECKER_NAME
     done
 
+    # Collect device serial number
+    read -p "$(echo -e ${BOLD}Device serial number${NC}): " DEVICE_SERIAL
+    while true; do
+        if [ -z "$DEVICE_SERIAL" ]; then
+            echo -e "${RED}Device serial number is required${NC}"
+            read -p "$(echo -e ${BOLD}Device serial number${NC}): " DEVICE_SERIAL
+        elif ! [[ "$DEVICE_SERIAL" =~ ^[a-zA-Z0-9]+$ ]]; then
+            echo -e "${RED}Device serial number must contain only letters and numbers${NC}"
+            read -p "$(echo -e ${BOLD}Device serial number${NC}): " DEVICE_SERIAL
+        else
+            # Convert to uppercase
+            DEVICE_SERIAL=$(echo "$DEVICE_SERIAL" | tr '[:lower:]' '[:upper:]')
+            break
+        fi
+    done
+
     # Collect test duration
     read -p "$(echo -e ${BOLD}Test duration in hours${NC}) [$default_duration]: " input_duration
     TEST_DURATION_HOURS="${input_duration:-$default_duration}"
