@@ -1530,5 +1530,29 @@ fi
 echo "[*] To view full report:"
 echo "   cat $LOG_DIR/reports/DISK_PERFORMANCE_REPORT.txt"
 echo ""
+
+################################################################################
+# AUTOMATIC PDF GENERATION
+################################################################################
+
+echo ""
+log_info "Generating PDF reports..."
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PDF_GENERATOR="$SCRIPT_DIR/generate_pdf_reports.sh"
+
+if [ -f "$PDF_GENERATOR" ]; then
+    if "$PDF_GENERATOR" --test-type storage "$LOG_DIR" > /dev/null 2>&1; then
+        log_success "PDF reports generated successfully"
+        echo "[*] PDF Reports: $LOG_DIR/pdf_reports/storage/"
+    else
+        log_warning "PDF generation failed (test results still available)"
+    fi
+else
+    log_warning "PDF generator not found (test results still available)"
+fi
+echo ""
+
 echo "[+] Jetson Orin disk stress test completed successfully!"
 echo ""

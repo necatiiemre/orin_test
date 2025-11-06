@@ -1,0 +1,11 @@
+# Python dependencies for Jetson Orin Test Suite
+
+# PDF Report Generation
+reportlab>=4.0.0
+matplotlib>=3.5.0
+
+# Optional: For enhanced PDF features
+Pillow>=9.0.0
+
+# CSV and data processing (usually included with Python)
+# pandas>=1.3.0  # Uncomment if advanced CSV processing is needed

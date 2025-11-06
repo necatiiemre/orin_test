@@ -360,4 +360,58 @@ echo ""
 echo "Sequential test completed: $(date)"
 echo ""
 
+################################################################################
+# AUTOMATIC PDF GENERATION
+################################################################################
+
+echo ""
+log_info "Generating PDF reports for each test..."
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PDF_GENERATOR="$SCRIPT_DIR/generate_pdf_reports.sh"
+
+if [ -f "$PDF_GENERATOR" ]; then
+    PDF_SUCCESS=0
+
+    # Create unified pdf_reports base directory
+    PDF_BASE="$LOG_DIR/pdf_reports"
+    mkdir -p "$PDF_BASE"
+
+    # Generate PDFs for each test type, outputting to unified structure
+    for TEST_TYPE in cpu gpu ram storage; do
+        TEST_DIR="$LOG_DIR/$TEST_TYPE"
+        if [ -d "$TEST_DIR" ]; then
+            if "$PDF_GENERATOR" --test-type "$TEST_TYPE" --output-base-dir "$PDF_BASE" "$TEST_DIR" > /dev/null 2>&1; then
+                log_info "Generated PDFs for $TEST_TYPE test → $PDF_BASE/$TEST_TYPE/"
+                PDF_SUCCESS=$((PDF_SUCCESS + 1))
+            fi
+        fi
+    done
+
+    # Generate sequential combined PDF
+    if "$PDF_GENERATOR" --test-type sequential --output-base-dir "$PDF_BASE" "$LOG_DIR" > /dev/null 2>&1; then
+        log_info "Generated sequential combined PDF → $PDF_BASE/sequential/"
+        PDF_SUCCESS=$((PDF_SUCCESS + 1))
+    fi
+
+    if [ $PDF_SUCCESS -gt 0 ]; then
+        log_success "PDF reports generated successfully"
+        echo ""
+        echo "[*] PDF Reports organized by test type:"
+        echo "    $PDF_BASE/"
+        echo "    ├── cpu/         (CPU test PDFs)"
+        echo "    ├── gpu/         (GPU test PDFs)"
+        echo "    ├── ram/         (RAM test PDFs)"
+        echo "    ├── storage/     (Storage test PDFs)"
+        echo "    └── sequential/  (Combined sequential test PDF)"
+        echo ""
+    else
+        log_warning "PDF generation failed (test results still available)"
+    fi
+else
+    log_warning "PDF generator not found (test results still available)"
+fi
+echo ""
+
 exit $FINAL_RESULT

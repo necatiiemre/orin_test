@@ -2157,5 +2157,29 @@ echo ""
 echo "[*] To view full GPU report:"
 echo "   cat $LOG_DIR/reports/FINAL_GPU_REPORT.txt"
 echo ""
+
+################################################################################
+# AUTOMATIC PDF GENERATION
+################################################################################
+
+echo ""
+log_info "Generating PDF reports..."
+
+# Get script directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PDF_GENERATOR="$SCRIPT_DIR/generate_pdf_reports.sh"
+
+if [ -f "$PDF_GENERATOR" ]; then
+    if "$PDF_GENERATOR" --test-type gpu "$LOG_DIR" > /dev/null 2>&1; then
+        log_success "PDF reports generated successfully"
+        echo "[*] PDF Reports: $LOG_DIR/pdf_reports/gpu/"
+    else
+        log_warning "PDF generation failed (test results still available)"
+    fi
+else
+    log_warning "PDF generator not found (test results still available)"
+fi
+echo ""
+
 echo "[+] Jetson Orin detailed GPU stress test completed (v2.0)!"
 echo ""
