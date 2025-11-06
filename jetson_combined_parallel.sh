@@ -38,6 +38,10 @@ else
     collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-2}"
 fi
 
+# Get tester information (parameters 6 and 7 from orchestrator, or from environment if from collect_test_parameters)
+TESTER_NAME="${6:-${TESTER_NAME:-N/A}}"
+QUALITY_CHECKER_NAME="${7:-${QUALITY_CHECKER_NAME:-N/A}}"
+
 ################################################################################
 # CONFIGURATION
 ################################################################################
@@ -112,6 +116,10 @@ echo "  • Target Device: $ORIN_IP"
 echo "  • SSH User: $ORIN_USER"
 echo "  • Test Duration: ${TEST_DURATION_HOURS} hours ($TEST_DURATION seconds)"
 echo "  • Test Mode: PARALLEL (All components simultaneously)"
+echo ""
+echo "Test Personnel:"
+echo "  • Tester: $TESTER_NAME"
+echo "  • Quality Checker: $QUALITY_CHECKER_NAME"
 echo ""
 echo "Tests to Run:"
 echo "  [1] CPU Stress Test    - Multi-core performance"
@@ -204,7 +212,7 @@ TEST_START_TIME=$(date +%s)
 
 # CPU Test
 log_info "[1/4] Launching CPU stress test..."
-"$SCRIPT_DIR/jetson_cpu_test.sh" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR/cpu_test" > "$LOG_DIR/logs/cpu_test.log" 2>&1 &
+"$SCRIPT_DIR/jetson_cpu_test.sh" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR/cpu_test" "$TESTER_NAME" "$QUALITY_CHECKER_NAME" > "$LOG_DIR/logs/cpu_test.log" 2>&1 &
 CPU_PID=$!
 log_success "CPU test launched (PID: $CPU_PID)"
 
@@ -212,7 +220,7 @@ sleep 2
 
 # GPU Test
 log_info "[2/4] Launching GPU stress test..."
-"$SCRIPT_DIR/jetson_gpu_test.sh" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR/gpu_test" > "$LOG_DIR/logs/gpu_test.log" 2>&1 &
+"$SCRIPT_DIR/jetson_gpu_test.sh" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR/gpu_test" "$TESTER_NAME" "$QUALITY_CHECKER_NAME" > "$LOG_DIR/logs/gpu_test.log" 2>&1 &
 GPU_PID=$!
 log_success "GPU test launched (PID: $GPU_PID)"
 
@@ -220,7 +228,7 @@ sleep 2
 
 # RAM Test
 log_info "[3/4] Launching RAM stress test..."
-"$SCRIPT_DIR/jetson_ram_test.sh" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR/ram_test" > "$LOG_DIR/logs/ram_test.log" 2>&1 &
+"$SCRIPT_DIR/jetson_ram_test.sh" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR/ram_test" "$TESTER_NAME" "$QUALITY_CHECKER_NAME" > "$LOG_DIR/logs/ram_test.log" 2>&1 &
 RAM_PID=$!
 log_success "RAM test launched (PID: $RAM_PID)"
 
@@ -228,7 +236,7 @@ sleep 2
 
 # Storage Test
 log_info "[4/4] Launching Storage stress test..."
-"$SCRIPT_DIR/jetson_storage_test.sh" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR/storage_test" > "$LOG_DIR/logs/storage_test.log" 2>&1 &
+"$SCRIPT_DIR/jetson_storage_test.sh" "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$TEST_DURATION_HOURS" "$LOG_DIR/storage_test" "$TESTER_NAME" "$QUALITY_CHECKER_NAME" > "$LOG_DIR/logs/storage_test.log" 2>&1 &
 STORAGE_PID=$!
 log_success "Storage test launched (PID: $STORAGE_PID)"
 
@@ -446,6 +454,10 @@ REPORT_FILE="$LOG_DIR/reports/COMBINED_TEST_REPORT.txt"
     echo "  • Actual Duration: $(($TOTAL_DURATION / 60)) minutes"
     echo "  • Start Time: $(date -d @$TEST_START_TIME '+%Y-%m-%d %H:%M:%S')"
     echo "  • End Time: $(date -d @$TEST_END_TIME '+%Y-%m-%d %H:%M:%S')"
+    echo ""
+    echo "Personnel:"
+    echo "  • Tester: $TESTER_NAME"
+    echo "  • Quality Checker: $QUALITY_CHECKER_NAME"
     echo ""
 
     echo "================================================================================"

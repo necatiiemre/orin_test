@@ -38,6 +38,10 @@ else
     collect_test_parameters "${1:-192.168.55.69}" "${2:-orin}" "${3}" "${4:-1}"
 fi
 
+# Get tester information (parameters 6 and 7 from orchestrator, or from environment if from collect_test_parameters)
+TESTER_NAME="${6:-${TESTER_NAME:-N/A}}"
+QUALITY_CHECKER_NAME="${7:-${QUALITY_CHECKER_NAME:-N/A}}"
+
 ################################################################################
 # CONFIGURATION
 ################################################################################
@@ -206,6 +210,12 @@ echo ""
 ################################################################################
 
 log_phase "[STARTING ULTRA CPU STRESS TEST]"
+
+echo ""
+echo "Test Personnel:"
+echo "  Tester: $TESTER_NAME"
+echo "  Quality Checker: $QUALITY_CHECKER_NAME"
+echo ""
 
 # Start intensive temperature monitoring (1-second intervals)
 start_temperature_monitoring "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS" "$LOG_DIR/logs/cpu_temperature.csv" 1
@@ -1325,6 +1335,7 @@ log_info "Test 4.2: Floating-Point Operations Throughput"
 cat > "$REMOTE_TEST_DIR/fp_throughput.c" << 'FP_THROUGHPUT_EOF'
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <time.h>
 #include <math.h>
 
@@ -1406,6 +1417,7 @@ log_info "Test 4.3: Branch Prediction Performance"
 cat > "$REMOTE_TEST_DIR/branch_test.c" << 'BRANCH_TEST_EOF'
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 #include <time.h>
 
 int main(int argc, char *argv[]) {
@@ -2072,6 +2084,9 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
     echo "Jetson model: $JETSON_MODEL"
     echo "Physical CPU cores tested: $CPU_CORES"
     echo "Device: $ORIN_IP"
+    echo ""
+    echo "Tester: $TESTER_NAME"
+    echo "Quality Checker: $QUALITY_CHECKER_NAME"
     echo ""
     
     if [ -f "$LOG_DIR/reports/ultra_cpu_results.txt" ]; then
