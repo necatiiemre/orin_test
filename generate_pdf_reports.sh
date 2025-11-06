@@ -92,11 +92,15 @@ Usage:
 Options:
   --combined-only     Generate only a combined PDF (skip individual PDFs)
   --no-charts         Disable chart generation for CSV files
+  --test-type TYPE    Test type for organization (cpu, gpu, ram, storage, etc.)
   --help              Show this help message
 
 Examples:
   # Generate all PDFs (individual + combined)
   $0 test_output_20250106_120000
+
+  # Generate PDFs for CPU test only
+  $0 --test-type cpu test_output_20250106_120000
 
   # Generate only combined PDF
   $0 --combined-only test_output_20250106_120000
@@ -108,7 +112,7 @@ Description:
   This script converts test reports (TXT) and monitoring logs (CSV) to
   formatted PDF files with charts and visualizations.
 
-  Output PDFs will be saved in: <test_output_directory>/pdf_reports/
+  Output PDFs will be saved in: <test_output_directory>/pdf_reports/[test_type]/
 
 EOF
 }
@@ -116,6 +120,7 @@ EOF
 # Parse arguments
 COMBINED_ONLY=false
 NO_CHARTS=""
+TEST_TYPE=""
 TEST_OUTPUT_DIR=""
 
 while [[ $# -gt 0 ]]; do
@@ -127,6 +132,10 @@ while [[ $# -gt 0 ]]; do
         --no-charts)
             NO_CHARTS="--no-charts"
             shift
+            ;;
+        --test-type)
+            TEST_TYPE="$2"
+            shift 2
             ;;
         --help|-h)
             show_help
@@ -171,16 +180,27 @@ chmod +x "$PDF_GENERATOR"
 log_info "Starting PDF generation..."
 log_info "Test output directory: $TEST_OUTPUT_DIR"
 
+# Build test type option
+TEST_TYPE_OPT=""
+if [ -n "$TEST_TYPE" ]; then
+    TEST_TYPE_OPT="--test-type $TEST_TYPE"
+    log_info "Test type: $TEST_TYPE"
+fi
+
 if [ "$COMBINED_ONLY" = true ]; then
     log_info "Mode: Combined PDF only"
-    python3 "$PDF_GENERATOR" --combined "$TEST_OUTPUT_DIR" $NO_CHARTS
+    python3 "$PDF_GENERATOR" --combined "$TEST_OUTPUT_DIR" $NO_CHARTS $TEST_TYPE_OPT
 else
     log_info "Mode: Individual + Combined PDFs"
-    python3 "$PDF_GENERATOR" --batch "$TEST_OUTPUT_DIR" $NO_CHARTS
+    python3 "$PDF_GENERATOR" --batch "$TEST_OUTPUT_DIR" $NO_CHARTS $TEST_TYPE_OPT
 fi
 
 # Check if PDFs were generated
-PDF_DIR="$TEST_OUTPUT_DIR/pdf_reports"
+if [ -n "$TEST_TYPE" ]; then
+    PDF_DIR="$TEST_OUTPUT_DIR/pdf_reports/$TEST_TYPE"
+else
+    PDF_DIR="$TEST_OUTPUT_DIR/pdf_reports"
+fi
 if [ -d "$PDF_DIR" ]; then
     PDF_COUNT=$(find "$PDF_DIR" -name "*.pdf" | wc -l)
     if [ "$PDF_COUNT" -gt 0 ]; then

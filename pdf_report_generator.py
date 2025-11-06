@@ -557,13 +557,14 @@ class PDFReportGenerator:
         print(f"✓ Generated combined PDF report: {combined_pdf_file}")
         return combined_pdf_file
 
-    def batch_convert_directory(self, test_output_dir: str, create_combined: bool = True) -> List[str]:
+    def batch_convert_directory(self, test_output_dir: str, create_combined: bool = True, test_type: str = None) -> List[str]:
         """
         Convert all reports and CSVs in a directory to individual PDFs
 
         Args:
             test_output_dir: Directory containing test output files
             create_combined: Whether to also create a combined PDF
+            test_type: Test type for organization (cpu, gpu, ram, storage, etc.)
 
         Returns:
             List of generated PDF file paths
@@ -573,8 +574,11 @@ class PDFReportGenerator:
 
         generated_pdfs = []
 
-        # Create output directory for PDFs
-        pdf_output_dir = os.path.join(test_output_dir, 'pdf_reports')
+        # Create output directory for PDFs with optional test type subdirectory
+        if test_type:
+            pdf_output_dir = os.path.join(test_output_dir, 'pdf_reports', test_type)
+        else:
+            pdf_output_dir = os.path.join(test_output_dir, 'pdf_reports')
         os.makedirs(pdf_output_dir, exist_ok=True)
 
         # Update output directory
@@ -679,6 +683,12 @@ Examples:
         help='Disable chart generation for CSV files'
     )
 
+    parser.add_argument(
+        '--test-type',
+        metavar='TYPE',
+        help='Test type for organization (cpu, gpu, ram, storage, combined, etc.)'
+    )
+
     args = parser.parse_args()
 
     # Check if at least one input option is provided
@@ -703,7 +713,7 @@ Examples:
 
         # Batch conversion
         elif args.batch:
-            pdf_files = generator.batch_convert_directory(args.batch, create_combined=True)
+            pdf_files = generator.batch_convert_directory(args.batch, create_combined=True, test_type=args.test_type)
             print(f"\n✓ Success! Generated {len(pdf_files)} PDF files\n")
 
         # Combined PDF only

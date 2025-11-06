@@ -2385,9 +2385,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PDF_GENERATOR="$SCRIPT_DIR/generate_pdf_reports.sh"
 
 if [ -f "$PDF_GENERATOR" ]; then
-    if "$PDF_GENERATOR" "$LOG_DIR" > /dev/null 2>&1; then
+    if "$PDF_GENERATOR" --test-type cpu "$LOG_DIR" > /dev/null 2>&1; then
         log_success "PDF reports generated successfully"
-        echo "[*] PDF Reports: $LOG_DIR/pdf_reports/"
+        echo "[*] PDF Reports: $LOG_DIR/pdf_reports/cpu/"
     else
         log_warning "PDF generation failed (test results still available)"
     fi

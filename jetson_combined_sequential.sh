@@ -365,16 +365,34 @@ echo ""
 ################################################################################
 
 echo ""
-log_info "Generating PDF reports..."
+log_info "Generating PDF reports for each test..."
 
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PDF_GENERATOR="$SCRIPT_DIR/generate_pdf_reports.sh"
 
 if [ -f "$PDF_GENERATOR" ]; then
-    if "$PDF_GENERATOR" "$LOG_DIR" > /dev/null 2>&1; then
+    PDF_SUCCESS=0
+
+    # Generate PDFs for each test type
+    for TEST_TYPE in cpu gpu ram storage; do
+        TEST_DIR="$LOG_DIR/$TEST_TYPE"
+        if [ -d "$TEST_DIR" ]; then
+            if "$PDF_GENERATOR" --test-type "$TEST_TYPE" "$TEST_DIR" > /dev/null 2>&1; then
+                log_info "Generated PDFs for $TEST_TYPE test"
+                PDF_SUCCESS=$((PDF_SUCCESS + 1))
+            fi
+        fi
+    done
+
+    # Generate combined PDF for main directory
+    if "$PDF_GENERATOR" --test-type combined "$LOG_DIR" > /dev/null 2>&1; then
+        PDF_SUCCESS=$((PDF_SUCCESS + 1))
+    fi
+
+    if [ $PDF_SUCCESS -gt 0 ]; then
         log_success "PDF reports generated successfully"
-        echo "[*] PDF Reports: $LOG_DIR/pdf_reports/"
+        echo "[*] PDF Reports organized by test type in: $LOG_DIR/pdf_reports/"
     else
         log_warning "PDF generation failed (test results still available)"
     fi
