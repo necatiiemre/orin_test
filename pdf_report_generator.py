@@ -557,7 +557,7 @@ class PDFReportGenerator:
         print(f"✓ Generated combined PDF report: {combined_pdf_file}")
         return combined_pdf_file
 
-    def batch_convert_directory(self, test_output_dir: str, create_combined: bool = True, test_type: str = None) -> List[str]:
+    def batch_convert_directory(self, test_output_dir: str, create_combined: bool = True, test_type: str = None, output_base_dir: str = None) -> List[str]:
         """
         Convert all reports and CSVs in a directory to individual PDFs
 
@@ -565,6 +565,7 @@ class PDFReportGenerator:
             test_output_dir: Directory containing test output files
             create_combined: Whether to also create a combined PDF
             test_type: Test type for organization (cpu, gpu, ram, storage, etc.)
+            output_base_dir: Base directory for PDF output (default: test_output_dir/pdf_reports)
 
         Returns:
             List of generated PDF file paths
@@ -575,10 +576,18 @@ class PDFReportGenerator:
         generated_pdfs = []
 
         # Create output directory for PDFs with optional test type subdirectory
-        if test_type:
-            pdf_output_dir = os.path.join(test_output_dir, 'pdf_reports', test_type)
+        if output_base_dir:
+            # Use custom output base directory
+            if test_type:
+                pdf_output_dir = os.path.join(output_base_dir, test_type)
+            else:
+                pdf_output_dir = output_base_dir
         else:
-            pdf_output_dir = os.path.join(test_output_dir, 'pdf_reports')
+            # Use default structure
+            if test_type:
+                pdf_output_dir = os.path.join(test_output_dir, 'pdf_reports', test_type)
+            else:
+                pdf_output_dir = os.path.join(test_output_dir, 'pdf_reports')
         os.makedirs(pdf_output_dir, exist_ok=True)
 
         # Update output directory
@@ -689,6 +698,12 @@ Examples:
         help='Test type for organization (cpu, gpu, ram, storage, combined, etc.)'
     )
 
+    parser.add_argument(
+        '--output-base-dir',
+        metavar='DIR',
+        help='Base directory for PDF output (e.g., parent_dir/pdf_reports)'
+    )
+
     args = parser.parse_args()
 
     # Check if at least one input option is provided
@@ -713,7 +728,7 @@ Examples:
 
         # Batch conversion
         elif args.batch:
-            pdf_files = generator.batch_convert_directory(args.batch, create_combined=True, test_type=args.test_type)
+            pdf_files = generator.batch_convert_directory(args.batch, create_combined=True, test_type=args.test_type, output_base_dir=args.output_base_dir)
             print(f"\n✓ Success! Generated {len(pdf_files)} PDF files\n")
 
         # Combined PDF only

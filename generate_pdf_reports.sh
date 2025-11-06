@@ -121,6 +121,7 @@ EOF
 COMBINED_ONLY=false
 NO_CHARTS=""
 TEST_TYPE=""
+OUTPUT_BASE_DIR=""
 TEST_OUTPUT_DIR=""
 
 while [[ $# -gt 0 ]]; do
@@ -135,6 +136,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --test-type)
             TEST_TYPE="$2"
+            shift 2
+            ;;
+        --output-base-dir)
+            OUTPUT_BASE_DIR="$2"
             shift 2
             ;;
         --help|-h)
@@ -187,18 +192,34 @@ if [ -n "$TEST_TYPE" ]; then
     log_info "Test type: $TEST_TYPE"
 fi
 
+# Build output base dir option
+OUTPUT_BASE_DIR_OPT=""
+if [ -n "$OUTPUT_BASE_DIR" ]; then
+    OUTPUT_BASE_DIR_OPT="--output-base-dir $OUTPUT_BASE_DIR"
+    log_info "Output base directory: $OUTPUT_BASE_DIR"
+fi
+
 if [ "$COMBINED_ONLY" = true ]; then
     log_info "Mode: Combined PDF only"
-    python3 "$PDF_GENERATOR" --combined "$TEST_OUTPUT_DIR" $NO_CHARTS $TEST_TYPE_OPT
+    python3 "$PDF_GENERATOR" --combined "$TEST_OUTPUT_DIR" $NO_CHARTS $TEST_TYPE_OPT $OUTPUT_BASE_DIR_OPT
 else
     log_info "Mode: Individual + Combined PDFs"
-    python3 "$PDF_GENERATOR" --batch "$TEST_OUTPUT_DIR" $NO_CHARTS $TEST_TYPE_OPT
+    python3 "$PDF_GENERATOR" --batch "$TEST_OUTPUT_DIR" $NO_CHARTS $TEST_TYPE_OPT $OUTPUT_BASE_DIR_OPT
 fi
 
 # Check if PDFs were generated
-if [ -n "$TEST_TYPE" ]; then
+if [ -n "$OUTPUT_BASE_DIR" ]; then
+    # Custom output directory
+    if [ -n "$TEST_TYPE" ]; then
+        PDF_DIR="$OUTPUT_BASE_DIR/$TEST_TYPE"
+    else
+        PDF_DIR="$OUTPUT_BASE_DIR"
+    fi
+elif [ -n "$TEST_TYPE" ]; then
+    # Default with test type
     PDF_DIR="$TEST_OUTPUT_DIR/pdf_reports/$TEST_TYPE"
 else
+    # Default without test type
     PDF_DIR="$TEST_OUTPUT_DIR/pdf_reports"
 fi
 if [ -d "$PDF_DIR" ]; then
