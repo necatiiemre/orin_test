@@ -63,6 +63,7 @@ class PDFReportGenerator:
         self.figure_counter = 0
         self.table_counter = 0
         self.current_section_title = "Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software"
+        self.total_pages = 0  # Will be calculated during build
 
     def _setup_custom_styles(self):
         """Setup custom paragraph styles with improved typography"""
@@ -254,7 +255,10 @@ class PDFReportGenerator:
         # Page number in header (top right corner)
         canvas_obj.setFont('Helvetica', 9)
         canvas_obj.setFillColor(colors.HexColor('#2c5aa0'))
-        canvas_obj.drawRightString(page_width - inch, page_height - 0.63 * inch, f"Page {doc.page}")
+        if self.total_pages > 0:
+            canvas_obj.drawRightString(page_width - inch, page_height - 0.63 * inch, f"{doc.page} / {self.total_pages}")
+        else:
+            canvas_obj.drawRightString(page_width - inch, page_height - 0.63 * inch, f"Page {doc.page}")
 
         # Footer separator line
         canvas_obj.setStrokeColor(colors.HexColor('#cccccc'))
@@ -273,7 +277,38 @@ class PDFReportGenerator:
             "Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software - Confidential"
         )
 
+        # Turkish eyes only on bottom right
+        canvas_obj.drawRightString(
+            page_width - inch, 0.5 * inch,
+            "Turkish eyes only"
+        )
+
         canvas_obj.restoreState()
+
+    def _build_with_page_numbers(self, doc, story):
+        """Build PDF with two-pass approach to calculate total pages"""
+        import copy
+
+        # First pass - count pages without page numbers
+        first_pass_buffer = io.BytesIO()
+        first_pass_doc = SimpleDocTemplate(
+            first_pass_buffer,
+            pagesize=doc.pagesize,
+            rightMargin=doc.rightMargin,
+            leftMargin=doc.leftMargin,
+            topMargin=doc.topMargin,
+            bottomMargin=doc.bottomMargin
+        )
+
+        # Deep copy story for first pass
+        story_copy = copy.deepcopy(story)
+
+        # Build first pass to count pages
+        first_pass_doc.build(story_copy, onFirstPage=lambda c, d: None, onLaterPages=lambda c, d: None)
+        self.total_pages = first_pass_doc.page
+
+        # Second pass - build with correct page numbers
+        doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
 
     def _create_product_info_section(self, product_data: Dict[str, str]) -> List:
         """
@@ -291,11 +326,32 @@ class PDFReportGenerator:
         elements.append(Paragraph("Product Information", self.styles['SectionHeader']))
         elements.append(Spacer(1, 12))
 
-        # Display product data as plain text (no table)
+        # Create product info table
+        table_data = []
         for key, value in product_data.items():
-            # Format as plain text with bold key
-            formatted_line = f"<b>{key}:</b> {value}"
-            elements.append(Paragraph(formatted_line, self.styles['KeyValue']))
+            # Format key-value pairs in a table
+            formatted_key = f"<b>{key}:</b>"
+            table_data.append([Paragraph(formatted_key, self.styles['ProductInfo']),
+                             Paragraph(str(value), self.styles['ProductInfo'])])
+
+        if table_data:
+            # Create a clean, professional table for product info
+            product_table = Table(table_data, colWidths=[2.5*inch, 4*inch])
+            product_table.setStyle(TableStyle([
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1a1a1a')),
+                ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 11),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+            ]))
+            elements.append(product_table)
 
         elements.append(Spacer(1, 24))
 
@@ -570,7 +626,7 @@ class PDFReportGenerator:
         if quality_checker and quality_checker.strip():
             cover_info_data.append(['Quality Control:', quality_checker])
 
-        # Create clean table for cover page info - no borders or backgrounds
+        # Create professional table for cover page info
         if cover_info_data:
             # Create table with professional spacing and alignment
             cover_table = Table(cover_info_data, colWidths=[2.5*inch, 3.5*inch])
@@ -586,6 +642,8 @@ class PDFReportGenerator:
                 ('TOPPADDING', (0, 0), (-1, -1), 8),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),
             ]))
 
             # Center the table
@@ -732,8 +790,8 @@ class PDFReportGenerator:
             if line.strip():
                 story.append(Paragraph(line_escaped, self.styles['CodeStyle']))
 
-        # Build PDF
-        doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
+        # Build PDF with page numbers
+        self._build_with_page_numbers(doc, story)
 
         print(f"✓ Generated PDF report: {pdf_file}")
         return pdf_file
@@ -850,8 +908,8 @@ class PDFReportGenerator:
         # Create numbered table with caption
         story.extend(self._create_numbered_table(table_data, f"Monitoring data ({len(data_rows)} rows)"))
 
-        # Build PDF
-        doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
+        # Build PDF with page numbers
+        self._build_with_page_numbers(doc, story)
 
         print(f"✓ Generated PDF from CSV: {pdf_file}")
         return pdf_file
@@ -1112,8 +1170,8 @@ class PDFReportGenerator:
 
                 story.append(PageBreak())
 
-        # Build PDF
-        doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
+        # Build PDF with page numbers
+        self._build_with_page_numbers(doc, story)
 
         print(f"✓ Generated combined PDF report: {combined_pdf_file}")
         return combined_pdf_file
