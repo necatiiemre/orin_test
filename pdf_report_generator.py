@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PDF Report Generator for Jetson Orin Test Suite
+PDF Report Generator for Nvidia Jetson AGX orin / aGX orin industrial test software
 Converts TXT reports and CSV monitoring logs to formatted PDF files
 """
 
@@ -62,7 +62,8 @@ class PDFReportGenerator:
         self.section_counter = 0
         self.figure_counter = 0
         self.table_counter = 0
-        self.current_section_title = "Jetson Orin Test Report"
+        self.current_section_title = "Nvidia Jetson AGX orin / aGX orin industrial test software"
+        self.total_pages = 0  # Will be set after first pass
 
     def _setup_custom_styles(self):
         """Setup custom paragraph styles with improved typography"""
@@ -242,7 +243,7 @@ class PDFReportGenerator:
 
             # Report title next to logo
             canvas_obj.setFont('Helvetica-Bold', 10)
-            canvas_obj.drawString(text_x, text_y, "Jetson Orin Test Suite")
+            canvas_obj.drawString(text_x, text_y, "Nvidia Jetson AGX orin / aGX orin industrial test software")
 
             # Section title below report title (only after first page)
             if doc.page > 1:
@@ -252,7 +253,7 @@ class PDFReportGenerator:
         else:
             # No logo - center the text
             canvas_obj.setFont('Helvetica-Bold', 11)
-            canvas_obj.drawCentredString(page_width / 2, page_height - 0.65 * inch, "Jetson Orin Test Suite")
+            canvas_obj.drawCentredString(page_width / 2, page_height - 0.65 * inch, "Nvidia Jetson AGX orin / aGX orin industrial test software")
 
             if doc.page > 1:
                 canvas_obj.setFont('Helvetica', 9)
@@ -262,7 +263,10 @@ class PDFReportGenerator:
         # Page number in header (top right corner)
         canvas_obj.setFont('Helvetica', 9)
         canvas_obj.setFillColor(colors.HexColor('#2c5aa0'))
-        canvas_obj.drawRightString(page_width - inch, page_height - 0.63 * inch, f"Page {doc.page}")
+        if self.total_pages > 0:
+            canvas_obj.drawRightString(page_width - inch, page_height - 0.63 * inch, f"{doc.page} / {self.total_pages}")
+        else:
+            canvas_obj.drawRightString(page_width - inch, page_height - 0.63 * inch, f"{doc.page}")
 
         # Footer separator line
         canvas_obj.setStrokeColor(colors.HexColor('#cccccc'))
@@ -274,18 +278,35 @@ class PDFReportGenerator:
         canvas_obj.setFillColor(colors.HexColor('#666666'))
         canvas_obj.drawString(
             inch, 0.5 * inch,
-            f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}"
         )
         canvas_obj.drawCentredString(
             page_width / 2, 0.5 * inch,
-            "Jetson Orin Test Suite - Confidential"
-        )
-        canvas_obj.drawRightString(
-            page_width - inch, 0.5 * inch,
-            f"{doc.page}"
+            "Nvidia Jetson AGX orin / aGX orin industrial test software - Confidential"
         )
 
         canvas_obj.restoreState()
+
+    def _build_with_page_count(self, doc, story):
+        """Build PDF with two passes to get accurate total page count"""
+        # First pass - build to a temporary buffer to count pages
+        temp_buffer = io.BytesIO()
+        temp_doc = SimpleDocTemplate(
+            temp_buffer,
+            pagesize=doc.pagesize,
+            rightMargin=doc.rightMargin,
+            leftMargin=doc.leftMargin,
+            topMargin=doc.topMargin,
+            bottomMargin=doc.bottomMargin
+        )
+
+        # Build without page numbers to count pages
+        self.total_pages = 0
+        temp_doc.build(story, onFirstPage=lambda c, d: None, onLaterPages=lambda c, d: None)
+        self.total_pages = temp_doc.page
+
+        # Second pass - build with correct page numbers
+        doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
 
     def _create_product_info_section(self, product_data: Dict[str, str]) -> List:
         """
@@ -476,7 +497,9 @@ class PDFReportGenerator:
 
         # Keywords to identify product information
         product_keywords = ['device', 'jetson', 'model', 'serial', 'tester', 'quality', 'test date',
-                          'ip address', 'hostname', 'duration', 'status', 'passed', 'failed']
+                          'ip address', 'hostname', 'duration', 'status', 'passed', 'failed',
+                          'physical cores', 'cpu cores', 'cores', 'architecture', 'kernel',
+                          'ubuntu', 'os', 'ram', 'memory', 'storage', 'disk']
 
         for line in lines:
             line = line.strip()
@@ -544,6 +567,25 @@ class PDFReportGenerator:
         # Decorative line
         elements.append(HRFlowable(width="80%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=15))
 
+        # Display pass/fail status prominently (if available)
+        # Extract status first to display it before other info
+        status_raw = product_data.get('Status', product_data.get('status', product_data.get('Test Status', product_data.get('test status', ''))))
+        if status_raw:
+            status_lower = status_raw.lower()
+            # Determine if it's a pass or fail
+            is_pass = 'pass' in status_lower and 'fail' not in status_lower
+            is_fail = 'fail' in status_lower
+
+            if is_pass or is_fail:
+                status_color = '#00AA00' if is_pass else '#DD0000'  # Green for pass, red for fail
+                status_text = f"""
+                <para alignment="center" fontSize="24" textColor="{status_color}">
+                <b>{'PASS' if is_pass else 'FAIL'}</b>
+                </para>
+                """
+                elements.append(Paragraph(status_text, self.styles['Normal']))
+                elements.append(Spacer(1, 0.3 * inch))
+
         # Extract key information for cover page
         # Use case-insensitive lookup for flexibility
         tester = product_data.get('Tester', product_data.get('tester', ''))
@@ -601,8 +643,8 @@ class PDFReportGenerator:
         # Footer information on cover page
         footer_text = f"""
         <para alignment="center" fontSize="10" textColor="#666666">
-        <b>Jetson Orin Test Suite</b><br/>
-        Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>
+        <b>Nvidia Jetson AGX orin / aGX orin industrial test software</b><br/>
+        {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}<br/>
         <i>Confidential Document</i>
         </para>
         """
@@ -735,8 +777,8 @@ class PDFReportGenerator:
             if line.strip():
                 story.append(Paragraph(line_escaped, self.styles['CodeStyle']))
 
-        # Build PDF
-        doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
+        # Build PDF with accurate page count
+        self._build_with_page_count(doc, story)
 
         print(f"✓ Generated PDF report: {pdf_file}")
         return pdf_file
@@ -809,7 +851,7 @@ class PDFReportGenerator:
         <b>File:</b> {os.path.basename(csv_file)}<br/>
         <b>Columns:</b> {len(headers)}<br/>
         <b>Data Rows:</b> {len(data_rows)}<br/>
-        <b>Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}
         """
         story.append(Paragraph(summary_text, self.styles['InfoBox']))
         story.append(Spacer(1, 20))
@@ -855,8 +897,8 @@ class PDFReportGenerator:
         # Create numbered table with caption
         story.extend(self._create_numbered_table(table_data, f"Monitoring data ({len(data_rows)} rows)"))
 
-        # Build PDF
-        doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
+        # Build PDF with accurate page count
+        self._build_with_page_count(doc, story)
 
         print(f"✓ Generated PDF from CSV: {pdf_file}")
         return pdf_file
@@ -989,8 +1031,8 @@ class PDFReportGenerator:
         }
 
         # Create professional cover page
-        self.current_section_title = "Jetson Orin Test Suite - Complete Test Report"
-        story.extend(self._create_cover_page("Jetson Orin Test Suite\nComplete Test Report", combined_metadata))
+        self.current_section_title = "Nvidia Jetson AGX orin / aGX orin industrial test software - Complete Test Report"
+        story.extend(self._create_cover_page("Nvidia Jetson AGX orin / aGX orin industrial test software\nComplete Test Report", combined_metadata))
 
         # Find all report and log files
         report_files = []
@@ -1119,8 +1161,8 @@ class PDFReportGenerator:
 
                 story.append(PageBreak())
 
-        # Build PDF
-        doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
+        # Build PDF with accurate page count
+        self._build_with_page_count(doc, story)
 
         print(f"✓ Generated combined PDF report: {combined_pdf_file}")
         return combined_pdf_file
