@@ -39,14 +39,20 @@ except ImportError:
 class PDFReportGenerator:
     """Generate PDF reports from test output files"""
 
-    def __init__(self, output_dir: str = None):
+    def __init__(self, output_dir: str = None, logo_path: str = None, logo_position: str = 'watermark', logo_opacity: float = 0.1):
         """
         Initialize PDF report generator
 
         Args:
             output_dir: Directory where PDF files will be saved
+            logo_path: Path to logo image file (PNG, JPG, etc.)
+            logo_position: Logo position - 'watermark' (centered), 'top-right', 'top-left', 'bottom-right', 'bottom-left'
+            logo_opacity: Logo opacity (0.0 to 1.0, where 0.1 is 10% visible, good for watermarks)
         """
         self.output_dir = output_dir or os.getcwd()
+        self.logo_path = logo_path
+        self.logo_position = logo_position
+        self.logo_opacity = logo_opacity
         self.styles = getSampleStyleSheet()
         self._setup_custom_styles()
 
@@ -109,6 +115,73 @@ class PDFReportGenerator:
     def _create_header_footer(self, canvas_obj, doc):
         """Create header and footer for each page"""
         canvas_obj.saveState()
+
+        # Draw background logo if provided
+        if self.logo_path and os.path.exists(self.logo_path):
+            try:
+                # Set opacity for the logo
+                canvas_obj.setFillAlpha(self.logo_opacity)
+                canvas_obj.setStrokeAlpha(self.logo_opacity)
+
+                # Get page dimensions
+                page_width, page_height = letter
+
+                # Calculate logo size and position based on logo_position
+                if self.logo_position == 'watermark':
+                    # Centered watermark - large and very transparent
+                    logo_width = 4 * inch
+                    logo_height = 4 * inch
+                    x = (page_width - logo_width) / 2
+                    y = (page_height - logo_height) / 2
+
+                elif self.logo_position == 'top-right':
+                    logo_width = 1.5 * inch
+                    logo_height = 1.5 * inch
+                    x = page_width - logo_width - 0.75 * inch
+                    y = page_height - logo_height - 0.75 * inch
+
+                elif self.logo_position == 'top-left':
+                    logo_width = 1.5 * inch
+                    logo_height = 1.5 * inch
+                    x = 0.75 * inch
+                    y = page_height - logo_height - 0.75 * inch
+
+                elif self.logo_position == 'bottom-right':
+                    logo_width = 1.5 * inch
+                    logo_height = 1.5 * inch
+                    x = page_width - logo_width - 0.75 * inch
+                    y = 0.75 * inch
+
+                elif self.logo_position == 'bottom-left':
+                    logo_width = 1.5 * inch
+                    logo_height = 1.5 * inch
+                    x = 0.75 * inch
+                    y = 0.75 * inch
+
+                else:
+                    # Default to watermark
+                    logo_width = 4 * inch
+                    logo_height = 4 * inch
+                    x = (page_width - logo_width) / 2
+                    y = (page_height - logo_height) / 2
+
+                # Draw the logo
+                canvas_obj.drawImage(
+                    self.logo_path,
+                    x, y,
+                    width=logo_width,
+                    height=logo_height,
+                    preserveAspectRatio=True,
+                    mask='auto'
+                )
+
+                # Reset opacity for other elements
+                canvas_obj.setFillAlpha(1.0)
+                canvas_obj.setStrokeAlpha(1.0)
+
+            except Exception as e:
+                # If logo fails to load, continue without it
+                print(f"Warning: Could not load logo from {self.logo_path}: {e}")
 
         # Footer
         canvas_obj.setFont('Helvetica', 8)
@@ -704,6 +777,28 @@ Examples:
         help='Base directory for PDF output (e.g., parent_dir/pdf_reports)'
     )
 
+    parser.add_argument(
+        '--logo',
+        metavar='FILE',
+        help='Path to logo image file (PNG, JPG, etc.) to add as background'
+    )
+
+    parser.add_argument(
+        '--logo-position',
+        metavar='POSITION',
+        choices=['watermark', 'top-right', 'top-left', 'bottom-right', 'bottom-left'],
+        default='watermark',
+        help='Logo position: watermark (centered), top-right, top-left, bottom-right, bottom-left (default: watermark)'
+    )
+
+    parser.add_argument(
+        '--logo-opacity',
+        metavar='OPACITY',
+        type=float,
+        default=0.1,
+        help='Logo opacity from 0.0 (invisible) to 1.0 (fully opaque). Default: 0.1 (10%% visible, good for watermarks)'
+    )
+
     args = parser.parse_args()
 
     # Check if at least one input option is provided
@@ -711,8 +806,12 @@ Examples:
         parser.print_help()
         sys.exit(1)
 
-    # Create PDF generator
-    generator = PDFReportGenerator()
+    # Create PDF generator with logo parameters
+    generator = PDFReportGenerator(
+        logo_path=args.logo,
+        logo_position=args.logo_position,
+        logo_opacity=args.logo_opacity
+    )
 
     try:
         # Single TXT report conversion

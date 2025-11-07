@@ -2172,8 +2172,20 @@ log_info "Generating PDF reports..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PDF_GENERATOR="$SCRIPT_DIR/generate_pdf_reports.sh"
 
+# Auto-detect logo in assets/logos directory
+LOGO_OPTS=""
+LOGO_DIR="$SCRIPT_DIR/assets/logos"
+if [ -d "$LOGO_DIR" ]; then
+    # Find first logo file (PNG, JPG, JPEG, GIF, BMP)
+    LOGO_FILE=$(find "$LOGO_DIR" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" -o -iname "*.bmp" \) | head -n 1)
+    if [ -n "$LOGO_FILE" ]; then
+        LOGO_OPTS="--logo $LOGO_FILE --logo-position watermark --logo-opacity 0.1"
+        log_info "Using logo: $(basename "$LOGO_FILE")"
+    fi
+fi
+
 if [ -f "$PDF_GENERATOR" ]; then
-    if "$PDF_GENERATOR" --test-type gpu "$LOG_DIR" > /dev/null 2>&1; then
+    if "$PDF_GENERATOR" --test-type gpu $LOGO_OPTS "$LOG_DIR" > /dev/null 2>&1; then
         log_success "PDF reports generated successfully"
         echo "[*] PDF Reports: $LOG_DIR/pdf_reports/gpu/"
     else

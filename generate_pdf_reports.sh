@@ -90,10 +90,13 @@ Usage:
   $0 [OPTIONS] <test_output_directory>
 
 Options:
-  --combined-only     Generate only a combined PDF (skip individual PDFs)
-  --no-charts         Disable chart generation for CSV files
-  --test-type TYPE    Test type for organization (cpu, gpu, ram, storage, etc.)
-  --help              Show this help message
+  --combined-only         Generate only a combined PDF (skip individual PDFs)
+  --no-charts             Disable chart generation for CSV files
+  --test-type TYPE        Test type for organization (cpu, gpu, ram, storage, etc.)
+  --logo FILE             Path to logo image file (PNG, JPG, etc.) to add as background
+  --logo-position POS     Logo position: watermark, top-right, top-left, bottom-right, bottom-left (default: watermark)
+  --logo-opacity OPACITY  Logo opacity from 0.0 to 1.0 (default: 0.1 for 10% visible)
+  --help                  Show this help message
 
 Examples:
   # Generate all PDFs (individual + combined)
@@ -101,6 +104,12 @@ Examples:
 
   # Generate PDFs for CPU test only
   $0 --test-type cpu test_output_20250106_120000
+
+  # Generate PDFs with logo watermark
+  $0 --logo /path/to/logo.png test_output_20250106_120000
+
+  # Generate PDFs with logo in top-right corner at 30% opacity
+  $0 --logo /path/to/logo.png --logo-position top-right --logo-opacity 0.3 test_output_20250106_120000
 
   # Generate only combined PDF
   $0 --combined-only test_output_20250106_120000
@@ -122,6 +131,9 @@ COMBINED_ONLY=false
 NO_CHARTS=""
 TEST_TYPE=""
 OUTPUT_BASE_DIR=""
+LOGO_PATH=""
+LOGO_POSITION="watermark"
+LOGO_OPACITY="0.1"
 TEST_OUTPUT_DIR=""
 
 while [[ $# -gt 0 ]]; do
@@ -140,6 +152,18 @@ while [[ $# -gt 0 ]]; do
             ;;
         --output-base-dir)
             OUTPUT_BASE_DIR="$2"
+            shift 2
+            ;;
+        --logo)
+            LOGO_PATH="$2"
+            shift 2
+            ;;
+        --logo-position)
+            LOGO_POSITION="$2"
+            shift 2
+            ;;
+        --logo-opacity)
+            LOGO_OPACITY="$2"
             shift 2
             ;;
         --help|-h)
@@ -199,12 +223,23 @@ if [ -n "$OUTPUT_BASE_DIR" ]; then
     log_info "Output base directory: $OUTPUT_BASE_DIR"
 fi
 
+# Build logo options
+LOGO_OPTS=""
+if [ -n "$LOGO_PATH" ]; then
+    if [ ! -f "$LOGO_PATH" ]; then
+        log_error "Logo file not found: $LOGO_PATH"
+        exit 1
+    fi
+    LOGO_OPTS="--logo $LOGO_PATH --logo-position $LOGO_POSITION --logo-opacity $LOGO_OPACITY"
+    log_info "Logo: $LOGO_PATH (position: $LOGO_POSITION, opacity: $LOGO_OPACITY)"
+fi
+
 if [ "$COMBINED_ONLY" = true ]; then
     log_info "Mode: Combined PDF only"
-    python3 "$PDF_GENERATOR" --combined "$TEST_OUTPUT_DIR" $NO_CHARTS $TEST_TYPE_OPT $OUTPUT_BASE_DIR_OPT
+    python3 "$PDF_GENERATOR" --combined "$TEST_OUTPUT_DIR" $NO_CHARTS $TEST_TYPE_OPT $OUTPUT_BASE_DIR_OPT $LOGO_OPTS
 else
     log_info "Mode: Individual + Combined PDFs"
-    python3 "$PDF_GENERATOR" --batch "$TEST_OUTPUT_DIR" $NO_CHARTS $TEST_TYPE_OPT $OUTPUT_BASE_DIR_OPT
+    python3 "$PDF_GENERATOR" --batch "$TEST_OUTPUT_DIR" $NO_CHARTS $TEST_TYPE_OPT $OUTPUT_BASE_DIR_OPT $LOGO_OPTS
 fi
 
 # Check if PDFs were generated

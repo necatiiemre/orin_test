@@ -378,11 +378,23 @@ if [ -f "$PDF_GENERATOR" ]; then
     PDF_BASE="$LOG_DIR/pdf_reports"
     mkdir -p "$PDF_BASE"
 
+    # Auto-detect logo in assets/logos directory
+    LOGO_OPTS=""
+    LOGO_DIR="$SCRIPT_DIR/assets/logos"
+    if [ -d "$LOGO_DIR" ]; then
+        # Find first logo file (PNG, JPG, JPEG, GIF, BMP)
+        LOGO_FILE=$(find "$LOGO_DIR" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.gif" -o -iname "*.bmp" \) | head -n 1)
+        if [ -n "$LOGO_FILE" ]; then
+            LOGO_OPTS="--logo $LOGO_FILE --logo-position watermark --logo-opacity 0.1"
+            log_info "Using logo: $(basename "$LOGO_FILE")"
+        fi
+    fi
+
     # Generate PDFs for each test type, outputting to unified structure
     for TEST_TYPE in cpu gpu ram storage; do
         TEST_DIR="$LOG_DIR/$TEST_TYPE"
         if [ -d "$TEST_DIR" ]; then
-            if "$PDF_GENERATOR" --test-type "$TEST_TYPE" --output-base-dir "$PDF_BASE" "$TEST_DIR" > /dev/null 2>&1; then
+            if "$PDF_GENERATOR" --test-type "$TEST_TYPE" --output-base-dir "$PDF_BASE" $LOGO_OPTS "$TEST_DIR" > /dev/null 2>&1; then
                 log_info "Generated PDFs for $TEST_TYPE test → $PDF_BASE/$TEST_TYPE/"
                 PDF_SUCCESS=$((PDF_SUCCESS + 1))
             fi
@@ -390,7 +402,7 @@ if [ -f "$PDF_GENERATOR" ]; then
     done
 
     # Generate sequential combined PDF
-    if "$PDF_GENERATOR" --test-type sequential --output-base-dir "$PDF_BASE" "$LOG_DIR" > /dev/null 2>&1; then
+    if "$PDF_GENERATOR" --test-type sequential --output-base-dir "$PDF_BASE" $LOGO_OPTS "$LOG_DIR" > /dev/null 2>&1; then
         log_info "Generated sequential combined PDF → $PDF_BASE/sequential/"
         PDF_SUCCESS=$((PDF_SUCCESS + 1))
     fi
