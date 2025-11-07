@@ -79,30 +79,27 @@ class PDFReportGenerator:
             leading=26
         ))
 
-        # Section header style - Enhanced with numbering support
+        # Section header style - Professional and prominent
         self.styles.add(ParagraphStyle(
             name='SectionHeader',
             parent=self.styles['Heading2'],
             fontSize=16,
-            textColor=colors.HexColor('#2c5aa0'),
-            spaceAfter=14,
-            spaceBefore=20,
+            textColor=colors.HexColor('#1a5490'),
+            spaceAfter=16,
+            spaceBefore=24,
             fontName='Helvetica-Bold',
             leading=20,
-            borderWidth=0,
-            borderPadding=0,
-            borderColor=colors.HexColor('#2c5aa0'),
             keepWithNext=True
         ))
 
-        # Subsection header style - Enhanced
+        # Subsection header style - Clear and structured
         self.styles.add(ParagraphStyle(
             name='SubsectionHeader',
             parent=self.styles['Heading3'],
             fontSize=13,
-            textColor=colors.HexColor('#3d6bb3'),
-            spaceAfter=10,
-            spaceBefore=14,
+            textColor=colors.HexColor('#2c5aa0'),
+            spaceAfter=12,
+            spaceBefore=16,
             fontName='Helvetica-Bold',
             leading=16,
             keepWithNext=True
@@ -120,15 +117,15 @@ class PDFReportGenerator:
             fontName='Helvetica'
         ))
 
-        # Monospace style for code/logs - Plain text without background or borders
+        # Monospace style for code/logs - Clean and readable
         self.styles.add(ParagraphStyle(
             name='CodeStyle',
             parent=self.styles['Code'],
             fontSize=10,
             fontName='Courier',
-            leftIndent=0,
+            leftIndent=12,
             spaceAfter=6,
-            leading=13,
+            leading=14,
             textColor=colors.HexColor('#1a1a1a')
         ))
 
@@ -177,8 +174,10 @@ class PDFReportGenerator:
             name='KeyValue',
             parent=self.styles['Normal'],
             fontSize=11,
-            leading=15,
-            spaceAfter=4,
+            leading=16,
+            spaceAfter=6,
+            spaceBefore=2,
+            leftIndent=12,
             fontName='Helvetica'
         ))
 
@@ -290,7 +289,7 @@ class PDFReportGenerator:
 
         # Section header
         elements.append(Paragraph("Product Information", self.styles['SectionHeader']))
-        elements.append(Spacer(1, 10))
+        elements.append(Spacer(1, 12))
 
         # Display product data as plain text (no table)
         for key, value in product_data.items():
@@ -298,7 +297,7 @@ class PDFReportGenerator:
             formatted_line = f"<b>{key}:</b> {value}"
             elements.append(Paragraph(formatted_line, self.styles['KeyValue']))
 
-        elements.append(Spacer(1, 20))
+        elements.append(Spacer(1, 24))
 
         return elements
 
@@ -571,9 +570,9 @@ class PDFReportGenerator:
         if quality_checker and quality_checker.strip():
             cover_info_data.append(['Quality Control:', quality_checker])
 
-        # Create styled table for cover page info
+        # Create clean table for cover page info - no borders or backgrounds
         if cover_info_data:
-            # Create table with custom styling for cover page
+            # Create table with professional spacing and alignment
             cover_table = Table(cover_info_data, colWidths=[2.5*inch, 3.5*inch])
             cover_table.setStyle(TableStyle([
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
@@ -582,13 +581,11 @@ class PDFReportGenerator:
                 ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1a1a1a')),
                 ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
                 ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 15),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 15),
-                ('TOPPADDING', (0, 0), (-1, -1), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ('LEFTPADDING', (0, 0), (-1, -1), 12),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#e0e0e0')),
-                ('LINEBELOW', (0, -1), (-1, -1), 1.5, colors.HexColor('#2c5aa0')),
             ]))
 
             # Center the table
