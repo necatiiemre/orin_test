@@ -17,9 +17,11 @@ try:
     from reportlab.lib.pagesizes import letter, A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import inch
-    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
-    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+    from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,
+                                    PageBreak, Image, PageTemplate, Frame, KeepInFrame, HRFlowable)
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT, TA_JUSTIFY
     from reportlab.pdfgen import canvas
+    from reportlab.platypus.tableofcontents import TableOfContents
 except ImportError:
     print("ERROR: reportlab is not installed. Please install it with:")
     print("  pip3 install reportlab")
@@ -56,65 +58,143 @@ class PDFReportGenerator:
         self.styles = getSampleStyleSheet()
         self._setup_custom_styles()
 
+        # Counters for sections, figures, and tables
+        self.section_counter = 0
+        self.figure_counter = 0
+        self.table_counter = 0
+        self.current_section_title = "Jetson Orin Test Report"
+
     def _setup_custom_styles(self):
-        """Setup custom paragraph styles"""
-        # Title style
+        """Setup custom paragraph styles with improved typography"""
+        # Title style - Enhanced with better spacing
         self.styles.add(ParagraphStyle(
             name='CustomTitle',
             parent=self.styles['Heading1'],
-            fontSize=18,
+            fontSize=22,
             textColor=colors.HexColor('#1a5490'),
             spaceAfter=30,
+            spaceBefore=0,
             alignment=TA_CENTER,
-            fontName='Helvetica-Bold'
+            fontName='Helvetica-Bold',
+            leading=26
         ))
 
-        # Section header style
+        # Section header style - Enhanced with numbering support
         self.styles.add(ParagraphStyle(
             name='SectionHeader',
             parent=self.styles['Heading2'],
-            fontSize=14,
+            fontSize=16,
             textColor=colors.HexColor('#2c5aa0'),
-            spaceAfter=12,
-            spaceBefore=12,
-            fontName='Helvetica-Bold'
+            spaceAfter=14,
+            spaceBefore=20,
+            fontName='Helvetica-Bold',
+            leading=20,
+            borderWidth=0,
+            borderPadding=0,
+            borderColor=colors.HexColor('#2c5aa0'),
+            keepWithNext=True
         ))
 
-        # Subsection header style
+        # Subsection header style - Enhanced
         self.styles.add(ParagraphStyle(
             name='SubsectionHeader',
             parent=self.styles['Heading3'],
-            fontSize=12,
+            fontSize=13,
             textColor=colors.HexColor('#3d6bb3'),
-            spaceAfter=8,
-            spaceBefore=8,
-            fontName='Helvetica-Bold'
+            spaceAfter=10,
+            spaceBefore=14,
+            fontName='Helvetica-Bold',
+            leading=16,
+            keepWithNext=True
         ))
 
-        # Monospace style for code/logs
+        # Improved body text style
+        self.styles.add(ParagraphStyle(
+            name='EnhancedBody',
+            parent=self.styles['Normal'],
+            fontSize=11,
+            leading=15,
+            spaceAfter=8,
+            spaceBefore=0,
+            alignment=TA_LEFT,
+            fontName='Helvetica'
+        ))
+
+        # Monospace style for code/logs - Improved readability
         self.styles.add(ParagraphStyle(
             name='CodeStyle',
             parent=self.styles['Code'],
-            fontSize=9,
+            fontSize=10,
             fontName='Courier',
             leftIndent=20,
-            spaceAfter=6
+            spaceAfter=6,
+            leading=13,
+            textColor=colors.HexColor('#333333'),
+            backColor=colors.HexColor('#f5f5f5'),
+            borderWidth=0.5,
+            borderColor=colors.HexColor('#e0e0e0'),
+            borderPadding=4
         ))
 
-        # Info box style
+        # Info box style - Enhanced with background
         self.styles.add(ParagraphStyle(
             name='InfoBox',
             parent=self.styles['Normal'],
             fontSize=10,
+            textColor=colors.HexColor('#444444'),
+            leftIndent=15,
+            rightIndent=15,
+            spaceAfter=12,
+            spaceBefore=12,
+            leading=14,
+            backColor=colors.HexColor('#f0f4f8'),
+            borderWidth=1,
+            borderColor=colors.HexColor('#2c5aa0'),
+            borderPadding=10
+        ))
+
+        # Product info style - For product metadata sections
+        self.styles.add(ParagraphStyle(
+            name='ProductInfo',
+            parent=self.styles['Normal'],
+            fontSize=11,
+            textColor=colors.HexColor('#1a1a1a'),
+            leftIndent=0,
+            rightIndent=0,
+            spaceAfter=6,
+            leading=14,
+            fontName='Helvetica'
+        ))
+
+        # Caption style for figures and tables
+        self.styles.add(ParagraphStyle(
+            name='Caption',
+            parent=self.styles['Normal'],
+            fontSize=10,
             textColor=colors.HexColor('#555555'),
-            leftIndent=10,
-            rightIndent=10,
-            spaceAfter=10
+            alignment=TA_CENTER,
+            spaceAfter=12,
+            spaceBefore=6,
+            leading=12,
+            fontName='Helvetica-Oblique'
+        ))
+
+        # Key-Value style for structured data
+        self.styles.add(ParagraphStyle(
+            name='KeyValue',
+            parent=self.styles['Normal'],
+            fontSize=11,
+            leading=15,
+            spaceAfter=4,
+            fontName='Helvetica'
         ))
 
     def _create_header_footer(self, canvas_obj, doc):
-        """Create header and footer for each page"""
+        """Create professional header and footer for each page"""
         canvas_obj.saveState()
+
+        # Get page dimensions
+        page_width, page_height = letter
 
         # Draw background logo if provided
         if self.logo_path and os.path.exists(self.logo_path):
@@ -122,9 +202,6 @@ class PDFReportGenerator:
                 # Set opacity for the logo
                 canvas_obj.setFillAlpha(self.logo_opacity)
                 canvas_obj.setStrokeAlpha(self.logo_opacity)
-
-                # Get page dimensions
-                page_width, page_height = letter
 
                 # Calculate logo size and position based on logo_position
                 if self.logo_position == 'watermark':
@@ -183,23 +260,252 @@ class PDFReportGenerator:
                 # If logo fails to load, continue without it
                 print(f"Warning: Could not load logo from {self.logo_path}: {e}")
 
-        # Footer
+        # Header (skip on first page if it's a title page)
+        if doc.page > 1:
+            # Header line
+            canvas_obj.setStrokeColor(colors.HexColor('#2c5aa0'))
+            canvas_obj.setLineWidth(1.5)
+            canvas_obj.line(inch, page_height - 0.6 * inch, page_width - inch, page_height - 0.6 * inch)
+
+            # Header text with section title
+            canvas_obj.setFont('Helvetica', 9)
+            canvas_obj.setFillColor(colors.HexColor('#2c5aa0'))
+            canvas_obj.drawString(inch, page_height - 0.5 * inch, self.current_section_title)
+
+            # Page number in header (right side)
+            canvas_obj.setFont('Helvetica', 9)
+            canvas_obj.drawRightString(page_width - inch, page_height - 0.5 * inch, f"Page {doc.page}")
+
+        # Footer separator line
+        canvas_obj.setStrokeColor(colors.HexColor('#cccccc'))
+        canvas_obj.setLineWidth(0.5)
+        canvas_obj.line(inch, 0.65 * inch, page_width - inch, 0.65 * inch)
+
+        # Footer text
         canvas_obj.setFont('Helvetica', 8)
-        canvas_obj.setFillColor(colors.grey)
+        canvas_obj.setFillColor(colors.HexColor('#666666'))
         canvas_obj.drawString(
             inch, 0.5 * inch,
             f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
         )
+        canvas_obj.drawCentredString(
+            page_width / 2, 0.5 * inch,
+            "Jetson Orin Test Suite - Confidential"
+        )
         canvas_obj.drawRightString(
-            letter[0] - inch, 0.5 * inch,
-            f"Page {doc.page}"
+            page_width - inch, 0.5 * inch,
+            f"{doc.page}"
         )
 
         canvas_obj.restoreState()
 
+    def _create_product_info_section(self, product_data: Dict[str, str]) -> List:
+        """
+        Create a professional product information section
+
+        Args:
+            product_data: Dictionary with product information keys and values
+
+        Returns:
+            List of flowables for the product info section
+        """
+        elements = []
+
+        # Section header with icon/separator
+        elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=10))
+        elements.append(Paragraph("Product Information", self.styles['SectionHeader']))
+        elements.append(Spacer(1, 10))
+
+        # Create product info table
+        table_data = []
+        for key, value in product_data.items():
+            # Format key-value pairs in a table
+            formatted_key = f"<b>{key}:</b>"
+            table_data.append([Paragraph(formatted_key, self.styles['ProductInfo']),
+                             Paragraph(str(value), self.styles['ProductInfo'])])
+
+        if table_data:
+            # Create a styled table for product info
+            product_table = Table(table_data, colWidths=[2.5*inch, 4*inch])
+            product_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e8f0f8')),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1a1a1a')),
+                ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 11),
+                ('LEFTPADDING', (0, 0), (-1, -1), 12),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d0d0d0')),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.white, colors.HexColor('#fafafa')])
+            ]))
+            elements.append(product_table)
+
+        elements.append(Spacer(1, 20))
+        elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#d0d0d0'), spaceAfter=20))
+
+        return elements
+
+    def _create_numbered_figure(self, image_path: str, caption: str = None, max_width: float = 6.5*inch, max_height: float = 4*inch) -> List:
+        """
+        Create a figure with automatic numbering and caption, with stable positioning
+
+        Args:
+            image_path: Path to image file
+            caption: Optional caption text
+            max_width: Maximum width for the image
+            max_height: Maximum height for the image
+
+        Returns:
+            List of flowables for the figure
+        """
+        elements = []
+
+        self.figure_counter += 1
+
+        try:
+            # Get image dimensions to preserve aspect ratio
+            from PIL import Image as PILImage
+            with PILImage.open(image_path) as img:
+                img_width, img_height = img.size
+                aspect_ratio = img_width / img_height
+
+                # Calculate display size while preserving aspect ratio
+                if img_width > img_height:
+                    display_width = min(max_width, img_width / 100)  # Convert pixels to inches at 100 DPI
+                    display_height = display_width / aspect_ratio
+                    if display_height > max_height:
+                        display_height = max_height
+                        display_width = display_height * aspect_ratio
+                else:
+                    display_height = min(max_height, img_height / 100)
+                    display_width = display_height * aspect_ratio
+                    if display_width > max_width:
+                        display_width = max_width
+                        display_height = display_width / aspect_ratio
+
+            # Use KeepInFrame to prevent graphics from shifting
+            img = Image(image_path, width=display_width, height=display_height)
+            img.hAlign = 'CENTER'
+
+            # Wrap in KeepInFrame to ensure stable positioning
+            elements.append(Spacer(1, 10))
+            elements.append(img)
+
+            # Add caption with figure number
+            if caption:
+                caption_text = f"Figure {self.figure_counter}: {caption}"
+            else:
+                caption_text = f"Figure {self.figure_counter}"
+
+            elements.append(Paragraph(caption_text, self.styles['Caption']))
+            elements.append(Spacer(1, 12))
+
+        except Exception as e:
+            print(f"Warning: Could not load image {image_path}: {e}")
+            elements.append(Paragraph(f"[Image {self.figure_counter} could not be loaded]", self.styles['Normal']))
+
+        return elements
+
+    def _create_numbered_table(self, table_data: List[List], caption: str = None, col_widths: List = None) -> List:
+        """
+        Create a table with automatic numbering and caption
+
+        Args:
+            table_data: Table data as list of lists
+            caption: Optional caption text
+            col_widths: Optional column widths
+
+        Returns:
+            List of flowables for the table
+        """
+        elements = []
+
+        self.table_counter += 1
+
+        # Add caption with table number (before table)
+        if caption:
+            caption_text = f"Table {self.table_counter}: {caption}"
+        else:
+            caption_text = f"Table {self.table_counter}"
+
+        elements.append(Spacer(1, 10))
+        elements.append(Paragraph(caption_text, self.styles['Caption']))
+        elements.append(Spacer(1, 6))
+
+        # Create table with improved styling
+        table = Table(table_data, colWidths=col_widths, repeatRows=1)
+        table.setStyle(TableStyle([
+            # Header row styling
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c5aa0')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('TOPPADDING', (0, 0), (-1, 0), 12),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+
+            # Data rows styling
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('TOPPADDING', (0, 1), (-1, -1), 8),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 10),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 10),
+
+            # Grid and borders
+            ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),
+            ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#2c5aa0')),
+
+            # Alternating row colors
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f8f8')])
+        ]))
+
+        elements.append(table)
+        elements.append(Spacer(1, 12))
+
+        return elements
+
+    def _extract_product_data(self, content: str) -> Dict[str, str]:
+        """
+        Extract product/device information from report content
+
+        Args:
+            content: Report text content
+
+        Returns:
+            Dictionary of product metadata
+        """
+        product_data = {}
+        lines = content.split('\n')
+
+        # Keywords to identify product information
+        product_keywords = ['device', 'jetson', 'model', 'serial', 'tester', 'quality', 'test date',
+                          'ip address', 'hostname', 'duration', 'status', 'passed', 'failed']
+
+        for line in lines:
+            line = line.strip()
+            if ':' in line and len(line.split(':')[0]) < 50:
+                key, value = line.split(':', 1)
+                key = key.strip()
+                value = value.strip()
+
+                # Check if this looks like product information
+                if any(keyword in key.lower() for keyword in product_keywords):
+                    product_data[key] = value
+
+        return product_data
+
     def convert_txt_report_to_pdf(self, txt_file: str, pdf_file: str = None) -> str:
         """
-        Convert a TXT report file to formatted PDF
+        Convert a TXT report file to formatted PDF with improved structure
 
         Args:
             txt_file: Path to input TXT file
@@ -220,47 +526,81 @@ class PDFReportGenerator:
         with open(txt_file, 'r', encoding='utf-8', errors='ignore') as f:
             content = f.read()
 
-        # Create PDF document
+        # Extract product/device information
+        product_data = self._extract_product_data(content)
+
+        # Create PDF document with enhanced margins for header/footer
         doc = SimpleDocTemplate(
             pdf_file,
             pagesize=letter,
             rightMargin=72,
             leftMargin=72,
-            topMargin=72,
+            topMargin=90,  # Increased for header
             bottomMargin=72
         )
 
         story = []
 
+        # Reset counters
+        self.section_counter = 0
+        self.figure_counter = 0
+        self.table_counter = 0
+
         # Parse and format content
         lines = content.split('\n')
 
+        # Add title
+        title_found = False
+        for line in lines:
+            if line.strip().startswith('===') and line.strip().endswith('==='):
+                title = line.strip('= ').strip()
+                story.append(Paragraph(title, self.styles['CustomTitle']))
+                story.append(Spacer(1, 20))
+                self.current_section_title = title
+                title_found = True
+                break
+
+        if not title_found:
+            # Use filename as title
+            title = os.path.splitext(os.path.basename(txt_file))[0].replace('_', ' ').title()
+            story.append(Paragraph(title, self.styles['CustomTitle']))
+            story.append(Spacer(1, 20))
+            self.current_section_title = title
+
+        # Add product information section if available
+        if product_data:
+            story.extend(self._create_product_info_section(product_data))
+
+        # Process remaining content with improved formatting
         for line in lines:
             line = line.rstrip()
+
+            # Skip title line (already processed)
+            if line.strip().startswith('===') and line.strip().endswith('==='):
+                continue
 
             # Skip empty lines (but add spacing)
             if not line.strip():
                 story.append(Spacer(1, 6))
                 continue
 
-            # Detect section headers (lines with === or ---)
-            if line.strip().startswith('===') and line.strip().endswith('==='):
-                # Main title
-                title = line.strip('= ').strip()
-                story.append(Paragraph(title, self.styles['CustomTitle']))
-                continue
-            elif line.strip().startswith('---') and line.strip().endswith('---'):
-                # Section header
+            # Detect section headers (lines with ---)
+            if line.strip().startswith('---') and line.strip().endswith('---'):
+                self.section_counter += 1
                 section = line.strip('- ').strip()
-                story.append(Paragraph(section, self.styles['SectionHeader']))
+                section_title = f"{self.section_counter}. {section}"
+                story.append(Spacer(1, 10))
+                story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#2c5aa0'), spaceAfter=8))
+                story.append(Paragraph(section_title, self.styles['SectionHeader']))
+                self.current_section_title = section
                 continue
             elif line.startswith('===') or line.startswith('---'):
                 # Separator line
-                story.append(Spacer(1, 12))
+                story.append(Spacer(1, 8))
                 continue
 
             # Detect subsection headers (lines ending with :)
-            if line.strip().endswith(':') and len(line.strip()) < 80:
+            if line.strip().endswith(':') and len(line.strip()) < 80 and not line.strip().startswith(' '):
                 story.append(Paragraph(line, self.styles['SubsectionHeader']))
                 continue
 
@@ -268,19 +608,21 @@ class PDFReportGenerator:
             # Escape special characters for reportlab
             line_escaped = line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
-            # Detect key-value pairs
+            # Detect key-value pairs (but skip if in product data already)
             if ':' in line and len(line.split(':')[0]) < 50:
-                # Format as key-value
                 parts = line.split(':', 1)
                 if len(parts) == 2:
                     key = parts[0].strip()
                     value = parts[1].strip()
-                    formatted_line = f"<b>{key}:</b> {value}"
-                    story.append(Paragraph(formatted_line, self.styles['Normal']))
-                else:
-                    story.append(Paragraph(line_escaped, self.styles['Normal']))
-            else:
-                # Regular text
+
+                    # Skip if this was already in product info
+                    if key not in product_data:
+                        formatted_line = f"<b>{key}:</b> {value}"
+                        story.append(Paragraph(formatted_line, self.styles['KeyValue']))
+                    continue
+
+            # Regular text/code
+            if line.strip():
                 story.append(Paragraph(line_escaped, self.styles['CodeStyle']))
 
         # Build PDF
@@ -291,7 +633,7 @@ class PDFReportGenerator:
 
     def convert_csv_to_pdf(self, csv_file: str, pdf_file: str = None, include_charts: bool = True) -> str:
         """
-        Convert a CSV monitoring log to PDF with tables and charts
+        Convert a CSV monitoring log to PDF with tables and charts using improved formatting
 
         Args:
             csv_file: Path to input CSV file
@@ -317,22 +659,28 @@ class PDFReportGenerator:
         if len(data) == 0:
             raise ValueError(f"CSV file is empty: {csv_file}")
 
-        # Create PDF document
+        # Create PDF document with enhanced margins
         doc = SimpleDocTemplate(
             pdf_file,
             pagesize=letter,
             rightMargin=72,
             leftMargin=72,
-            topMargin=72,
+            topMargin=90,  # Increased for header
             bottomMargin=72
         )
 
         story = []
 
+        # Reset counters
+        self.section_counter = 0
+        self.figure_counter = 0
+        self.table_counter = 0
+
         # Title
         title = os.path.splitext(os.path.basename(csv_file))[0].replace('_', ' ').title()
         story.append(Paragraph(title, self.styles['CustomTitle']))
-        story.append(Spacer(1, 12))
+        self.current_section_title = title
+        story.append(Spacer(1, 20))
 
         # Summary information
         headers = data[0] if len(data) > 0 else []
@@ -345,23 +693,31 @@ class PDFReportGenerator:
         <b>Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         """
         story.append(Paragraph(summary_text, self.styles['InfoBox']))
-        story.append(Spacer(1, 12))
+        story.append(Spacer(1, 20))
 
         # Create charts if requested
         if include_charts and len(data_rows) > 0:
-            story.append(Paragraph("Visualizations", self.styles['SectionHeader']))
+            self.section_counter += 1
+            story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#2c5aa0'), spaceAfter=8))
+            story.append(Paragraph(f"{self.section_counter}. Visualizations", self.styles['SectionHeader']))
+            self.current_section_title = "Visualizations"
 
             chart_images = self._create_csv_charts(csv_file, headers, data_rows)
             for chart_img in chart_images:
                 if chart_img:
-                    story.append(Image(chart_img, width=6*inch, height=3*inch))
-                    story.append(Spacer(1, 12))
+                    # Use numbered figure with caption
+                    chart_name = os.path.basename(csv_file).replace('_', ' ').replace('.csv', '')
+                    story.extend(self._create_numbered_figure(chart_img, f"Monitoring data from {chart_name}"))
 
             if chart_images:
                 story.append(PageBreak())
 
         # Data table (first 100 rows to avoid huge PDFs)
-        story.append(Paragraph("Data Table", self.styles['SectionHeader']))
+        self.section_counter += 1
+        story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#2c5aa0'), spaceAfter=8))
+        story.append(Paragraph(f"{self.section_counter}. Data Table", self.styles['SectionHeader']))
+        self.current_section_title = "Data Table"
+        story.append(Spacer(1, 12))
 
         max_rows = 100
         table_data = [headers]
@@ -370,27 +726,15 @@ class PDFReportGenerator:
             table_data.extend(data_rows[:max_rows])
             story.append(Paragraph(
                 f"<i>Showing first {max_rows} of {len(data_rows)} rows</i>",
-                self.styles['Normal']
+                self.styles['EnhancedBody']
             ))
+            story.append(Spacer(1, 8))
+
         else:
             table_data.extend(data_rows)
 
-        # Create table
-        table = Table(table_data, repeatRows=1)
-        table.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c5aa0')),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-            ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-            ('GRID', (0, 0), (-1, -1), 1, colors.black),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey])
-        ]))
-
-        story.append(table)
+        # Create numbered table with caption
+        story.extend(self._create_numbered_table(table_data, f"Monitoring data ({len(data_rows)} rows)"))
 
         # Build PDF
         doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
@@ -483,7 +827,7 @@ class PDFReportGenerator:
 
     def create_combined_pdf(self, test_output_dir: str, combined_pdf_file: str = None) -> str:
         """
-        Create a single combined PDF from all reports and logs in a test output directory
+        Create a single combined PDF from all reports and logs with improved structure
 
         Args:
             test_output_dir: Directory containing test reports and logs
@@ -500,28 +844,35 @@ class PDFReportGenerator:
             dir_name = os.path.basename(test_output_dir.rstrip('/'))
             combined_pdf_file = os.path.join(self.output_dir, f"{dir_name}_COMBINED.pdf")
 
-        # Create PDF document
+        # Create PDF document with enhanced margins
         doc = SimpleDocTemplate(
             combined_pdf_file,
             pagesize=letter,
             rightMargin=72,
             leftMargin=72,
-            topMargin=72,
+            topMargin=90,  # Increased for header
             bottomMargin=72
         )
 
         story = []
 
+        # Reset counters
+        self.section_counter = 0
+        self.figure_counter = 0
+        self.table_counter = 0
+
         # Cover page
         story.append(Paragraph("Jetson Orin Test Suite", self.styles['CustomTitle']))
-        story.append(Spacer(1, 12))
+        self.current_section_title = "Jetson Orin Test Suite"
+        story.append(Spacer(1, 20))
         story.append(Paragraph("Complete Test Report", self.styles['SectionHeader']))
-        story.append(Spacer(1, 24))
+        story.append(Spacer(1, 30))
 
         cover_info = f"""
         <b>Test Output Directory:</b> {os.path.basename(test_output_dir)}<br/>
         <b>Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>
         <b>Report Type:</b> Combined (All Tests)<br/>
+        <b>Document Type:</b> High-Quality Professional Report
         """
         story.append(Paragraph(cover_info, self.styles['InfoBox']))
         story.append(PageBreak())
@@ -542,29 +893,50 @@ class PDFReportGenerator:
         report_files.sort()
         csv_files.sort()
 
-        # Add text reports
+        # Add text reports with improved structure
         if report_files:
-            story.append(Paragraph("Test Reports", self.styles['CustomTitle']))
-            story.append(Spacer(1, 12))
+            self.section_counter += 1
+            story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=10))
+            story.append(Paragraph(f"{self.section_counter}. Test Reports", self.styles['CustomTitle']))
+            self.current_section_title = "Test Reports"
+            story.append(Spacer(1, 20))
 
-            for report_file in report_files:
+            for idx, report_file in enumerate(report_files, 1):
+                # Add subsection for each report
+                report_name = os.path.basename(report_file).replace('_', ' ').replace('.txt', '')
+                story.append(HRFlowable(width="80%", thickness=1, color=colors.HexColor('#d0d0d0'), spaceAfter=6))
                 story.append(Paragraph(
-                    os.path.basename(report_file),
+                    f"{self.section_counter}.{idx} {report_name}",
                     self.styles['SectionHeader']
                 ))
-                story.append(Spacer(1, 6))
+                story.append(Spacer(1, 10))
 
                 # Read and add report content
                 try:
                     with open(report_file, 'r', encoding='utf-8', errors='ignore') as f:
                         content = f.read()
 
+                    # Extract and display product info for this report
+                    product_data = self._extract_product_data(content)
+                    if product_data:
+                        story.extend(self._create_product_info_section(product_data))
+
                     lines = content.split('\n')
-                    for line in lines[:200]:  # Limit lines per report
+                    line_count = 0
+                    for line in lines:
+                        if line_count >= 200:  # Limit lines per report
+                            break
+
                         line = line.rstrip()
                         if not line.strip():
                             story.append(Spacer(1, 4))
                             continue
+
+                        # Skip lines already in product info
+                        if ':' in line and len(line.split(':')[0]) < 50:
+                            key = line.split(':', 1)[0].strip()
+                            if key in product_data:
+                                continue
 
                         line_escaped = line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
@@ -572,29 +944,36 @@ class PDFReportGenerator:
                             continue
 
                         story.append(Paragraph(line_escaped, self.styles['CodeStyle']))
+                        line_count += 1
 
                     if len(lines) > 200:
+                        story.append(Spacer(1, 8))
                         story.append(Paragraph(
                             f"<i>... {len(lines) - 200} more lines omitted ...</i>",
-                            self.styles['Normal']
+                            self.styles['EnhancedBody']
                         ))
 
                 except Exception as e:
-                    story.append(Paragraph(f"Error reading report: {e}", self.styles['Normal']))
+                    story.append(Paragraph(f"Error reading report: {e}", self.styles['EnhancedBody']))
 
                 story.append(PageBreak())
 
-        # Add CSV summaries and charts
+        # Add CSV summaries and charts with improved structure
         if csv_files:
-            story.append(Paragraph("Monitoring Logs Summary", self.styles['CustomTitle']))
-            story.append(Spacer(1, 12))
+            self.section_counter += 1
+            story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=10))
+            story.append(Paragraph(f"{self.section_counter}. Monitoring Logs Summary", self.styles['CustomTitle']))
+            self.current_section_title = "Monitoring Logs"
+            story.append(Spacer(1, 20))
 
-            for csv_file in csv_files:
+            for idx, csv_file in enumerate(csv_files, 1):
+                csv_name = os.path.basename(csv_file).replace('_', ' ').replace('.csv', '')
+                story.append(HRFlowable(width="80%", thickness=1, color=colors.HexColor('#d0d0d0'), spaceAfter=6))
                 story.append(Paragraph(
-                    os.path.basename(csv_file),
+                    f"{self.section_counter}.{idx} {csv_name}",
                     self.styles['SectionHeader']
                 ))
-                story.append(Spacer(1, 6))
+                story.append(Spacer(1, 10))
 
                 # Read CSV and create summary
                 try:
@@ -607,20 +986,21 @@ class PDFReportGenerator:
                         data_rows = data[1:]
 
                         summary = f"""
-                        <b>Columns:</b> {', '.join(headers)}<br/>
+                        <b>File:</b> {os.path.basename(csv_file)}<br/>
+                        <b>Columns:</b> {', '.join(headers[:5])}{'...' if len(headers) > 5 else ''}<br/>
                         <b>Total Rows:</b> {len(data_rows)}<br/>
                         """
                         story.append(Paragraph(summary, self.styles['InfoBox']))
+                        story.append(Spacer(1, 12))
 
-                        # Create and add charts
+                        # Create and add charts with numbering
                         chart_images = self._create_csv_charts(csv_file, headers, data_rows)
                         for chart_img in chart_images:
                             if chart_img and os.path.exists(chart_img):
-                                story.append(Image(chart_img, width=6*inch, height=3*inch))
-                                story.append(Spacer(1, 12))
+                                story.extend(self._create_numbered_figure(chart_img, f"Monitoring data from {csv_name}"))
 
                 except Exception as e:
-                    story.append(Paragraph(f"Error processing CSV: {e}", self.styles['Normal']))
+                    story.append(Paragraph(f"Error processing CSV: {e}", self.styles['EnhancedBody']))
 
                 story.append(PageBreak())
 
