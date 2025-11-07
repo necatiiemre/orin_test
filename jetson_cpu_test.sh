@@ -50,6 +50,12 @@ DEVICE_SERIAL="${8:-${DEVICE_SERIAL:-N/A}}"
 TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Convert hours to seconds (handle decimals)
 LOG_DIR="${5:-./cpu_ultra_test_$(date +%Y%m%d_%H%M%S)}"
 
+# Password check - must happen before any SSH operations
+if [ -z "$ORIN_PASS" ]; then
+    read -sp "Enter SSH password for $ORIN_USER@$ORIN_IP: " ORIN_PASS
+    echo ""
+fi
+
 # Dynamic CPU core detection - get REAL physical cores, not hyperthreads
 echo "[*] Detecting CPU cores..."
 CPU_CORES=$(get_physical_cores "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS")
