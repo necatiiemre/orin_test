@@ -120,37 +120,30 @@ class PDFReportGenerator:
             fontName='Helvetica'
         ))
 
-        # Monospace style for code/logs - Improved readability
+        # Monospace style for code/logs - Plain text without background or borders
         self.styles.add(ParagraphStyle(
             name='CodeStyle',
             parent=self.styles['Code'],
             fontSize=10,
             fontName='Courier',
-            leftIndent=20,
+            leftIndent=0,
             spaceAfter=6,
             leading=13,
-            textColor=colors.HexColor('#333333'),
-            backColor=colors.HexColor('#f5f5f5'),
-            borderWidth=0.5,
-            borderColor=colors.HexColor('#e0e0e0'),
-            borderPadding=4
+            textColor=colors.HexColor('#1a1a1a')
         ))
 
-        # Info box style - Enhanced with background
+        # Info box style - Plain text without background or borders
         self.styles.add(ParagraphStyle(
             name='InfoBox',
             parent=self.styles['Normal'],
-            fontSize=10,
-            textColor=colors.HexColor('#444444'),
-            leftIndent=15,
-            rightIndent=15,
-            spaceAfter=12,
-            spaceBefore=12,
-            leading=14,
-            backColor=colors.HexColor('#f0f4f8'),
-            borderWidth=1,
-            borderColor=colors.HexColor('#2c5aa0'),
-            borderPadding=10
+            fontSize=11,
+            textColor=colors.HexColor('#1a1a1a'),
+            leftIndent=0,
+            rightIndent=0,
+            spaceAfter=8,
+            spaceBefore=8,
+            leading=15,
+            fontName='Helvetica'
         ))
 
         # Product info style - For product metadata sections
