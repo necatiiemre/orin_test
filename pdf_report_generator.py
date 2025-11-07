@@ -197,9 +197,9 @@ class PDFReportGenerator:
         page_width, page_height = letter
 
         # Header section - appears on all pages
-        # Draw logo in top left corner of header (fully visible, not transparent)
-        logo_height_in_header = 0.7 * inch  # Logo height in header
-        logo_width_in_header = 0.7 * inch   # Logo width in header
+        # Smaller logo for header (0.5 inch high to fit better)
+        logo_height_in_header = 0.5 * inch
+        logo_width_in_header = 0.5 * inch
 
         if self.logo_path and os.path.exists(self.logo_path):
             try:
@@ -209,9 +209,9 @@ class PDFReportGenerator:
 
                 # Position logo in top left corner of header
                 logo_x = inch
-                logo_y = page_height - inch - logo_height_in_header + 0.25 * inch
+                logo_y = page_height - 0.75 * inch
 
-                # Draw the logo
+                # Draw the logo (maintains aspect ratio automatically)
                 canvas_obj.drawImage(
                     self.logo_path,
                     logo_x, logo_y,
@@ -236,19 +236,19 @@ class PDFReportGenerator:
 
         # Calculate text position based on whether logo exists
         if self.logo_path and os.path.exists(self.logo_path):
-            # Position text to the right of the logo
-            text_x = inch + logo_width_in_header + 0.2 * inch
-            text_y = page_height - 0.68 * inch
+            # Position text to the right of the logo (with more space)
+            text_x = inch + logo_width_in_header + 0.15 * inch
+            text_y = page_height - 0.63 * inch
 
             # Report title next to logo
-            canvas_obj.setFont('Helvetica-Bold', 11)
+            canvas_obj.setFont('Helvetica-Bold', 10)
             canvas_obj.drawString(text_x, text_y, "Jetson Orin Test Suite")
 
             # Section title below report title (only after first page)
             if doc.page > 1:
-                canvas_obj.setFont('Helvetica', 9)
+                canvas_obj.setFont('Helvetica', 8)
                 canvas_obj.setFillColor(colors.HexColor('#555555'))
-                canvas_obj.drawString(text_x, text_y - 0.15 * inch, self.current_section_title)
+                canvas_obj.drawString(text_x, text_y - 0.13 * inch, self.current_section_title[:60])
         else:
             # No logo - center the text
             canvas_obj.setFont('Helvetica-Bold', 11)
@@ -262,7 +262,7 @@ class PDFReportGenerator:
         # Page number in header (top right corner)
         canvas_obj.setFont('Helvetica', 9)
         canvas_obj.setFillColor(colors.HexColor('#2c5aa0'))
-        canvas_obj.drawRightString(page_width - inch, page_height - 0.68 * inch, f"Page {doc.page}")
+        canvas_obj.drawRightString(page_width - inch, page_height - 0.63 * inch, f"Page {doc.page}")
 
         # Footer separator line
         canvas_obj.setStrokeColor(colors.HexColor('#cccccc'))
@@ -504,7 +504,8 @@ class PDFReportGenerator:
         """
         elements = []
 
-        # Add large logo at top (if available)
+        # Add appropriately-sized logo at top (if available)
+        # For portrait logos (like 1330x1774), limit height to fit on page
         if self.logo_path and os.path.exists(self.logo_path):
             try:
                 from PIL import Image as PILImage
@@ -512,50 +513,62 @@ class PDFReportGenerator:
                     img_width, img_height = img.size
                     aspect_ratio = img_width / img_height
 
-                    # Large logo for cover page (3 inches wide, maintain aspect ratio)
-                    cover_logo_width = 3.0 * inch
-                    cover_logo_height = cover_logo_width / aspect_ratio
+                    # Determine logo size based on aspect ratio
+                    # For portrait logos (height > width), limit by height
+                    # For landscape logos (width > height), limit by width
+                    if img_height > img_width:
+                        # Portrait orientation - limit height to 1.8 inches
+                        cover_logo_height = 1.8 * inch
+                        cover_logo_width = cover_logo_height * aspect_ratio
+                    else:
+                        # Landscape orientation - limit width to 2.5 inches
+                        cover_logo_width = 2.5 * inch
+                        cover_logo_height = cover_logo_width / aspect_ratio
 
                     # Center the logo
                     logo_img = Image(self.logo_path, width=cover_logo_width, height=cover_logo_height)
                     logo_img.hAlign = 'CENTER'
-                    elements.append(Spacer(1, 0.5 * inch))
+                    elements.append(Spacer(1, 0.3 * inch))
                     elements.append(logo_img)
-                    elements.append(Spacer(1, 0.5 * inch))
+                    elements.append(Spacer(1, 0.3 * inch))
             except Exception as e:
                 print(f"Warning: Could not load logo for cover page: {e}")
-                elements.append(Spacer(1, 1.5 * inch))
+                elements.append(Spacer(1, 1.0 * inch))
         else:
-            elements.append(Spacer(1, 1.5 * inch))
+            elements.append(Spacer(1, 1.0 * inch))
 
         # Report Title - Large and prominent
         elements.append(Paragraph(title, self.styles['CustomTitle']))
-        elements.append(Spacer(1, 0.8 * inch))
+        elements.append(Spacer(1, 0.4 * inch))
 
         # Decorative line
-        elements.append(HRFlowable(width="80%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=20))
+        elements.append(HRFlowable(width="80%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=15))
 
         # Extract key information for cover page
-        tester = product_data.get('Tester', product_data.get('tester', 'Not Specified'))
-        quality_checker = product_data.get('Quality Checker', product_data.get('quality checker', 'Not Specified'))
-        test_date = product_data.get('Test Date', product_data.get('test date', datetime.now().strftime('%Y-%m-%d')))
+        # Use case-insensitive lookup for flexibility
+        tester = product_data.get('Tester', product_data.get('tester', ''))
+        quality_checker = product_data.get('Quality Checker', product_data.get('quality checker', ''))
+        test_date = product_data.get('Test Date', product_data.get('test date', ''))
         device = product_data.get('Device', product_data.get('device', ''))
         model = product_data.get('Jetson Model', product_data.get('jetson model', ''))
         serial = product_data.get('Device Serial', product_data.get('device serial', ''))
 
-        # Create information table for cover page
+        # Create information table for cover page - ONLY include fields with actual data
         cover_info_data = []
 
-        if device:
+        # Only add fields that have actual values (not empty)
+        if device and device.strip():
             cover_info_data.append(['Device:', device])
-        if model:
+        if model and model.strip():
             cover_info_data.append(['Model:', model])
-        if serial:
+        if serial and serial.strip():
             cover_info_data.append(['Serial Number:', serial])
-
-        cover_info_data.append(['Test Date:', test_date])
-        cover_info_data.append(['Conducted By:', tester])
-        cover_info_data.append(['Quality Control:', quality_checker])
+        if test_date and test_date.strip():
+            cover_info_data.append(['Test Date:', test_date])
+        if tester and tester.strip():
+            cover_info_data.append(['Conducted By:', tester])
+        if quality_checker and quality_checker.strip():
+            cover_info_data.append(['Quality Control:', quality_checker])
 
         # Create styled table for cover page info
         if cover_info_data:
@@ -564,14 +577,14 @@ class PDFReportGenerator:
             cover_table.setStyle(TableStyle([
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
                 ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 13),
+                ('FONTSIZE', (0, 0), (-1, -1), 12),
                 ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1a1a1a')),
                 ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
                 ('ALIGN', (1, 0), (1, -1), 'LEFT'),
                 ('LEFTPADDING', (0, 0), (-1, -1), 15),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 15),
-                ('TOPPADDING', (0, 0), (-1, -1), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                ('TOPPADDING', (0, 0), (-1, -1), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#e0e0e0')),
                 ('LINEBELOW', (0, -1), (-1, -1), 1.5, colors.HexColor('#2c5aa0')),
@@ -580,8 +593,10 @@ class PDFReportGenerator:
             # Center the table
             cover_table.hAlign = 'CENTER'
             elements.append(cover_table)
-
-        elements.append(Spacer(1, 1 * inch))
+            elements.append(Spacer(1, 0.8 * inch))
+        else:
+            # If no data available, add minimal spacing
+            elements.append(Spacer(1, 0.5 * inch))
 
         # Footer information on cover page
         footer_text = f"""
