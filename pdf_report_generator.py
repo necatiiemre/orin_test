@@ -41,15 +41,15 @@ except ImportError:
 class PDFReportGenerator:
     """Generate PDF reports from test output files"""
 
-    def __init__(self, output_dir: str = None, logo_path: str = None, logo_position: str = 'watermark', logo_opacity: float = 0.1):
+    def __init__(self, output_dir: str = None, logo_path: str = None, logo_position: str = 'header', logo_opacity: float = 1.0):
         """
         Initialize PDF report generator
 
         Args:
             output_dir: Directory where PDF files will be saved
             logo_path: Path to logo image file (PNG, JPG, etc.)
-            logo_position: Logo position - 'watermark' (centered), 'top-right', 'top-left', 'bottom-right', 'bottom-left'
-            logo_opacity: Logo opacity (0.0 to 1.0, where 0.1 is 10% visible, good for watermarks)
+            logo_position: Logo position - 'header' (top left, default and recommended for visibility)
+            logo_opacity: Logo opacity (0.0 to 1.0, default 1.0 for full visibility)
         """
         self.output_dir = output_dir or os.getcwd()
         self.logo_path = logo_path
@@ -190,91 +190,79 @@ class PDFReportGenerator:
         ))
 
     def _create_header_footer(self, canvas_obj, doc):
-        """Create professional header and footer for each page"""
+        """Create professional header and footer for each page with logo in top left"""
         canvas_obj.saveState()
 
         # Get page dimensions
         page_width, page_height = letter
 
-        # Draw background logo if provided
+        # Header section - appears on all pages
+        # Draw logo in top left corner of header (fully visible, not transparent)
+        logo_height_in_header = 0.7 * inch  # Logo height in header
+        logo_width_in_header = 0.7 * inch   # Logo width in header
+
         if self.logo_path and os.path.exists(self.logo_path):
             try:
-                # Set opacity for the logo
-                canvas_obj.setFillAlpha(self.logo_opacity)
-                canvas_obj.setStrokeAlpha(self.logo_opacity)
+                # Full opacity for header logo (always visible)
+                canvas_obj.setFillAlpha(1.0)
+                canvas_obj.setStrokeAlpha(1.0)
 
-                # Calculate logo size and position based on logo_position
-                if self.logo_position == 'watermark':
-                    # Centered watermark - large and very transparent
-                    logo_width = 4 * inch
-                    logo_height = 4 * inch
-                    x = (page_width - logo_width) / 2
-                    y = (page_height - logo_height) / 2
-
-                elif self.logo_position == 'top-right':
-                    logo_width = 1.5 * inch
-                    logo_height = 1.5 * inch
-                    x = page_width - logo_width - 0.75 * inch
-                    y = page_height - logo_height - 0.75 * inch
-
-                elif self.logo_position == 'top-left':
-                    logo_width = 1.5 * inch
-                    logo_height = 1.5 * inch
-                    x = 0.75 * inch
-                    y = page_height - logo_height - 0.75 * inch
-
-                elif self.logo_position == 'bottom-right':
-                    logo_width = 1.5 * inch
-                    logo_height = 1.5 * inch
-                    x = page_width - logo_width - 0.75 * inch
-                    y = 0.75 * inch
-
-                elif self.logo_position == 'bottom-left':
-                    logo_width = 1.5 * inch
-                    logo_height = 1.5 * inch
-                    x = 0.75 * inch
-                    y = 0.75 * inch
-
-                else:
-                    # Default to watermark
-                    logo_width = 4 * inch
-                    logo_height = 4 * inch
-                    x = (page_width - logo_width) / 2
-                    y = (page_height - logo_height) / 2
+                # Position logo in top left corner of header
+                logo_x = inch
+                logo_y = page_height - inch - logo_height_in_header + 0.25 * inch
 
                 # Draw the logo
                 canvas_obj.drawImage(
                     self.logo_path,
-                    x, y,
-                    width=logo_width,
-                    height=logo_height,
+                    logo_x, logo_y,
+                    width=logo_width_in_header,
+                    height=logo_height_in_header,
                     preserveAspectRatio=True,
                     mask='auto'
                 )
-
-                # Reset opacity for other elements
-                canvas_obj.setFillAlpha(1.0)
-                canvas_obj.setStrokeAlpha(1.0)
 
             except Exception as e:
                 # If logo fails to load, continue without it
                 print(f"Warning: Could not load logo from {self.logo_path}: {e}")
 
-        # Header (skip on first page if it's a title page)
-        if doc.page > 1:
-            # Header line
-            canvas_obj.setStrokeColor(colors.HexColor('#2c5aa0'))
-            canvas_obj.setLineWidth(1.5)
-            canvas_obj.line(inch, page_height - 0.6 * inch, page_width - inch, page_height - 0.6 * inch)
+        # Header line (below logo and text)
+        canvas_obj.setStrokeColor(colors.HexColor('#2c5aa0'))
+        canvas_obj.setLineWidth(1.5)
+        canvas_obj.line(inch, page_height - 0.85 * inch, page_width - inch, page_height - 0.85 * inch)
 
-            # Header text with section title
-            canvas_obj.setFont('Helvetica', 9)
-            canvas_obj.setFillColor(colors.HexColor('#2c5aa0'))
-            canvas_obj.drawString(inch, page_height - 0.5 * inch, self.current_section_title)
+        # Header text - position to the right of logo (or centered if no logo)
+        canvas_obj.setFont('Helvetica-Bold', 10)
+        canvas_obj.setFillColor(colors.HexColor('#2c5aa0'))
 
-            # Page number in header (right side)
-            canvas_obj.setFont('Helvetica', 9)
-            canvas_obj.drawRightString(page_width - inch, page_height - 0.5 * inch, f"Page {doc.page}")
+        # Calculate text position based on whether logo exists
+        if self.logo_path and os.path.exists(self.logo_path):
+            # Position text to the right of the logo
+            text_x = inch + logo_width_in_header + 0.2 * inch
+            text_y = page_height - 0.68 * inch
+
+            # Report title next to logo
+            canvas_obj.setFont('Helvetica-Bold', 11)
+            canvas_obj.drawString(text_x, text_y, "Jetson Orin Test Suite")
+
+            # Section title below report title (only after first page)
+            if doc.page > 1:
+                canvas_obj.setFont('Helvetica', 9)
+                canvas_obj.setFillColor(colors.HexColor('#555555'))
+                canvas_obj.drawString(text_x, text_y - 0.15 * inch, self.current_section_title)
+        else:
+            # No logo - center the text
+            canvas_obj.setFont('Helvetica-Bold', 11)
+            canvas_obj.drawCentredString(page_width / 2, page_height - 0.65 * inch, "Jetson Orin Test Suite")
+
+            if doc.page > 1:
+                canvas_obj.setFont('Helvetica', 9)
+                canvas_obj.setFillColor(colors.HexColor('#555555'))
+                canvas_obj.drawCentredString(page_width / 2, page_height - 0.8 * inch, self.current_section_title)
+
+        # Page number in header (top right corner)
+        canvas_obj.setFont('Helvetica', 9)
+        canvas_obj.setFillColor(colors.HexColor('#2c5aa0'))
+        canvas_obj.drawRightString(page_width - inch, page_height - 0.68 * inch, f"Page {doc.page}")
 
         # Footer separator line
         canvas_obj.setStrokeColor(colors.HexColor('#cccccc'))
@@ -1160,23 +1148,23 @@ Examples:
     parser.add_argument(
         '--logo',
         metavar='FILE',
-        help='Path to logo image file (PNG, JPG, etc.) to add as background'
+        help='Path to logo image file (PNG, JPG, etc.) to display in header'
     )
 
     parser.add_argument(
         '--logo-position',
         metavar='POSITION',
-        choices=['watermark', 'top-right', 'top-left', 'bottom-right', 'bottom-left'],
-        default='watermark',
-        help='Logo position: watermark (centered), top-right, top-left, bottom-right, bottom-left (default: watermark)'
+        choices=['header', 'watermark', 'top-right', 'top-left', 'bottom-right', 'bottom-left'],
+        default='header',
+        help='Logo position: header (top left, recommended), watermark (centered transparent), or corner positions (default: header)'
     )
 
     parser.add_argument(
         '--logo-opacity',
         metavar='OPACITY',
         type=float,
-        default=0.1,
-        help='Logo opacity from 0.0 (invisible) to 1.0 (fully opaque). Default: 0.1 (10%% visible, good for watermarks)'
+        default=1.0,
+        help='Logo opacity from 0.0 (invisible) to 1.0 (fully opaque). Default: 1.0 (fully visible in header)'
     )
 
     args = parser.parse_args()

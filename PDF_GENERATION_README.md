@@ -91,30 +91,27 @@ python3 pdf_report_generator.py \
 ./generate_pdf_reports.sh --no-charts test_output_20250106_120000
 ```
 
-### 5. Add Logo to PDF Background
+### 5. Add Logo to PDFs
 
-You can add a company logo or branding to the PDF background in various positions:
+You can add a company logo or branding to your PDFs. By default, the logo appears in the header (top left) on every page, making it clearly visible:
 
 ```bash
-# Add logo as centered watermark (default, 10% opacity)
+# Add logo in header (default, fully visible on every page)
 ./generate_pdf_reports.sh --logo /path/to/logo.png test_output_20250106_120000
+
+# Add logo as transparent watermark (if preferred for background branding)
+./generate_pdf_reports.sh --logo /path/to/logo.png --logo-position watermark --logo-opacity 0.1 test_output_20250106_120000
 
 # Add logo in top-right corner
 ./generate_pdf_reports.sh --logo /path/to/logo.png --logo-position top-right test_output_20250106_120000
 
-# Add logo with custom opacity (30% visible)
-./generate_pdf_reports.sh --logo /path/to/logo.png --logo-opacity 0.3 test_output_20250106_120000
-
-# Add logo in bottom-right corner with 50% opacity
-./generate_pdf_reports.sh \
-    --logo /path/to/logo.png \
-    --logo-position bottom-right \
-    --logo-opacity 0.5 \
-    test_output_20250106_120000
+# Add logo with custom opacity (50% visible)
+./generate_pdf_reports.sh --logo /path/to/logo.png --logo-opacity 0.5 test_output_20250106_120000
 ```
 
 **Logo Positions:**
-- `watermark` - Centered, large (4x4 inches), perfect for background branding
+- `header` - **Top-left in header** (0.7x0.7 inches, fully visible on all pages, **recommended**)
+- `watermark` - Centered, large (4x4 inches), transparent background branding
 - `top-right` - Top-right corner (1.5x1.5 inches)
 - `top-left` - Top-left corner (1.5x1.5 inches)
 - `bottom-right` - Bottom-right corner (1.5x1.5 inches)
@@ -122,10 +119,10 @@ You can add a company logo or branding to the PDF background in various position
 
 **Logo Opacity:**
 - `0.0` - Completely invisible
-- `0.1` - Very subtle (10% visible, default for watermarks)
-- `0.3` - Light (30% visible, good for corners)
+- `0.1` - Very subtle (10% visible, good for watermarks)
+- `0.3` - Light (30% visible)
 - `0.5` - Medium (50% visible)
-- `1.0` - Fully opaque (100% visible)
+- `1.0` - Fully opaque (100% visible, **default for header position**)
 
 **Supported Logo Formats:**
 - PNG (recommended, supports transparency)
@@ -143,20 +140,20 @@ from pdf_report_generator import PDFReportGenerator
 # Initialize generator without logo
 generator = PDFReportGenerator(output_dir='/path/to/output')
 
-# Initialize generator with logo (watermark style)
+# Initialize generator with logo in header (default, recommended)
 generator_with_logo = PDFReportGenerator(
     output_dir='/path/to/output',
     logo_path='/path/to/logo.png',
-    logo_position='watermark',
-    logo_opacity=0.1
+    logo_position='header',  # Default: appears in top-left header
+    logo_opacity=1.0  # Default: fully visible
 )
 
-# Initialize generator with logo in corner
-generator_corner_logo = PDFReportGenerator(
+# Initialize generator with logo as watermark (transparent background)
+generator_watermark_logo = PDFReportGenerator(
     output_dir='/path/to/output',
     logo_path='/path/to/company_logo.png',
-    logo_position='top-right',
-    logo_opacity=0.3
+    logo_position='watermark',
+    logo_opacity=0.1  # Very transparent for background
 )
 
 # Convert single TXT report
