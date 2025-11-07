@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PDF Report Generator for Nvidia Jetson AGX orin / aGX orin industrial test software
+PDF Report Generator for Nvidia Jetson AGX orin / agx orin industrial test software
 Converts TXT reports and CSV monitoring logs to formatted PDF files
 """
 
@@ -62,7 +62,7 @@ class PDFReportGenerator:
         self.section_counter = 0
         self.figure_counter = 0
         self.table_counter = 0
-        self.current_section_title = "Nvidia Jetson AGX orin / aGX orin industrial test software"
+        self.current_section_title = "Nvidia Jetson AGX orin / agx orin industrial test software"
 
     def _setup_custom_styles(self):
         """Setup custom paragraph styles with improved typography"""
@@ -242,7 +242,7 @@ class PDFReportGenerator:
 
             # Report title next to logo
             canvas_obj.setFont('Helvetica-Bold', 10)
-            canvas_obj.drawString(text_x, text_y, "Nvidia Jetson AGX orin / aGX orin industrial test software")
+            canvas_obj.drawString(text_x, text_y, "Nvidia Jetson AGX orin / agx orin industrial test software")
 
             # Section title below report title (only after first page)
             if doc.page > 1:
@@ -252,7 +252,7 @@ class PDFReportGenerator:
         else:
             # No logo - center the text
             canvas_obj.setFont('Helvetica-Bold', 11)
-            canvas_obj.drawCentredString(page_width / 2, page_height - 0.65 * inch, "Nvidia Jetson AGX orin / aGX orin industrial test software")
+            canvas_obj.drawCentredString(page_width / 2, page_height - 0.65 * inch, "Nvidia Jetson AGX orin / agx orin industrial test software")
 
             if doc.page > 1:
                 canvas_obj.setFont('Helvetica', 9)
@@ -278,7 +278,7 @@ class PDFReportGenerator:
         )
         canvas_obj.drawCentredString(
             page_width / 2, 0.5 * inch,
-            "Nvidia Jetson AGX orin / aGX orin industrial test software - Confidential"
+            "Nvidia Jetson AGX orin / agx orin industrial test software - Confidential"
         )
 
         canvas_obj.restoreState()
@@ -295,8 +295,7 @@ class PDFReportGenerator:
         """
         elements = []
 
-        # Section header with icon/separator
-        elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=10))
+        # Section header
         elements.append(Paragraph("Product Information", self.styles['SectionHeader']))
         elements.append(Spacer(1, 10))
 
@@ -330,7 +329,6 @@ class PDFReportGenerator:
             elements.append(product_table)
 
         elements.append(Spacer(1, 20))
-        elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#d0d0d0'), spaceAfter=20))
 
         return elements
 
@@ -476,6 +474,9 @@ class PDFReportGenerator:
                           'physical cores', 'cpu cores', 'cores', 'architecture', 'kernel',
                           'ubuntu', 'os', 'ram', 'memory', 'storage', 'disk']
 
+        device_name = None
+        ip_address = None
+
         for line in lines:
             line = line.strip()
             if ':' in line and len(line.split(':')[0]) < 50:
@@ -485,7 +486,23 @@ class PDFReportGenerator:
 
                 # Check if this looks like product information
                 if any(keyword in key.lower() for keyword in product_keywords):
+                    # Store hostname/device name separately
+                    if 'hostname' in key.lower() or ('device' in key.lower() and '.' not in value and len(value) < 30):
+                        device_name = value
+                    # Store IP address separately
+                    elif 'ip' in key.lower() or ('device' in key.lower() and '.' in value):
+                        ip_address = value
+
                     product_data[key] = value
+
+        # Override Device field with hostname if available, otherwise use IP
+        if device_name:
+            product_data['Device'] = device_name
+        elif ip_address and 'Device' in product_data and product_data['Device'] == ip_address:
+            # If Device is just an IP, also check for hostname in data
+            hostname = product_data.get('Hostname', product_data.get('hostname', None))
+            if hostname:
+                product_data['Device'] = hostname
 
         return product_data
 
@@ -538,9 +555,6 @@ class PDFReportGenerator:
         # Report Title - Large and prominent
         elements.append(Paragraph(title, self.styles['CustomTitle']))
         elements.append(Spacer(1, 0.4 * inch))
-
-        # Decorative line
-        elements.append(HRFlowable(width="80%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=15))
 
         # Display pass/fail status prominently (if available)
         # Extract status first to display it before other info
@@ -618,7 +632,7 @@ class PDFReportGenerator:
         # Footer information on cover page
         footer_text = f"""
         <para alignment="center" fontSize="10" textColor="#666666">
-        <b>Nvidia Jetson AGX orin / aGX orin industrial test software</b><br/>
+        <b>Nvidia Jetson AGX orin / agx orin industrial test software</b><br/>
         {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}<br/>
         <i>Confidential Document</i>
         </para>
@@ -717,7 +731,6 @@ class PDFReportGenerator:
                 section = line.strip('- ').strip()
                 section_title = f"{self.section_counter}. {section}"
                 story.append(Spacer(1, 10))
-                story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#2c5aa0'), spaceAfter=8))
                 story.append(Paragraph(section_title, self.styles['SectionHeader']))
                 self.current_section_title = section
                 continue
@@ -834,7 +847,6 @@ class PDFReportGenerator:
         # Create charts if requested
         if include_charts and len(data_rows) > 0:
             self.section_counter += 1
-            story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#2c5aa0'), spaceAfter=8))
             story.append(Paragraph(f"{self.section_counter}. Visualizations", self.styles['SectionHeader']))
             self.current_section_title = "Visualizations"
 
@@ -850,7 +862,6 @@ class PDFReportGenerator:
 
         # Data table (first 100 rows to avoid huge PDFs)
         self.section_counter += 1
-        story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#2c5aa0'), spaceAfter=8))
         story.append(Paragraph(f"{self.section_counter}. Data Table", self.styles['SectionHeader']))
         self.current_section_title = "Data Table"
         story.append(Spacer(1, 12))
@@ -1006,8 +1017,8 @@ class PDFReportGenerator:
         }
 
         # Create professional cover page
-        self.current_section_title = "Nvidia Jetson AGX orin / aGX orin industrial test software - Complete Test Report"
-        story.extend(self._create_cover_page("Nvidia Jetson AGX orin / aGX orin industrial test software\nComplete Test Report", combined_metadata))
+        self.current_section_title = "Nvidia Jetson AGX orin / agx orin industrial test software - Complete Test Report"
+        story.extend(self._create_cover_page("Nvidia Jetson AGX orin / agx orin industrial test software\nComplete Test Report", combined_metadata))
 
         # Find all report and log files
         report_files = []
@@ -1028,7 +1039,6 @@ class PDFReportGenerator:
         # Add text reports with improved structure
         if report_files:
             self.section_counter += 1
-            story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=10))
             story.append(Paragraph(f"{self.section_counter}. Test Reports", self.styles['CustomTitle']))
             self.current_section_title = "Test Reports"
             story.append(Spacer(1, 20))
@@ -1036,7 +1046,6 @@ class PDFReportGenerator:
             for idx, report_file in enumerate(report_files, 1):
                 # Add subsection for each report
                 report_name = os.path.basename(report_file).replace('_', ' ').replace('.txt', '')
-                story.append(HRFlowable(width="80%", thickness=1, color=colors.HexColor('#d0d0d0'), spaceAfter=6))
                 story.append(Paragraph(
                     f"{self.section_counter}.{idx} {report_name}",
                     self.styles['SectionHeader']
@@ -1093,14 +1102,12 @@ class PDFReportGenerator:
         # Add CSV summaries and charts with improved structure
         if csv_files:
             self.section_counter += 1
-            story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=10))
             story.append(Paragraph(f"{self.section_counter}. Monitoring Logs Summary", self.styles['CustomTitle']))
             self.current_section_title = "Monitoring Logs"
             story.append(Spacer(1, 20))
 
             for idx, csv_file in enumerate(csv_files, 1):
                 csv_name = os.path.basename(csv_file).replace('_', ' ').replace('.csv', '')
-                story.append(HRFlowable(width="80%", thickness=1, color=colors.HexColor('#d0d0d0'), spaceAfter=6))
                 story.append(Paragraph(
                     f"{self.section_counter}.{idx} {csv_name}",
                     self.styles['SectionHeader']
