@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PDF Report Generator for Nvidia Jetson AGX orin / agx orin industrial test software
+PDF Report Generator for Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software
 Converts TXT reports and CSV monitoring logs to formatted PDF files
 """
 
@@ -62,7 +62,7 @@ class PDFReportGenerator:
         self.section_counter = 0
         self.figure_counter = 0
         self.table_counter = 0
-        self.current_section_title = "Nvidia Jetson AGX orin / agx orin industrial test software"
+        self.current_section_title = "Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software"
 
     def _setup_custom_styles(self):
         """Setup custom paragraph styles with improved typography"""
@@ -242,7 +242,7 @@ class PDFReportGenerator:
 
             # Report title next to logo
             canvas_obj.setFont('Helvetica-Bold', 10)
-            canvas_obj.drawString(text_x, text_y, "Nvidia Jetson AGX orin / agx orin industrial test software")
+            canvas_obj.drawString(text_x, text_y, "Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software")
 
             # Section title below report title (only after first page)
             if doc.page > 1:
@@ -252,7 +252,7 @@ class PDFReportGenerator:
         else:
             # No logo - center the text
             canvas_obj.setFont('Helvetica-Bold', 11)
-            canvas_obj.drawCentredString(page_width / 2, page_height - 0.65 * inch, "Nvidia Jetson AGX orin / agx orin industrial test software")
+            canvas_obj.drawCentredString(page_width / 2, page_height - 0.65 * inch, "Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software")
 
             if doc.page > 1:
                 canvas_obj.setFont('Helvetica', 9)
@@ -278,7 +278,7 @@ class PDFReportGenerator:
         )
         canvas_obj.drawCentredString(
             page_width / 2, 0.5 * inch,
-            "Nvidia Jetson AGX orin / agx orin industrial test software - Confidential"
+            "Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software - Confidential"
         )
 
         canvas_obj.restoreState()
@@ -299,40 +299,17 @@ class PDFReportGenerator:
         elements.append(Paragraph("Product Information", self.styles['SectionHeader']))
         elements.append(Spacer(1, 10))
 
-        # Create product info table
-        table_data = []
+        # Display product data as plain text (no table)
         for key, value in product_data.items():
-            # Format key-value pairs in a table
-            formatted_key = f"<b>{key}:</b>"
-            table_data.append([Paragraph(formatted_key, self.styles['ProductInfo']),
-                             Paragraph(str(value), self.styles['ProductInfo'])])
-
-        if table_data:
-            # Create a styled table for product info
-            product_table = Table(table_data, colWidths=[2.5*inch, 4*inch])
-            product_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e8f0f8')),
-                ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1a1a1a')),
-                ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
-                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
-                ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 11),
-                ('LEFTPADDING', (0, 0), (-1, -1), 12),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 12),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d0d0d0')),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.white, colors.HexColor('#fafafa')])
-            ]))
-            elements.append(product_table)
+            # Format as plain text with bold key
+            formatted_line = f"<b>{key}:</b> {value}"
+            elements.append(Paragraph(formatted_line, self.styles['KeyValue']))
 
         elements.append(Spacer(1, 20))
 
         return elements
 
-    def _create_numbered_figure(self, image_path: str, caption: str = None, max_width: float = 6.5*inch, max_height: float = 4*inch) -> List:
+    def _create_numbered_figure(self, image_path: str, caption: str = None, max_width: float = 7*inch, max_height: float = 5*inch) -> List:
         """
         Create a figure with automatic numbering and caption, with stable positioning
 
@@ -632,7 +609,7 @@ class PDFReportGenerator:
         # Footer information on cover page
         footer_text = f"""
         <para alignment="center" fontSize="10" textColor="#666666">
-        <b>Nvidia Jetson AGX orin / agx orin industrial test software</b><br/>
+        <b>Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software</b><br/>
         {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}<br/>
         <i>Confidential Document</i>
         </para>
@@ -922,7 +899,9 @@ class PDFReportGenerator:
 
             # Create a line chart for numeric columns
             if numeric_columns and len(data_rows) > 1:
-                fig, axes = plt.subplots(len(numeric_columns), 1, figsize=(10, 3 * len(numeric_columns)))
+                # Adjust figure size based on number of charts
+                chart_height = min(4, 2.5 + len(numeric_columns) * 0.5)  # Max 4 inches per chart
+                fig, axes = plt.subplots(len(numeric_columns), 1, figsize=(8, chart_height * len(numeric_columns)))
 
                 if len(numeric_columns) == 1:
                     axes = [axes]
@@ -940,11 +919,11 @@ class PDFReportGenerator:
 
                     # Plot
                     x_range = range(len(values))
-                    ax.plot(x_range, values, marker='o', markersize=2, linewidth=1)
-                    ax.set_title(f"{col_name} Over Time", fontsize=12, fontweight='bold')
-                    ax.set_xlabel("Sample Index", fontsize=10)
-                    ax.set_ylabel(col_name, fontsize=10)
-                    ax.grid(True, alpha=0.3)
+                    ax.plot(x_range, values, marker='o', markersize=1.5, linewidth=1.5)
+                    ax.set_title(f"{col_name} Over Time", fontsize=11, fontweight='bold')
+                    ax.set_xlabel("Sample Index", fontsize=9)
+                    ax.set_ylabel(col_name, fontsize=9)
+                    ax.grid(True, alpha=0.3, linewidth=0.5)
 
                     # Add statistics
                     valid_values = [v for v in values if v is not None]
@@ -953,16 +932,16 @@ class PDFReportGenerator:
                         min_val = min(valid_values)
                         max_val = max(valid_values)
                         ax.axhline(y=avg_val, color='r', linestyle='--', linewidth=1, alpha=0.7, label=f'Avg: {avg_val:.2f}')
-                        ax.legend(fontsize=8)
+                        ax.legend(fontsize=7, loc='best')
 
-                plt.tight_layout()
+                plt.tight_layout(pad=1.5)
 
-                # Save to file
+                # Save to file with higher DPI
                 chart_file = os.path.join(
                     self.output_dir,
                     f"chart_{os.path.splitext(os.path.basename(csv_file))[0]}.png"
                 )
-                plt.savefig(chart_file, dpi=100, bbox_inches='tight')
+                plt.savefig(chart_file, dpi=150, bbox_inches='tight')
                 plt.close()
 
                 chart_images.append(chart_file)
@@ -1017,8 +996,8 @@ class PDFReportGenerator:
         }
 
         # Create professional cover page
-        self.current_section_title = "Nvidia Jetson AGX orin / agx orin industrial test software - Complete Test Report"
-        story.extend(self._create_cover_page("Nvidia Jetson AGX orin / agx orin industrial test software\nComplete Test Report", combined_metadata))
+        self.current_section_title = "Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software - Complete Test Report"
+        story.extend(self._create_cover_page("Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software\nComplete Test Report", combined_metadata))
 
         # Find all report and log files
         report_files = []
