@@ -491,6 +491,113 @@ class PDFReportGenerator:
 
         return product_data
 
+    def _create_cover_page(self, title: str, product_data: Dict[str, str]) -> List:
+        """
+        Create a professional cover page with large logo, title, and key information
+
+        Args:
+            title: Report title
+            product_data: Dictionary with product/test information
+
+        Returns:
+            List of flowables for the cover page
+        """
+        elements = []
+
+        # Add large logo at top (if available)
+        if self.logo_path and os.path.exists(self.logo_path):
+            try:
+                from PIL import Image as PILImage
+                with PILImage.open(self.logo_path) as img:
+                    img_width, img_height = img.size
+                    aspect_ratio = img_width / img_height
+
+                    # Large logo for cover page (3 inches wide, maintain aspect ratio)
+                    cover_logo_width = 3.0 * inch
+                    cover_logo_height = cover_logo_width / aspect_ratio
+
+                    # Center the logo
+                    logo_img = Image(self.logo_path, width=cover_logo_width, height=cover_logo_height)
+                    logo_img.hAlign = 'CENTER'
+                    elements.append(Spacer(1, 0.5 * inch))
+                    elements.append(logo_img)
+                    elements.append(Spacer(1, 0.5 * inch))
+            except Exception as e:
+                print(f"Warning: Could not load logo for cover page: {e}")
+                elements.append(Spacer(1, 1.5 * inch))
+        else:
+            elements.append(Spacer(1, 1.5 * inch))
+
+        # Report Title - Large and prominent
+        elements.append(Paragraph(title, self.styles['CustomTitle']))
+        elements.append(Spacer(1, 0.8 * inch))
+
+        # Decorative line
+        elements.append(HRFlowable(width="80%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=20))
+
+        # Extract key information for cover page
+        tester = product_data.get('Tester', product_data.get('tester', 'Not Specified'))
+        quality_checker = product_data.get('Quality Checker', product_data.get('quality checker', 'Not Specified'))
+        test_date = product_data.get('Test Date', product_data.get('test date', datetime.now().strftime('%Y-%m-%d')))
+        device = product_data.get('Device', product_data.get('device', ''))
+        model = product_data.get('Jetson Model', product_data.get('jetson model', ''))
+        serial = product_data.get('Device Serial', product_data.get('device serial', ''))
+
+        # Create information table for cover page
+        cover_info_data = []
+
+        if device:
+            cover_info_data.append(['Device:', device])
+        if model:
+            cover_info_data.append(['Model:', model])
+        if serial:
+            cover_info_data.append(['Serial Number:', serial])
+
+        cover_info_data.append(['Test Date:', test_date])
+        cover_info_data.append(['Conducted By:', tester])
+        cover_info_data.append(['Quality Control:', quality_checker])
+
+        # Create styled table for cover page info
+        if cover_info_data:
+            # Create table with custom styling for cover page
+            cover_table = Table(cover_info_data, colWidths=[2.5*inch, 3.5*inch])
+            cover_table.setStyle(TableStyle([
+                ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 0), (-1, -1), 13),
+                ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1a1a1a')),
+                ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                ('LEFTPADDING', (0, 0), (-1, -1), 15),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 15),
+                ('TOPPADDING', (0, 0), (-1, -1), 12),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#e0e0e0')),
+                ('LINEBELOW', (0, -1), (-1, -1), 1.5, colors.HexColor('#2c5aa0')),
+            ]))
+
+            # Center the table
+            cover_table.hAlign = 'CENTER'
+            elements.append(cover_table)
+
+        elements.append(Spacer(1, 1 * inch))
+
+        # Footer information on cover page
+        footer_text = f"""
+        <para alignment="center" fontSize="10" textColor="#666666">
+        <b>Jetson Orin Test Suite</b><br/>
+        Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>
+        <i>Confidential Document</i>
+        </para>
+        """
+        elements.append(Paragraph(footer_text, self.styles['Normal']))
+
+        # Page break after cover page
+        elements.append(PageBreak())
+
+        return elements
+
     def convert_txt_report_to_pdf(self, txt_file: str, pdf_file: str = None) -> str:
         """
         Convert a TXT report file to formatted PDF with improved structure
@@ -537,13 +644,12 @@ class PDFReportGenerator:
         # Parse and format content
         lines = content.split('\n')
 
-        # Add title
+        # Determine report title
         title_found = False
+        title = None
         for line in lines:
             if line.strip().startswith('===') and line.strip().endswith('==='):
                 title = line.strip('= ').strip()
-                story.append(Paragraph(title, self.styles['CustomTitle']))
-                story.append(Spacer(1, 20))
                 self.current_section_title = title
                 title_found = True
                 break
@@ -551,11 +657,12 @@ class PDFReportGenerator:
         if not title_found:
             # Use filename as title
             title = os.path.splitext(os.path.basename(txt_file))[0].replace('_', ' ').title()
-            story.append(Paragraph(title, self.styles['CustomTitle']))
-            story.append(Spacer(1, 20))
             self.current_section_title = title
 
-        # Add product information section if available
+        # Create professional cover page with large logo, title, and key info
+        story.extend(self._create_cover_page(title, product_data))
+
+        # Add detailed product information section after cover page
         if product_data:
             story.extend(self._create_product_info_section(product_data))
 
@@ -664,16 +771,25 @@ class PDFReportGenerator:
         self.figure_counter = 0
         self.table_counter = 0
 
-        # Title
+        # Title and metadata for cover page
         title = os.path.splitext(os.path.basename(csv_file))[0].replace('_', ' ').title()
-        story.append(Paragraph(title, self.styles['CustomTitle']))
         self.current_section_title = title
-        story.append(Spacer(1, 20))
 
-        # Summary information
+        # Create simple metadata for cover page
         headers = data[0] if len(data) > 0 else []
         data_rows = data[1:] if len(data) > 1 else []
 
+        csv_metadata = {
+            'Test Date': datetime.now().strftime('%Y-%m-%d'),
+            'Data File': os.path.basename(csv_file),
+            'Total Rows': str(len(data_rows)),
+            'Columns': str(len(headers))
+        }
+
+        # Create cover page for CSV report
+        story.extend(self._create_cover_page(title, csv_metadata))
+
+        # Summary information section
         summary_text = f"""
         <b>File:</b> {os.path.basename(csv_file)}<br/>
         <b>Columns:</b> {len(headers)}<br/>
@@ -849,21 +965,17 @@ class PDFReportGenerator:
         self.figure_counter = 0
         self.table_counter = 0
 
-        # Cover page
-        story.append(Paragraph("Jetson Orin Test Suite", self.styles['CustomTitle']))
-        self.current_section_title = "Jetson Orin Test Suite"
-        story.append(Spacer(1, 20))
-        story.append(Paragraph("Complete Test Report", self.styles['SectionHeader']))
-        story.append(Spacer(1, 30))
+        # Prepare metadata for combined report cover page
+        combined_metadata = {
+            'Test Output Directory': os.path.basename(test_output_dir),
+            'Test Date': datetime.now().strftime('%Y-%m-%d'),
+            'Report Type': 'Combined (All Tests)',
+            'Document Type': 'High-Quality Professional Report'
+        }
 
-        cover_info = f"""
-        <b>Test Output Directory:</b> {os.path.basename(test_output_dir)}<br/>
-        <b>Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>
-        <b>Report Type:</b> Combined (All Tests)<br/>
-        <b>Document Type:</b> High-Quality Professional Report
-        """
-        story.append(Paragraph(cover_info, self.styles['InfoBox']))
-        story.append(PageBreak())
+        # Create professional cover page
+        self.current_section_title = "Jetson Orin Test Suite - Complete Test Report"
+        story.extend(self._create_cover_page("Jetson Orin Test Suite\nComplete Test Report", combined_metadata))
 
         # Find all report and log files
         report_files = []
