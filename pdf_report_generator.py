@@ -594,8 +594,8 @@ class PDFReportGenerator:
         lines = content.split('\n')
 
         # Keywords to identify product information (focus on Jetson-specific info)
-        product_keywords = ['jetson', 'model', 'serial', 'tester', 'quality', 'test date',
-                          'duration', 'status', 'passed', 'failed']
+        product_keywords = ['jetson', 'model', 'serial', 'device serial', 'tester', 'quality', 'test date',
+                          'duration', 'status', 'passed', 'failed', 'conducted by', 'quality control']
 
         for line in lines:
             line = line.strip()
@@ -685,18 +685,20 @@ class PDFReportGenerator:
 
         # Extract key information for cover page
         # Use case-insensitive lookup for flexibility
-        tester = product_data.get('Tester', product_data.get('tester', ''))
-        quality_checker = product_data.get('Quality Checker', product_data.get('quality checker', ''))
+        tester = product_data.get('Tester', product_data.get('tester', product_data.get('Conducted By', product_data.get('conducted by', ''))))
+        quality_checker = product_data.get('Quality Checker', product_data.get('quality checker', product_data.get('Quality Control', product_data.get('quality control', ''))))
         test_date = product_data.get('Test Date', product_data.get('test date', ''))
-        model = product_data.get('Jetson Model', product_data.get('jetson model', product_data.get('Jetson model', '')))
-        serial = product_data.get('Serial Number', product_data.get('serial number', product_data.get('Serial', product_data.get('serial', ''))))
-        status_raw = product_data.get('Status', product_data.get('status', product_data.get('Test Status', product_data.get('test status', ''))))
+        model = product_data.get('Jetson Model', product_data.get('jetson model', product_data.get('Jetson model', product_data.get('Model', product_data.get('model', '')))))
+        serial = product_data.get('Serial Number', product_data.get('serial number', product_data.get('Device Serial', product_data.get('device serial', product_data.get('Serial', product_data.get('serial', ''))))))
+        status_raw = product_data.get('Status', product_data.get('status', product_data.get('Test Status', product_data.get('test status', product_data.get('Overall Status', product_data.get('overall status', ''))))))
 
         # Determine pass/fail status and color
         status_text = ''
         status_color = colors.HexColor('#1a1a1a')
         if status_raw:
-            status_lower = status_raw.lower()
+            # Clean status from special characters like ✓ ✗
+            status_clean = status_raw.replace('✓', '').replace('✗', '').replace('•', '').strip()
+            status_lower = status_clean.lower()
             is_pass = 'pass' in status_lower and 'fail' not in status_lower
             is_fail = 'fail' in status_lower
             if is_pass:
