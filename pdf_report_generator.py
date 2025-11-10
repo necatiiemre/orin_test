@@ -72,25 +72,25 @@ class PDFReportGenerator:
         self.styles.add(ParagraphStyle(
             name='CustomTitle',
             parent=self.styles['Heading1'],
-            fontSize=22,
+            fontSize=24,
             textColor=colors.HexColor('#1a5490'),
             spaceAfter=30,
             spaceBefore=0,
             alignment=TA_CENTER,
             fontName='Helvetica-Bold',
-            leading=26
+            leading=28
         ))
 
         # Section header style - Professional and prominent
         self.styles.add(ParagraphStyle(
             name='SectionHeader',
             parent=self.styles['Heading2'],
-            fontSize=16,
+            fontSize=14,
             textColor=colors.HexColor('#1a5490'),
             spaceAfter=16,
             spaceBefore=24,
             fontName='Helvetica-Bold',
-            leading=20,
+            leading=18,
             keepWithNext=True
         ))
 
@@ -98,12 +98,12 @@ class PDFReportGenerator:
         self.styles.add(ParagraphStyle(
             name='SubsectionHeader',
             parent=self.styles['Heading3'],
-            fontSize=13,
+            fontSize=12,
             textColor=colors.HexColor('#2c5aa0'),
             spaceAfter=12,
             spaceBefore=16,
             fontName='Helvetica-Bold',
-            leading=16,
+            leading=14,
             keepWithNext=True
         ))
 
@@ -111,8 +111,8 @@ class PDFReportGenerator:
         self.styles.add(ParagraphStyle(
             name='EnhancedBody',
             parent=self.styles['Normal'],
-            fontSize=11,
-            leading=15,
+            fontSize=10,
+            leading=14,
             spaceAfter=8,
             spaceBefore=0,
             alignment=TA_LEFT,
@@ -123,11 +123,11 @@ class PDFReportGenerator:
         self.styles.add(ParagraphStyle(
             name='CodeStyle',
             parent=self.styles['Code'],
-            fontSize=10,
+            fontSize=9,
             fontName='Courier',
             leftIndent=12,
             spaceAfter=6,
-            leading=14,
+            leading=12,
             textColor=colors.HexColor('#1a1a1a')
         ))
 
@@ -135,13 +135,13 @@ class PDFReportGenerator:
         self.styles.add(ParagraphStyle(
             name='InfoBox',
             parent=self.styles['Normal'],
-            fontSize=11,
+            fontSize=10,
             textColor=colors.HexColor('#1a1a1a'),
             leftIndent=0,
             rightIndent=0,
             spaceAfter=8,
             spaceBefore=8,
-            leading=15,
+            leading=14,
             fontName='Helvetica'
         ))
 
@@ -149,12 +149,12 @@ class PDFReportGenerator:
         self.styles.add(ParagraphStyle(
             name='ProductInfo',
             parent=self.styles['Normal'],
-            fontSize=11,
+            fontSize=10,
             textColor=colors.HexColor('#1a1a1a'),
             leftIndent=0,
             rightIndent=0,
             spaceAfter=6,
-            leading=14,
+            leading=13,
             fontName='Helvetica'
         ))
 
@@ -175,8 +175,8 @@ class PDFReportGenerator:
         self.styles.add(ParagraphStyle(
             name='KeyValue',
             parent=self.styles['Normal'],
-            fontSize=11,
-            leading=16,
+            fontSize=10,
+            leading=14,
             spaceAfter=6,
             spaceBefore=2,
             leftIndent=12,
@@ -441,7 +441,7 @@ class PDFReportGenerator:
                 ('ALIGN', (1, 0), (1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
                 ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 11),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
                 ('LEFTPADDING', (0, 0), (-1, -1), 8),
                 ('RIGHTPADDING', (0, 0), (-1, -1), 8),
                 ('TOPPADDING', (0, 0), (-1, -1), 6),
@@ -738,7 +738,7 @@ class PDFReportGenerator:
             cover_table.setStyle(TableStyle([
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
                 ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 12),
+                ('FONTSIZE', (0, 0), (-1, -1), 11),
                 ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1a1a1a')),
                 ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
                 ('ALIGN', (1, 0), (1, -1), 'LEFT'),
