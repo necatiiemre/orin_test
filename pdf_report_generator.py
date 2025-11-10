@@ -124,7 +124,7 @@ class PDFReportGenerator:
             name='CodeStyle',
             parent=self.styles['Code'],
             fontSize=9,
-            fontName='Courier',
+            fontName='Helvetica',
             leftIndent=12,
             spaceAfter=6,
             leading=12,
@@ -272,7 +272,7 @@ class PDFReportGenerator:
         canvas_obj.line(inch, 0.65 * inch, page_width - inch, 0.65 * inch)
 
         # Footer text
-        canvas_obj.setFont('Helvetica', 8)
+        canvas_obj.setFont('Helvetica', 7)
         canvas_obj.setFillColor(colors.HexColor('#666666'))
         canvas_obj.drawString(
             inch, 0.5 * inch,
@@ -722,8 +722,6 @@ class PDFReportGenerator:
             cover_info_data.append(['Device:', device])
         if model and model.strip():
             cover_info_data.append(['Model:', model])
-        if serial and serial.strip():
-            cover_info_data.append(['Serial Number:', serial])
         if test_date and test_date.strip():
             cover_info_data.append(['Test Date:', test_date])
         if tester and tester.strip():
