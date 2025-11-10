@@ -2340,10 +2340,7 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
     echo "Test completed: $(date)"
     echo "Total test duration: $(format_duration $TEST_DURATION)"
     echo "Report generation: Ultra Comprehensive CPU Test Suite v4.0 (Enhanced)"
-    echo ""
-    echo "Thank you for using the Jetson Orin Ultra CPU Stress Test!"
-    echo ""
-    
+
 } | tee "$LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
 
 ################################################################################
