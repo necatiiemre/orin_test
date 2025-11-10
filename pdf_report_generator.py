@@ -588,19 +588,14 @@ class PDFReportGenerator:
         Returns:
             Dictionary of product metadata
         """
-        # First, get device information from system
-        product_data = self._get_device_info_from_system()
+        # Start with empty product data - only extract from report content
+        product_data = {}
 
         lines = content.split('\n')
 
-        # Keywords to identify product information
-        product_keywords = ['device', 'jetson', 'model', 'serial', 'tester', 'quality', 'test date',
-                          'ip address', 'hostname', 'duration', 'status', 'passed', 'failed',
-                          'physical cores', 'cpu cores', 'cores', 'architecture', 'kernel',
-                          'ubuntu', 'os', 'ram', 'memory', 'storage', 'disk']
-
-        device_name = None
-        ip_address = None
+        # Keywords to identify product information (focus on Jetson-specific info)
+        product_keywords = ['jetson', 'model', 'serial', 'tester', 'quality', 'test date',
+                          'duration', 'status', 'passed', 'failed']
 
         for line in lines:
             line = line.strip()
@@ -612,27 +607,10 @@ class PDFReportGenerator:
                 # Remove bullet points and list markers from value
                 value = value.lstrip('•').lstrip('-').lstrip('*').strip()
 
-                # Check if this looks like product information
+                # Check if this looks like Jetson-specific product information
                 if any(keyword in key.lower() for keyword in product_keywords):
-                    # Store hostname/device name separately
-                    if 'hostname' in key.lower() or ('device' in key.lower() and '.' not in value and len(value) < 30):
-                        device_name = value
-                    # Store IP address separately
-                    elif 'ip' in key.lower() or ('device' in key.lower() and '.' in value):
-                        ip_address = value
-
-                    # Add to product data (report data overrides system data)
+                    # Add to product data (only Jetson device information)
                     product_data[key] = value
-
-        # Set Device field intelligently
-        if device_name:
-            product_data['Device'] = device_name
-        elif 'Hostname' in product_data and product_data['Hostname']:
-            # Use system hostname if no device name from report
-            product_data['Device'] = product_data['Hostname']
-        elif ip_address:
-            # Fallback to IP if nothing else available
-            product_data['Device'] = ip_address
 
         return product_data
 
@@ -710,18 +688,14 @@ class PDFReportGenerator:
         tester = product_data.get('Tester', product_data.get('tester', ''))
         quality_checker = product_data.get('Quality Checker', product_data.get('quality checker', ''))
         test_date = product_data.get('Test Date', product_data.get('test date', ''))
-        device = product_data.get('Device', product_data.get('device', ''))
-        model = product_data.get('Jetson Model', product_data.get('jetson model', ''))
-        serial = product_data.get('Device Serial', product_data.get('device serial', ''))
+        model = product_data.get('Jetson Model', product_data.get('jetson model', product_data.get('Jetson model', '')))
 
         # Create information table for cover page - ONLY include fields with actual data
         cover_info_data = []
 
         # Only add fields that have actual values (not empty)
-        if device and device.strip():
-            cover_info_data.append(['Device:', device])
         if model and model.strip():
-            cover_info_data.append(['Model:', model])
+            cover_info_data.append(['Jetson Model:', model])
         if test_date and test_date.strip():
             cover_info_data.append(['Test Date:', test_date])
         if tester and tester.strip():
