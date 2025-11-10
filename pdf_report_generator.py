@@ -609,6 +609,9 @@ class PDFReportGenerator:
                 key = key.strip()
                 value = value.strip()
 
+                # Remove bullet points and list markers from value
+                value = value.lstrip('•').lstrip('-').lstrip('*').strip()
+
                 # Check if this looks like product information
                 if any(keyword in key.lower() for keyword in product_keywords):
                     # Store hostname/device name separately
