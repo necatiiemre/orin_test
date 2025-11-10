@@ -2340,6 +2340,13 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
     echo "Test completed: $(date)"
     echo "Total test duration: $(format_duration $TEST_DURATION)"
     echo "Report generation: Ultra Comprehensive CPU Test Suite v4.0 (Enhanced)"
+    echo ""
+    # Overall test status based on health score
+    if [ "$CPU_HEALTH_STATUS" = "EXCELLENT" ] || [ "$CPU_HEALTH_STATUS" = "GOOD" ]; then
+        echo "Test Status: PASSED"
+    else
+        echo "Test Status: FAILED"
+    fi
 
 } | tee "$LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
 
