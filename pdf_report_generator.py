@@ -276,7 +276,7 @@ class PDFReportGenerator:
         canvas_obj.setFillColor(colors.HexColor('#666666'))
         canvas_obj.drawString(
             inch, 0.5 * inch,
-            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}"
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} +3 GMT"
         )
         canvas_obj.drawCentredString(
             page_width / 2, 0.5 * inch,
@@ -763,7 +763,7 @@ class PDFReportGenerator:
         footer_text = f"""
         <para alignment="center" fontSize="10" textColor="#666666">
         <b>Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software</b><br/>
-        {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}<br/>
+        {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} +3 GMT<br/>
         <i>Confidential Document</i>
         </para>
         """
@@ -969,7 +969,7 @@ class PDFReportGenerator:
         <b>File:</b> {os.path.basename(csv_file)}<br/>
         <b>Columns:</b> {len(headers)}<br/>
         <b>Data Rows:</b> {len(data_rows)}<br/>
-        {datetime.now().strftime('%Y-%m-%d %H:%M:%S %Z')}
+        {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} +3 GMT
         """
         story.append(Paragraph(summary_text, self.styles['InfoBox']))
         story.append(Spacer(1, 20))
