@@ -867,6 +867,14 @@ class PDFReportGenerator:
                 story.append(Spacer(1, 8))
                 continue
 
+            # Detect subsection headers in square brackets like [DETAILED METRICS]
+            if line.strip().startswith('[') and line.strip().endswith(']'):
+                # Remove brackets and format as subsection header
+                header_text = line.strip()[1:-1].strip()
+                story.append(Spacer(1, 8))
+                story.append(Paragraph(header_text, self.styles['SubsectionHeader']))
+                continue
+
             # Detect subsection headers (lines ending with :)
             if line.strip().endswith(':') and len(line.strip()) < 80 and not line.strip().startswith(' '):
                 story.append(Paragraph(line, self.styles['SubsectionHeader']))
@@ -875,6 +883,24 @@ class PDFReportGenerator:
             # Regular content
             # Escape special characters for reportlab
             line_escaped = line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+            # Detect bullet point items (lines starting with •, -, or *)
+            stripped = line.strip()
+            if stripped.startswith('•') or stripped.startswith('-') or stripped.startswith('*'):
+                # Format bullet points with key-value pairs highlighted
+                if ':' in stripped:
+                    parts = stripped.split(':', 1)
+                    if len(parts) == 2:
+                        # Remove the bullet point from the key
+                        bullet_char = stripped[0]
+                        key = parts[0].strip().lstrip('•').lstrip('-').lstrip('*').strip()
+                        value = parts[1].strip()
+                        formatted_line = f"{bullet_char} <b>{key}:</b> {value}"
+                        story.append(Paragraph(formatted_line, self.styles['EnhancedBody']))
+                        continue
+                # Regular bullet point without key-value
+                story.append(Paragraph(line_escaped, self.styles['EnhancedBody']))
+                continue
 
             # Detect key-value pairs (but skip if in product data already)
             if ':' in line and len(line.split(':')[0]) < 50:
