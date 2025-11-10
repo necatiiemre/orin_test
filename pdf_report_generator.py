@@ -689,6 +689,22 @@ class PDFReportGenerator:
         quality_checker = product_data.get('Quality Checker', product_data.get('quality checker', ''))
         test_date = product_data.get('Test Date', product_data.get('test date', ''))
         model = product_data.get('Jetson Model', product_data.get('jetson model', product_data.get('Jetson model', '')))
+        serial = product_data.get('Serial Number', product_data.get('serial number', product_data.get('Serial', product_data.get('serial', ''))))
+        status_raw = product_data.get('Status', product_data.get('status', product_data.get('Test Status', product_data.get('test status', ''))))
+
+        # Determine pass/fail status and color
+        status_text = ''
+        status_color = colors.HexColor('#1a1a1a')
+        if status_raw:
+            status_lower = status_raw.lower()
+            is_pass = 'pass' in status_lower and 'fail' not in status_lower
+            is_fail = 'fail' in status_lower
+            if is_pass:
+                status_text = 'PASS'
+                status_color = colors.HexColor('#00AA00')  # Green
+            elif is_fail:
+                status_text = 'FAIL'
+                status_color = colors.HexColor('#DD0000')  # Red
 
         # Create information table for cover page - ONLY include fields with actual data
         cover_info_data = []
@@ -696,8 +712,13 @@ class PDFReportGenerator:
         # Only add fields that have actual values (not empty)
         if model and model.strip():
             cover_info_data.append(['Jetson Model:', model])
+        if serial and serial.strip():
+            cover_info_data.append(['Serial Number:', serial])
         if test_date and test_date.strip():
             cover_info_data.append(['Test Date:', test_date])
+        if status_text:
+            # Add status row - we'll color it separately
+            cover_info_data.append(['Test Status:', status_text])
         if tester and tester.strip():
             cover_info_data.append(['Conducted By:', tester])
         if quality_checker and quality_checker.strip():
@@ -707,7 +728,9 @@ class PDFReportGenerator:
         if cover_info_data:
             # Create table with professional spacing and alignment
             cover_table = Table(cover_info_data, colWidths=[2.5*inch, 3.5*inch])
-            cover_table.setStyle(TableStyle([
+
+            # Base table style
+            table_style = [
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
                 ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
                 ('FONTSIZE', (0, 0), (-1, -1), 11),
@@ -721,7 +744,18 @@ class PDFReportGenerator:
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
                 ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),
-            ]))
+            ]
+
+            # Find the Test Status row and apply color
+            if status_text:
+                for i, row in enumerate(cover_info_data):
+                    if row[0] == 'Test Status:':
+                        # Apply color to the status value cell
+                        table_style.append(('TEXTCOLOR', (1, i), (1, i), status_color))
+                        table_style.append(('FONTNAME', (1, i), (1, i), 'Helvetica-Bold'))
+                        break
+
+            cover_table.setStyle(TableStyle(table_style))
 
             # Center the table
             cover_table.hAlign = 'CENTER'
