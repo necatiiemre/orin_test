@@ -2353,10 +2353,10 @@ else
 fi
 echo ""
 
-# Return appropriate exit code based on health
+# Return appropriate exit code based on test status
 if [ -f "$LOG_DIR/reports/ultra_cpu_results.txt" ]; then
     source "$LOG_DIR/reports/ultra_cpu_results.txt"
-    if [ "$CPU_HEALTH_STATUS" = "EXCELLENT" ] || [ "$CPU_HEALTH_STATUS" = "GOOD" ]; then
+    if [ "$TEST_STATUS" = "PASSED" ]; then
         exit 0
     else
         exit 1
