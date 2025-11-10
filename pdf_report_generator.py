@@ -261,6 +261,11 @@ class PDFReportGenerator:
         else:
             canvas_obj.drawRightString(page_width - inch, page_height - 0.63 * inch, f"Page {doc.page}")
 
+        # Confidential text at top (red color)
+        canvas_obj.setFont('Helvetica-Bold', 10)
+        canvas_obj.setFillColor(colors.HexColor('#DD0000'))  # Red color
+        canvas_obj.drawCentredString(page_width / 2, page_height - 0.3 * inch, "CONFIDENTIAL")
+
         # Footer separator line
         canvas_obj.setStrokeColor(colors.HexColor('#cccccc'))
         canvas_obj.setLineWidth(0.5)
@@ -283,6 +288,11 @@ class PDFReportGenerator:
             page_width - inch, 0.5 * inch,
             "Turkish eyes only"
         )
+
+        # Confidential text at bottom (red color)
+        canvas_obj.setFont('Helvetica-Bold', 10)
+        canvas_obj.setFillColor(colors.HexColor('#DD0000'))  # Red color
+        canvas_obj.drawCentredString(page_width / 2, 0.25 * inch, "CONFIDENTIAL")
 
         canvas_obj.restoreState()
 
