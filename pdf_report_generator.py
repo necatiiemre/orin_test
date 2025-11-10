@@ -664,25 +664,6 @@ class PDFReportGenerator:
         elements.append(Paragraph(title, self.styles['CustomTitle']))
         elements.append(Spacer(1, 0.4 * inch))
 
-        # Display pass/fail status prominently (if available)
-        # Extract status first to display it before other info
-        status_raw = product_data.get('Status', product_data.get('status', product_data.get('Test Status', product_data.get('test status', ''))))
-        if status_raw:
-            status_lower = status_raw.lower()
-            # Determine if it's a pass or fail
-            is_pass = 'pass' in status_lower and 'fail' not in status_lower
-            is_fail = 'fail' in status_lower
-
-            if is_pass or is_fail:
-                status_color = '#00AA00' if is_pass else '#DD0000'  # Green for pass, red for fail
-                status_text = f"""
-                <para alignment="center" fontSize="24" textColor="{status_color}">
-                <b>{'PASS' if is_pass else 'FAIL'}</b>
-                </para>
-                """
-                elements.append(Paragraph(status_text, self.styles['Normal']))
-                elements.append(Spacer(1, 0.3 * inch))
-
         # Extract key information for cover page
         # Use case-insensitive lookup for flexibility
         tester = product_data.get('Tester', product_data.get('tester', product_data.get('Conducted By', product_data.get('conducted by', ''))))
