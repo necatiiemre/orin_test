@@ -8,6 +8,7 @@ import os
 import sys
 import csv
 import argparse
+import subprocess
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional
 import io
@@ -310,6 +311,93 @@ class PDFReportGenerator:
         # Second pass - build with correct page numbers
         doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
 
+    def _get_device_info_from_system(self) -> Dict[str, str]:
+        """
+        Query system to get device information automatically
+
+        Returns:
+            Dictionary with device information
+        """
+        device_info = {}
+
+        try:
+            # Get hostname
+            result = subprocess.run(['hostname'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                device_info['Hostname'] = result.stdout.strip()
+        except:
+            pass
+
+        try:
+            # Get Jetson model from device tree
+            if os.path.exists('/proc/device-tree/model'):
+                with open('/proc/device-tree/model', 'r') as f:
+                    model = f.read().strip().replace('\x00', '')
+                    device_info['Jetson Model'] = model
+        except:
+            pass
+
+        try:
+            # Get physical CPU cores
+            result = subprocess.run(['nproc', '--all'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                device_info['Physical CPU Cores'] = result.stdout.strip()
+        except:
+            pass
+
+        try:
+            # Get IP address (primary interface)
+            result = subprocess.run(['hostname', '-I'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                ip_addresses = result.stdout.strip().split()
+                if ip_addresses:
+                    device_info['IP Address'] = ip_addresses[0]
+        except:
+            pass
+
+        try:
+            # Get OS information
+            if os.path.exists('/etc/os-release'):
+                with open('/etc/os-release', 'r') as f:
+                    for line in f:
+                        if line.startswith('PRETTY_NAME='):
+                            os_name = line.split('=', 1)[1].strip().strip('"')
+                            device_info['Operating System'] = os_name
+                            break
+        except:
+            pass
+
+        try:
+            # Get kernel version
+            result = subprocess.run(['uname', '-r'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                device_info['Kernel Version'] = result.stdout.strip()
+        except:
+            pass
+
+        try:
+            # Get architecture
+            result = subprocess.run(['uname', '-m'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                device_info['Architecture'] = result.stdout.strip()
+        except:
+            pass
+
+        try:
+            # Get total RAM
+            if os.path.exists('/proc/meminfo'):
+                with open('/proc/meminfo', 'r') as f:
+                    for line in f:
+                        if line.startswith('MemTotal:'):
+                            mem_kb = int(line.split()[1])
+                            mem_gb = mem_kb / (1024 * 1024)
+                            device_info['Total RAM'] = f"{mem_gb:.2f} GB"
+                            break
+        except:
+            pass
+
+        return device_info
+
     def _create_product_info_section(self, product_data: Dict[str, str]) -> List:
         """
         Create a professional product information section
@@ -482,7 +570,7 @@ class PDFReportGenerator:
 
     def _extract_product_data(self, content: str) -> Dict[str, str]:
         """
-        Extract product/device information from report content
+        Extract product/device information from report content and merge with system info
 
         Args:
             content: Report text content
@@ -490,7 +578,9 @@ class PDFReportGenerator:
         Returns:
             Dictionary of product metadata
         """
-        product_data = {}
+        # First, get device information from system
+        product_data = self._get_device_info_from_system()
+
         lines = content.split('\n')
 
         # Keywords to identify product information
@@ -518,16 +608,18 @@ class PDFReportGenerator:
                     elif 'ip' in key.lower() or ('device' in key.lower() and '.' in value):
                         ip_address = value
 
+                    # Add to product data (report data overrides system data)
                     product_data[key] = value
 
-        # Override Device field with hostname if available, otherwise use IP
+        # Set Device field intelligently
         if device_name:
             product_data['Device'] = device_name
-        elif ip_address and 'Device' in product_data and product_data['Device'] == ip_address:
-            # If Device is just an IP, also check for hostname in data
-            hostname = product_data.get('Hostname', product_data.get('hostname', None))
-            if hostname:
-                product_data['Device'] = hostname
+        elif 'Hostname' in product_data and product_data['Hostname']:
+            # Use system hostname if no device name from report
+            product_data['Device'] = product_data['Hostname']
+        elif ip_address:
+            # Fallback to IP if nothing else available
+            product_data['Device'] = ip_address
 
         return product_data
 
