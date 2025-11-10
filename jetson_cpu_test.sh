@@ -1944,40 +1944,32 @@ fi
 # PHASE 8: HEALTH ASSESSMENT AND SCORING
 ################################################################################
 
-log_phase "[PHASE 8: HEALTH ASSESSMENT AND SCORING]"
+log_phase "[PHASE 8: CPU SCORE CALCULATION]"
 
-# Calculate overall health score (weighted average including new tests)
+# Calculate CPU score (weighted average including new tests)
 # Weights: Single-core 20%, Multi-core 25%, Per-core 15%, Instruction 10%, Memory patterns 10%, Thermal 20%
-OVERALL_HEALTH_SCORE=$(echo "scale=0; ($SINGLE_CORE_SCORE * 20 + $MULTI_CORE_SCORE * 25 + $PER_CORE_SCORE * 15 + $INSTRUCTION_SCORE * 10 + $MEMORY_PATTERN_SCORE * 10 + $THERMAL_SCORE * 20) / 100" | bc 2>/dev/null || echo "0")
-
-# Determine overall health status
-if [ $OVERALL_HEALTH_SCORE -ge 85 ]; then
-    CPU_HEALTH_STATUS="EXCELLENT"
-elif [ $OVERALL_HEALTH_SCORE -ge 70 ]; then
-    CPU_HEALTH_STATUS="GOOD"
-elif [ $OVERALL_HEALTH_STATUS -ge 50 ]; then
-    CPU_HEALTH_STATUS="ACCEPTABLE"
-else
-    CPU_HEALTH_STATUS="POOR"
-fi
+CPU_SCORE=$(echo "scale=0; ($SINGLE_CORE_SCORE * 20 + $MULTI_CORE_SCORE * 25 + $PER_CORE_SCORE * 15 + $INSTRUCTION_SCORE * 10 + $MEMORY_PATTERN_SCORE * 10 + $THERMAL_SCORE * 20) / 100" | bc 2>/dev/null || echo "0")
 
 # Apply health warnings penalty
 if [ $HEALTH_WARNINGS -ge 5 ]; then
-    OVERALL_HEALTH_SCORE=$((OVERALL_HEALTH_SCORE - 20))
-    CPU_HEALTH_STATUS="POOR"
+    CPU_SCORE=$((CPU_SCORE - 20))
 elif [ $HEALTH_WARNINGS -ge 3 ]; then
-    OVERALL_HEALTH_SCORE=$((OVERALL_HEALTH_SCORE - 10))
-    if [ "$CPU_HEALTH_STATUS" = "EXCELLENT" ]; then
-        CPU_HEALTH_STATUS="GOOD"
-    fi
+    CPU_SCORE=$((CPU_SCORE - 10))
 fi
 
 # Ensure minimum score bounds
-if [ $OVERALL_HEALTH_SCORE -lt 0 ]; then
-    OVERALL_HEALTH_SCORE=0
+if [ $CPU_SCORE -lt 0 ]; then
+    CPU_SCORE=0
 fi
 
-echo "=== HEALTH ASSESSMENT COMPLETE ==="
+# Determine test status based on CPU score
+if [ $CPU_SCORE -ge 85 ]; then
+    TEST_STATUS="PASSED"
+else
+    TEST_STATUS="FAILED"
+fi
+
+echo "=== CPU SCORE CALCULATION COMPLETE ==="
 echo "Single-core Score: $SINGLE_CORE_SCORE/100"
 echo "Multi-core Score: $MULTI_CORE_SCORE/100"
 echo "Per-core Score: $PER_CORE_SCORE/100"
@@ -1985,14 +1977,14 @@ echo "Instruction Throughput Score: $INSTRUCTION_SCORE/100"
 echo "Memory Pattern Score: $MEMORY_PATTERN_SCORE/100"
 echo "Thermal Score: $THERMAL_SCORE/100"
 echo "Health Warnings: $HEALTH_WARNINGS"
-echo "Overall Health Score: $OVERALL_HEALTH_SCORE/100"
-echo "Health Status: $CPU_HEALTH_STATUS"
+echo "CPU Score: $CPU_SCORE/100"
+echo "Test Status: $TEST_STATUS"
 echo ""
 
 # Save comprehensive results
 cat > /tmp/ultra_cpu_results.txt << EOF
-OVERALL_HEALTH_SCORE=$OVERALL_HEALTH_SCORE
-CPU_HEALTH_STATUS=$CPU_HEALTH_STATUS
+CPU_SCORE=$CPU_SCORE
+TEST_STATUS=$TEST_STATUS
 SINGLE_CORE_SCORE=$SINGLE_CORE_SCORE
 MULTI_CORE_SCORE=$MULTI_CORE_SCORE
 PER_CORE_SCORE=$PER_CORE_SCORE
@@ -2039,8 +2031,8 @@ rm -rf "$REMOTE_TEST_DIR"
 log_success "Ultra comprehensive CPU stress test completed!"
 echo ""
 echo "=== FINAL TEST SUMMARY ==="
-echo "Overall Health Score: $OVERALL_HEALTH_SCORE/100"
-echo "Health Status: $CPU_HEALTH_STATUS"
+echo "CPU Score: $CPU_SCORE/100"
+echo "Test Status: $TEST_STATUS"
 echo "CPU Cores Tested: $CPU_CORES"
 echo "Peak Temperature: ${MAX_TEMP_DETECTED}°C"
 echo "Health Warnings: $HEALTH_WARNINGS"
@@ -2094,62 +2086,13 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
     
     if [ -f "$LOG_DIR/reports/ultra_cpu_results.txt" ]; then
         source "$LOG_DIR/reports/ultra_cpu_results.txt"
-        
+
         echo "================================================================================"
-        echo "  OVERALL CPU HEALTH ASSESSMENT"
+        echo "  CPU TEST ASSESSMENT"
         echo "================================================================================"
         echo ""
-        echo "[*] OVERALL HEALTH SCORE: $OVERALL_HEALTH_SCORE/100"
-        echo ""
-
-        case "$CPU_HEALTH_STATUS" in
-            "EXCELLENT")
-                echo "[+] CPU HEALTH VERDICT: EXCELLENT"
-                echo ""
-                echo "   [+] OUTSTANDING: Your Jetson Orin CPU is performing exceptionally!"
-                echo ""
-                echo "   [+] PERFORMANCE: All benchmarks exceeded expectations"
-                echo "   [+] THERMAL: Excellent temperature management"
-                echo "   [+] STABILITY: Rock-solid system stability"
-                echo ""
-                echo "   [*] RECOMMENDATION: System is ready for production workloads"
-                ;;
-            "GOOD")
-                echo "[+] CPU HEALTH VERDICT: GOOD"
-                echo ""
-                echo "   [+] SOLID: Your Jetson Orin CPU is performing well!"
-                echo ""
-                echo "   [+] PERFORMANCE: Most benchmarks met or exceeded expectations"
-                echo "   [+] RELIABILITY: Good system stability and thermal management"
-                echo "   [+] WORKLOAD READY: Suitable for demanding applications"
-                echo ""
-                echo "   [*] RECOMMENDATION: System is ready for production use"
-                ;;
-            "ACCEPTABLE")
-                echo "[!] CPU HEALTH VERDICT: ACCEPTABLE"
-                echo ""
-                echo "   [!] Your Jetson Orin CPU is functional but has performance limitations"
-                echo ""
-                echo "   [!] PERFORMANCE: Several benchmarks below expectations"
-                echo "   [!] CONCERNS: Multiple performance or thermal issues"
-                echo "   [!] WORKLOAD IMPACT: May struggle with demanding applications"
-                echo ""
-                echo "   [*] RECOMMENDATION: System optimization or maintenance needed"
-                ;;
-            "POOR")
-                echo "[-] CPU HEALTH VERDICT: POOR"
-                echo ""
-                echo "   [-] CRITICAL: Your Jetson Orin CPU has significant issues!"
-                echo ""
-                echo "   [-] PERFORMANCE: Multiple critical benchmarks failed"
-                echo "   [-] RELIABILITY: System stability concerns detected"
-                echo "   [-] THERMAL: Possible cooling or hardware issues"
-                echo ""
-                echo "   [!!] URGENT RECOMMENDATION: Professional diagnosis required!"
-                echo "   [!!] Do not use for critical applications until issues resolved"
-                ;;
-        esac
-
+        echo "[*] CPU SCORE: $CPU_SCORE/100"
+        echo "[*] TEST STATUS: $TEST_STATUS"
         echo ""
         echo "[DETAILED METRICS]"
         echo "  • Health Warnings: $HEALTH_WARNINGS"
@@ -2296,54 +2239,14 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
     echo ""
 
     echo "================================================================================"
-    echo "  TEST SUMMARY AND RECOMMENDATIONS"
-    echo "================================================================================"
-    echo ""
-    echo "This ultra comprehensive CPU test pushed your Jetson Orin to its absolute limits"
-    echo "across single-core, multi-core, memory, and thermal stress scenarios."
-    echo ""
-    echo "[What This Test Validates]"
-    echo "  • CPU arithmetic and floating-point performance"
-    echo "  • Multi-core scaling and thread efficiency (all $CPU_CORES physical cores)"
-    echo "  • Individual core performance and core-to-core uniformity"
-    echo "  • Instruction-level throughput (integer, FP, branches)"
-    echo "  • Advanced memory access patterns (sequential, random, strided)"
-    echo "  • Cache latency at different memory hierarchy levels"
-    echo "  • Optimized workload sizing based on core count"
-    echo "  • Memory subsystem bandwidth and latency"
-    echo "  • Cache hierarchy performance (L1/L2/L3)"
-    echo "  • Branch prediction efficiency"
-    echo "  • Thermal management under extreme load"
-    echo "  • System stability during maximum stress"
-    echo "  • Frequency scaling and throttling behavior"
-    echo ""
-    echo "[For Production Use]"
-    if [ "$CPU_HEALTH_STATUS" = "EXCELLENT" ] || [ "$CPU_HEALTH_STATUS" = "GOOD" ]; then
-        echo "  [+] System is ready for demanding AI/ML workloads"
-        echo "  [+] Suitable for real-time inference applications"
-        echo "  [+] Can handle sustained high-performance computing"
-    else
-        echo "  [!] Review system before deploying critical workloads"
-        echo "  [!] Consider performance optimization or hardware maintenance"
-        echo "  [!] Monitor thermal behavior during actual workloads"
-    fi
-    echo ""
-    echo "[Support Information]"
-    echo "  • For detailed analysis: Review individual test logs"
-    echo "  • For thermal issues: Check cooling solution and case ventilation"
-    echo "  • For performance issues: Verify JetPack version and system configuration"
-    echo ""
-    echo "================================================================================"
     echo "  ULTRA COMPREHENSIVE CPU TEST COMPLETED"
     echo "================================================================================"
     echo ""
     echo "Test completed: $(date)"
     echo "Total test duration: $(format_duration $TEST_DURATION)"
-    echo "Report generation: Ultra Comprehensive CPU Test Suite v4.0 (Enhanced)"
     echo ""
-    echo "Thank you for using the Jetson Orin Ultra CPU Stress Test!"
-    echo ""
-    
+    echo "Test Status: $TEST_STATUS"
+
 } | tee "$LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
 
 ################################################################################
@@ -2363,11 +2266,11 @@ echo ""
 if [ -f "$LOG_DIR/reports/ultra_cpu_results.txt" ]; then
     source "$LOG_DIR/reports/ultra_cpu_results.txt"
     echo "================================================================================"
-    echo "  QUICK HEALTH SUMMARY"
+    echo "  QUICK TEST SUMMARY"
     echo "================================================================================"
     echo ""
-    echo "[*] CPU HEALTH SCORE: $OVERALL_HEALTH_SCORE/100"
-    echo "[*] HEALTH STATUS: $CPU_HEALTH_STATUS"
+    echo "[*] CPU SCORE: $CPU_SCORE/100"
+    echo "[*] TEST STATUS: $TEST_STATUS"
     echo "[*] JETSON MODEL: $JETSON_MODEL"
     echo "[*] Health Warnings: $HEALTH_WARNINGS"
     echo "[*] Peak Temperature: ${MAX_TEMP_DETECTED}°C"
@@ -2411,10 +2314,10 @@ else
 fi
 echo ""
 
-# Return appropriate exit code based on health
+# Return appropriate exit code based on test status
 if [ -f "$LOG_DIR/reports/ultra_cpu_results.txt" ]; then
     source "$LOG_DIR/reports/ultra_cpu_results.txt"
-    if [ "$CPU_HEALTH_STATUS" = "EXCELLENT" ] || [ "$CPU_HEALTH_STATUS" = "GOOD" ]; then
+    if [ "$TEST_STATUS" = "PASSED" ]; then
         exit 0
     else
         exit 1

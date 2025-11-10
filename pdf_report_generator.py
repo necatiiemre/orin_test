@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-PDF Report Generator for Jetson Orin Test Suite
+PDF Report Generator for Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software
 Converts TXT reports and CSV monitoring logs to formatted PDF files
 """
 
@@ -8,6 +8,7 @@ import os
 import sys
 import csv
 import argparse
+import subprocess
 from datetime import datetime
 from typing import List, Dict, Tuple, Optional
 import io
@@ -62,7 +63,8 @@ class PDFReportGenerator:
         self.section_counter = 0
         self.figure_counter = 0
         self.table_counter = 0
-        self.current_section_title = "Jetson Orin Test Report"
+        self.current_section_title = "Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software"
+        self.total_pages = 0  # Will be calculated during build
 
     def _setup_custom_styles(self):
         """Setup custom paragraph styles with improved typography"""
@@ -70,41 +72,38 @@ class PDFReportGenerator:
         self.styles.add(ParagraphStyle(
             name='CustomTitle',
             parent=self.styles['Heading1'],
-            fontSize=22,
+            fontSize=24,
             textColor=colors.HexColor('#1a5490'),
             spaceAfter=30,
             spaceBefore=0,
             alignment=TA_CENTER,
             fontName='Helvetica-Bold',
-            leading=26
+            leading=28
         ))
 
-        # Section header style - Enhanced with numbering support
+        # Section header style - Professional and prominent
         self.styles.add(ParagraphStyle(
             name='SectionHeader',
             parent=self.styles['Heading2'],
-            fontSize=16,
-            textColor=colors.HexColor('#2c5aa0'),
-            spaceAfter=14,
-            spaceBefore=20,
+            fontSize=14,
+            textColor=colors.HexColor('#1a5490'),
+            spaceAfter=16,
+            spaceBefore=24,
             fontName='Helvetica-Bold',
-            leading=20,
-            borderWidth=0,
-            borderPadding=0,
-            borderColor=colors.HexColor('#2c5aa0'),
+            leading=18,
             keepWithNext=True
         ))
 
-        # Subsection header style - Enhanced
+        # Subsection header style - Clear and structured
         self.styles.add(ParagraphStyle(
             name='SubsectionHeader',
             parent=self.styles['Heading3'],
-            fontSize=13,
-            textColor=colors.HexColor('#3d6bb3'),
-            spaceAfter=10,
-            spaceBefore=14,
+            fontSize=12,
+            textColor=colors.HexColor('#2c5aa0'),
+            spaceAfter=12,
+            spaceBefore=16,
             fontName='Helvetica-Bold',
-            leading=16,
+            leading=14,
             keepWithNext=True
         ))
 
@@ -112,57 +111,50 @@ class PDFReportGenerator:
         self.styles.add(ParagraphStyle(
             name='EnhancedBody',
             parent=self.styles['Normal'],
-            fontSize=11,
-            leading=15,
+            fontSize=10,
+            leading=14,
             spaceAfter=8,
             spaceBefore=0,
             alignment=TA_LEFT,
             fontName='Helvetica'
         ))
 
-        # Monospace style for code/logs - Improved readability
+        # Monospace style for code/logs - Clean and readable
         self.styles.add(ParagraphStyle(
             name='CodeStyle',
             parent=self.styles['Code'],
-            fontSize=10,
-            fontName='Courier',
-            leftIndent=20,
+            fontSize=9,
+            fontName='Helvetica',
+            leftIndent=12,
             spaceAfter=6,
-            leading=13,
-            textColor=colors.HexColor('#333333'),
-            backColor=colors.HexColor('#f5f5f5'),
-            borderWidth=0.5,
-            borderColor=colors.HexColor('#e0e0e0'),
-            borderPadding=4
+            leading=12,
+            textColor=colors.HexColor('#1a1a1a')
         ))
 
-        # Info box style - Enhanced with background
+        # Info box style - Plain text without background or borders
         self.styles.add(ParagraphStyle(
             name='InfoBox',
             parent=self.styles['Normal'],
             fontSize=10,
-            textColor=colors.HexColor('#444444'),
-            leftIndent=15,
-            rightIndent=15,
-            spaceAfter=12,
-            spaceBefore=12,
+            textColor=colors.HexColor('#1a1a1a'),
+            leftIndent=0,
+            rightIndent=0,
+            spaceAfter=8,
+            spaceBefore=8,
             leading=14,
-            backColor=colors.HexColor('#f0f4f8'),
-            borderWidth=1,
-            borderColor=colors.HexColor('#2c5aa0'),
-            borderPadding=10
+            fontName='Helvetica'
         ))
 
         # Product info style - For product metadata sections
         self.styles.add(ParagraphStyle(
             name='ProductInfo',
             parent=self.styles['Normal'],
-            fontSize=11,
+            fontSize=10,
             textColor=colors.HexColor('#1a1a1a'),
             leftIndent=0,
             rightIndent=0,
             spaceAfter=6,
-            leading=14,
+            leading=13,
             fontName='Helvetica'
         ))
 
@@ -183,9 +175,11 @@ class PDFReportGenerator:
         self.styles.add(ParagraphStyle(
             name='KeyValue',
             parent=self.styles['Normal'],
-            fontSize=11,
-            leading=15,
-            spaceAfter=4,
+            fontSize=10,
+            leading=14,
+            spaceAfter=6,
+            spaceBefore=2,
+            leftIndent=12,
             fontName='Helvetica'
         ))
 
@@ -242,7 +236,7 @@ class PDFReportGenerator:
 
             # Report title next to logo
             canvas_obj.setFont('Helvetica-Bold', 10)
-            canvas_obj.drawString(text_x, text_y, "Jetson Orin Test Suite")
+            canvas_obj.drawString(text_x, text_y, "Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software")
 
             # Section title below report title (only after first page)
             if doc.page > 1:
@@ -252,7 +246,7 @@ class PDFReportGenerator:
         else:
             # No logo - center the text
             canvas_obj.setFont('Helvetica-Bold', 11)
-            canvas_obj.drawCentredString(page_width / 2, page_height - 0.65 * inch, "Jetson Orin Test Suite")
+            canvas_obj.drawCentredString(page_width / 2, page_height - 0.65 * inch, "Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software")
 
             if doc.page > 1:
                 canvas_obj.setFont('Helvetica', 9)
@@ -262,7 +256,15 @@ class PDFReportGenerator:
         # Page number in header (top right corner)
         canvas_obj.setFont('Helvetica', 9)
         canvas_obj.setFillColor(colors.HexColor('#2c5aa0'))
-        canvas_obj.drawRightString(page_width - inch, page_height - 0.63 * inch, f"Page {doc.page}")
+        if self.total_pages > 0:
+            canvas_obj.drawRightString(page_width - inch, page_height - 0.63 * inch, f"{doc.page} / {self.total_pages}")
+        else:
+            canvas_obj.drawRightString(page_width - inch, page_height - 0.63 * inch, f"Page {doc.page}")
+
+        # Confidential text at top (red color)
+        canvas_obj.setFont('Helvetica-Bold', 10)
+        canvas_obj.setFillColor(colors.HexColor('#DD0000'))  # Red color
+        canvas_obj.drawCentredString(page_width / 2, page_height - 0.3 * inch, "CONFIDENTIAL")
 
         # Footer separator line
         canvas_obj.setStrokeColor(colors.HexColor('#cccccc'))
@@ -270,22 +272,141 @@ class PDFReportGenerator:
         canvas_obj.line(inch, 0.65 * inch, page_width - inch, 0.65 * inch)
 
         # Footer text
-        canvas_obj.setFont('Helvetica', 8)
+        canvas_obj.setFont('Helvetica', 7)
         canvas_obj.setFillColor(colors.HexColor('#666666'))
         canvas_obj.drawString(
             inch, 0.5 * inch,
-            f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} +3 GMT"
         )
         canvas_obj.drawCentredString(
             page_width / 2, 0.5 * inch,
-            "Jetson Orin Test Suite - Confidential"
-        )
-        canvas_obj.drawRightString(
-            page_width - inch, 0.5 * inch,
-            f"{doc.page}"
+            "Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software - Confidential"
         )
 
+        # Turkish eyes only on bottom right
+        canvas_obj.drawRightString(
+            page_width - inch, 0.5 * inch,
+            "Turkish eyes only"
+        )
+
+        # Confidential text at bottom (red color)
+        canvas_obj.setFont('Helvetica-Bold', 10)
+        canvas_obj.setFillColor(colors.HexColor('#DD0000'))  # Red color
+        canvas_obj.drawCentredString(page_width / 2, 0.25 * inch, "CONFIDENTIAL")
+
         canvas_obj.restoreState()
+
+    def _build_with_page_numbers(self, doc, story):
+        """Build PDF with two-pass approach to calculate total pages"""
+        import copy
+
+        # First pass - count pages without page numbers
+        first_pass_buffer = io.BytesIO()
+        first_pass_doc = SimpleDocTemplate(
+            first_pass_buffer,
+            pagesize=doc.pagesize,
+            rightMargin=doc.rightMargin,
+            leftMargin=doc.leftMargin,
+            topMargin=doc.topMargin,
+            bottomMargin=doc.bottomMargin
+        )
+
+        # Deep copy story for first pass
+        story_copy = copy.deepcopy(story)
+
+        # Build first pass to count pages
+        first_pass_doc.build(story_copy, onFirstPage=lambda c, d: None, onLaterPages=lambda c, d: None)
+        self.total_pages = first_pass_doc.page
+
+        # Second pass - build with correct page numbers
+        doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
+
+    def _get_device_info_from_system(self) -> Dict[str, str]:
+        """
+        Query system to get device information automatically
+
+        Returns:
+            Dictionary with device information
+        """
+        device_info = {}
+
+        try:
+            # Get hostname
+            result = subprocess.run(['hostname'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                device_info['Hostname'] = result.stdout.strip()
+        except:
+            pass
+
+        try:
+            # Get Jetson model from device tree
+            if os.path.exists('/proc/device-tree/model'):
+                with open('/proc/device-tree/model', 'r') as f:
+                    model = f.read().strip().replace('\x00', '')
+                    device_info['Jetson Model'] = model
+        except:
+            pass
+
+        try:
+            # Get physical CPU cores
+            result = subprocess.run(['nproc', '--all'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                device_info['Physical CPU Cores'] = result.stdout.strip()
+        except:
+            pass
+
+        try:
+            # Get IP address (primary interface)
+            result = subprocess.run(['hostname', '-I'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                ip_addresses = result.stdout.strip().split()
+                if ip_addresses:
+                    device_info['IP Address'] = ip_addresses[0]
+        except:
+            pass
+
+        try:
+            # Get OS information
+            if os.path.exists('/etc/os-release'):
+                with open('/etc/os-release', 'r') as f:
+                    for line in f:
+                        if line.startswith('PRETTY_NAME='):
+                            os_name = line.split('=', 1)[1].strip().strip('"')
+                            device_info['Operating System'] = os_name
+                            break
+        except:
+            pass
+
+        try:
+            # Get kernel version
+            result = subprocess.run(['uname', '-r'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                device_info['Kernel Version'] = result.stdout.strip()
+        except:
+            pass
+
+        try:
+            # Get architecture
+            result = subprocess.run(['uname', '-m'], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0:
+                device_info['Architecture'] = result.stdout.strip()
+        except:
+            pass
+
+        try:
+            # Get total RAM
+            if os.path.exists('/proc/meminfo'):
+                with open('/proc/meminfo', 'r') as f:
+                    for line in f:
+                        if line.startswith('MemTotal:'):
+                            mem_kb = int(line.split()[1])
+                            mem_gb = mem_kb / (1024 * 1024)
+                            device_info['Total RAM'] = f"{mem_gb:.2f} GB"
+                            break
+        except:
+            pass
+
+        return device_info
 
     def _create_product_info_section(self, product_data: Dict[str, str]) -> List:
         """
@@ -299,10 +420,9 @@ class PDFReportGenerator:
         """
         elements = []
 
-        # Section header with icon/separator
-        elements.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=10))
+        # Section header
         elements.append(Paragraph("Product Information", self.styles['SectionHeader']))
-        elements.append(Spacer(1, 10))
+        elements.append(Spacer(1, 12))
 
         # Create product info table
         table_data = []
@@ -313,32 +433,29 @@ class PDFReportGenerator:
                              Paragraph(str(value), self.styles['ProductInfo'])])
 
         if table_data:
-            # Create a styled table for product info
+            # Create a clean, professional table for product info
             product_table = Table(table_data, colWidths=[2.5*inch, 4*inch])
             product_table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#e8f0f8')),
                 ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1a1a1a')),
                 ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
                 ('ALIGN', (1, 0), (1, -1), 'LEFT'),
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
                 ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 11),
-                ('LEFTPADDING', (0, 0), (-1, -1), 12),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 12),
-                ('TOPPADDING', (0, 0), (-1, -1), 8),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#d0d0d0')),
+                ('FONTSIZE', (0, 0), (-1, -1), 10),
+                ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                ('TOPPADDING', (0, 0), (-1, -1), 6),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('ROWBACKGROUNDS', (0, 0), (-1, -1), [colors.white, colors.HexColor('#fafafa')])
+                ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
             ]))
             elements.append(product_table)
 
-        elements.append(Spacer(1, 20))
-        elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#d0d0d0'), spaceAfter=20))
+        elements.append(Spacer(1, 24))
 
         return elements
 
-    def _create_numbered_figure(self, image_path: str, caption: str = None, max_width: float = 6.5*inch, max_height: float = 4*inch) -> List:
+    def _create_numbered_figure(self, image_path: str, caption: str = None, max_width: float = 7*inch, max_height: float = 5*inch) -> List:
         """
         Create a figure with automatic numbering and caption, with stable positioning
 
@@ -463,7 +580,7 @@ class PDFReportGenerator:
 
     def _extract_product_data(self, content: str) -> Dict[str, str]:
         """
-        Extract product/device information from report content
+        Extract product/device information from report content and merge with system info
 
         Args:
             content: Report text content
@@ -471,12 +588,14 @@ class PDFReportGenerator:
         Returns:
             Dictionary of product metadata
         """
+        # Start with empty product data - only extract from report content
         product_data = {}
+
         lines = content.split('\n')
 
-        # Keywords to identify product information
-        product_keywords = ['device', 'jetson', 'model', 'serial', 'tester', 'quality', 'test date',
-                          'ip address', 'hostname', 'duration', 'status', 'passed', 'failed']
+        # Keywords to identify product information (focus on Jetson-specific info)
+        product_keywords = ['jetson', 'model', 'serial', 'device serial', 'tester', 'quality', 'test date',
+                          'duration', 'status', 'passed', 'failed', 'conducted by', 'quality control']
 
         for line in lines:
             line = line.strip()
@@ -485,8 +604,12 @@ class PDFReportGenerator:
                 key = key.strip()
                 value = value.strip()
 
-                # Check if this looks like product information
+                # Remove bullet points and list markers from value
+                value = value.lstrip('•').lstrip('-').lstrip('*').strip()
+
+                # Check if this looks like Jetson-specific product information
                 if any(keyword in key.lower() for keyword in product_keywords):
+                    # Add to product data (only Jetson device information)
                     product_data[key] = value
 
         return product_data
@@ -541,54 +664,81 @@ class PDFReportGenerator:
         elements.append(Paragraph(title, self.styles['CustomTitle']))
         elements.append(Spacer(1, 0.4 * inch))
 
-        # Decorative line
-        elements.append(HRFlowable(width="80%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=15))
-
         # Extract key information for cover page
         # Use case-insensitive lookup for flexibility
-        tester = product_data.get('Tester', product_data.get('tester', ''))
-        quality_checker = product_data.get('Quality Checker', product_data.get('quality checker', ''))
+        tester = product_data.get('Tester', product_data.get('tester', product_data.get('Conducted By', product_data.get('conducted by', ''))))
+        quality_checker = product_data.get('Quality Checker', product_data.get('quality checker', product_data.get('Quality Control', product_data.get('quality control', ''))))
         test_date = product_data.get('Test Date', product_data.get('test date', ''))
-        device = product_data.get('Device', product_data.get('device', ''))
-        model = product_data.get('Jetson Model', product_data.get('jetson model', ''))
-        serial = product_data.get('Device Serial', product_data.get('device serial', ''))
+        model = product_data.get('Jetson Model', product_data.get('jetson model', product_data.get('Jetson model', product_data.get('Model', product_data.get('model', '')))))
+        serial = product_data.get('Serial Number', product_data.get('serial number', product_data.get('Device Serial', product_data.get('device serial', product_data.get('Serial', product_data.get('serial', ''))))))
+        status_raw = product_data.get('Status', product_data.get('status', product_data.get('Test Status', product_data.get('test status', product_data.get('Overall Status', product_data.get('overall status', ''))))))
+
+        # Determine pass/fail status and color
+        status_text = ''
+        status_color = colors.HexColor('#1a1a1a')
+        if status_raw:
+            # Clean status from special characters like ✓ ✗
+            status_clean = status_raw.replace('✓', '').replace('✗', '').replace('•', '').strip()
+            status_lower = status_clean.lower()
+            is_pass = 'pass' in status_lower and 'fail' not in status_lower
+            is_fail = 'fail' in status_lower
+            if is_pass:
+                status_text = 'PASS'
+                status_color = colors.HexColor('#00AA00')  # Green
+            elif is_fail:
+                status_text = 'FAIL'
+                status_color = colors.HexColor('#DD0000')  # Red
 
         # Create information table for cover page - ONLY include fields with actual data
         cover_info_data = []
 
         # Only add fields that have actual values (not empty)
-        if device and device.strip():
-            cover_info_data.append(['Device:', device])
         if model and model.strip():
-            cover_info_data.append(['Model:', model])
+            cover_info_data.append(['Jetson Model:', model])
         if serial and serial.strip():
             cover_info_data.append(['Serial Number:', serial])
         if test_date and test_date.strip():
             cover_info_data.append(['Test Date:', test_date])
+        if status_text:
+            # Add status row - we'll color it separately
+            cover_info_data.append(['Test Status:', status_text])
         if tester and tester.strip():
             cover_info_data.append(['Conducted By:', tester])
         if quality_checker and quality_checker.strip():
             cover_info_data.append(['Quality Control:', quality_checker])
 
-        # Create styled table for cover page info
+        # Create professional table for cover page info
         if cover_info_data:
-            # Create table with custom styling for cover page
+            # Create table with professional spacing and alignment
             cover_table = Table(cover_info_data, colWidths=[2.5*inch, 3.5*inch])
-            cover_table.setStyle(TableStyle([
+
+            # Base table style
+            table_style = [
                 ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
                 ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 0), (-1, -1), 12),
+                ('FONTSIZE', (0, 0), (-1, -1), 11),
                 ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1a1a1a')),
                 ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
                 ('ALIGN', (1, 0), (1, -1), 'LEFT'),
-                ('LEFTPADDING', (0, 0), (-1, -1), 15),
-                ('RIGHTPADDING', (0, 0), (-1, -1), 15),
-                ('TOPPADDING', (0, 0), (-1, -1), 10),
-                ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+                ('LEFTPADDING', (0, 0), (-1, -1), 12),
+                ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+                ('TOPPADDING', (0, 0), (-1, -1), 8),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-                ('LINEBELOW', (0, 0), (-1, -2), 0.5, colors.HexColor('#e0e0e0')),
-                ('LINEBELOW', (0, -1), (-1, -1), 1.5, colors.HexColor('#2c5aa0')),
-            ]))
+                ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+                ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),
+            ]
+
+            # Find the Test Status row and apply color
+            if status_text:
+                for i, row in enumerate(cover_info_data):
+                    if row[0] == 'Test Status:':
+                        # Apply color to the status value cell
+                        table_style.append(('TEXTCOLOR', (1, i), (1, i), status_color))
+                        table_style.append(('FONTNAME', (1, i), (1, i), 'Helvetica-Bold'))
+                        break
+
+            cover_table.setStyle(TableStyle(table_style))
 
             # Center the table
             cover_table.hAlign = 'CENTER'
@@ -601,8 +751,8 @@ class PDFReportGenerator:
         # Footer information on cover page
         footer_text = f"""
         <para alignment="center" fontSize="10" textColor="#666666">
-        <b>Jetson Orin Test Suite</b><br/>
-        Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}<br/>
+        <b>Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software</b><br/>
+        {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} +3 GMT<br/>
         <i>Confidential Document</i>
         </para>
         """
@@ -700,13 +850,20 @@ class PDFReportGenerator:
                 section = line.strip('- ').strip()
                 section_title = f"{self.section_counter}. {section}"
                 story.append(Spacer(1, 10))
-                story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#2c5aa0'), spaceAfter=8))
                 story.append(Paragraph(section_title, self.styles['SectionHeader']))
                 self.current_section_title = section
                 continue
             elif line.startswith('===') or line.startswith('---'):
                 # Separator line
                 story.append(Spacer(1, 8))
+                continue
+
+            # Detect subsection headers in square brackets like [DETAILED METRICS]
+            if line.strip().startswith('[') and line.strip().endswith(']'):
+                # Remove brackets and format as subsection header
+                header_text = line.strip()[1:-1].strip()
+                story.append(Spacer(1, 8))
+                story.append(Paragraph(header_text, self.styles['SubsectionHeader']))
                 continue
 
             # Detect subsection headers (lines ending with :)
@@ -717,6 +874,24 @@ class PDFReportGenerator:
             # Regular content
             # Escape special characters for reportlab
             line_escaped = line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+
+            # Detect bullet point items (lines starting with •, -, or *)
+            stripped = line.strip()
+            if stripped.startswith('•') or stripped.startswith('-') or stripped.startswith('*'):
+                # Format bullet points with key-value pairs highlighted
+                if ':' in stripped:
+                    parts = stripped.split(':', 1)
+                    if len(parts) == 2:
+                        # Remove the bullet point from the key
+                        bullet_char = stripped[0]
+                        key = parts[0].strip().lstrip('•').lstrip('-').lstrip('*').strip()
+                        value = parts[1].strip()
+                        formatted_line = f"{bullet_char} <b>{key}:</b> {value}"
+                        story.append(Paragraph(formatted_line, self.styles['EnhancedBody']))
+                        continue
+                # Regular bullet point without key-value
+                story.append(Paragraph(line_escaped, self.styles['EnhancedBody']))
+                continue
 
             # Detect key-value pairs (but skip if in product data already)
             if ':' in line and len(line.split(':')[0]) < 50:
@@ -735,8 +910,8 @@ class PDFReportGenerator:
             if line.strip():
                 story.append(Paragraph(line_escaped, self.styles['CodeStyle']))
 
-        # Build PDF
-        doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
+        # Build PDF with page numbers
+        self._build_with_page_numbers(doc, story)
 
         print(f"✓ Generated PDF report: {pdf_file}")
         return pdf_file
@@ -809,7 +984,7 @@ class PDFReportGenerator:
         <b>File:</b> {os.path.basename(csv_file)}<br/>
         <b>Columns:</b> {len(headers)}<br/>
         <b>Data Rows:</b> {len(data_rows)}<br/>
-        <b>Generated:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} +3 GMT
         """
         story.append(Paragraph(summary_text, self.styles['InfoBox']))
         story.append(Spacer(1, 20))
@@ -817,7 +992,6 @@ class PDFReportGenerator:
         # Create charts if requested
         if include_charts and len(data_rows) > 0:
             self.section_counter += 1
-            story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#2c5aa0'), spaceAfter=8))
             story.append(Paragraph(f"{self.section_counter}. Visualizations", self.styles['SectionHeader']))
             self.current_section_title = "Visualizations"
 
@@ -833,7 +1007,6 @@ class PDFReportGenerator:
 
         # Data table (first 100 rows to avoid huge PDFs)
         self.section_counter += 1
-        story.append(HRFlowable(width="100%", thickness=1.5, color=colors.HexColor('#2c5aa0'), spaceAfter=8))
         story.append(Paragraph(f"{self.section_counter}. Data Table", self.styles['SectionHeader']))
         self.current_section_title = "Data Table"
         story.append(Spacer(1, 12))
@@ -855,8 +1028,8 @@ class PDFReportGenerator:
         # Create numbered table with caption
         story.extend(self._create_numbered_table(table_data, f"Monitoring data ({len(data_rows)} rows)"))
 
-        # Build PDF
-        doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
+        # Build PDF with page numbers
+        self._build_with_page_numbers(doc, story)
 
         print(f"✓ Generated PDF from CSV: {pdf_file}")
         return pdf_file
@@ -894,7 +1067,9 @@ class PDFReportGenerator:
 
             # Create a line chart for numeric columns
             if numeric_columns and len(data_rows) > 1:
-                fig, axes = plt.subplots(len(numeric_columns), 1, figsize=(10, 3 * len(numeric_columns)))
+                # Adjust figure size based on number of charts
+                chart_height = min(4, 2.5 + len(numeric_columns) * 0.5)  # Max 4 inches per chart
+                fig, axes = plt.subplots(len(numeric_columns), 1, figsize=(8, chart_height * len(numeric_columns)))
 
                 if len(numeric_columns) == 1:
                     axes = [axes]
@@ -912,11 +1087,11 @@ class PDFReportGenerator:
 
                     # Plot
                     x_range = range(len(values))
-                    ax.plot(x_range, values, marker='o', markersize=2, linewidth=1)
-                    ax.set_title(f"{col_name} Over Time", fontsize=12, fontweight='bold')
-                    ax.set_xlabel("Sample Index", fontsize=10)
-                    ax.set_ylabel(col_name, fontsize=10)
-                    ax.grid(True, alpha=0.3)
+                    ax.plot(x_range, values, marker='o', markersize=1.5, linewidth=1.5)
+                    ax.set_title(f"{col_name} Over Time", fontsize=11, fontweight='bold')
+                    ax.set_xlabel("Sample Index", fontsize=9)
+                    ax.set_ylabel(col_name, fontsize=9)
+                    ax.grid(True, alpha=0.3, linewidth=0.5)
 
                     # Add statistics
                     valid_values = [v for v in values if v is not None]
@@ -925,16 +1100,16 @@ class PDFReportGenerator:
                         min_val = min(valid_values)
                         max_val = max(valid_values)
                         ax.axhline(y=avg_val, color='r', linestyle='--', linewidth=1, alpha=0.7, label=f'Avg: {avg_val:.2f}')
-                        ax.legend(fontsize=8)
+                        ax.legend(fontsize=7, loc='best')
 
-                plt.tight_layout()
+                plt.tight_layout(pad=1.5)
 
-                # Save to file
+                # Save to file with higher DPI
                 chart_file = os.path.join(
                     self.output_dir,
                     f"chart_{os.path.splitext(os.path.basename(csv_file))[0]}.png"
                 )
-                plt.savefig(chart_file, dpi=100, bbox_inches='tight')
+                plt.savefig(chart_file, dpi=150, bbox_inches='tight')
                 plt.close()
 
                 chart_images.append(chart_file)
@@ -989,8 +1164,8 @@ class PDFReportGenerator:
         }
 
         # Create professional cover page
-        self.current_section_title = "Jetson Orin Test Suite - Complete Test Report"
-        story.extend(self._create_cover_page("Jetson Orin Test Suite\nComplete Test Report", combined_metadata))
+        self.current_section_title = "Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software - Complete Test Report"
+        story.extend(self._create_cover_page("Nvidia Jetson AGX Orin / AGX Orin Industrial Test Software\nComplete Test Report", combined_metadata))
 
         # Find all report and log files
         report_files = []
@@ -1011,7 +1186,6 @@ class PDFReportGenerator:
         # Add text reports with improved structure
         if report_files:
             self.section_counter += 1
-            story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=10))
             story.append(Paragraph(f"{self.section_counter}. Test Reports", self.styles['CustomTitle']))
             self.current_section_title = "Test Reports"
             story.append(Spacer(1, 20))
@@ -1019,7 +1193,6 @@ class PDFReportGenerator:
             for idx, report_file in enumerate(report_files, 1):
                 # Add subsection for each report
                 report_name = os.path.basename(report_file).replace('_', ' ').replace('.txt', '')
-                story.append(HRFlowable(width="80%", thickness=1, color=colors.HexColor('#d0d0d0'), spaceAfter=6))
                 story.append(Paragraph(
                     f"{self.section_counter}.{idx} {report_name}",
                     self.styles['SectionHeader']
@@ -1076,14 +1249,12 @@ class PDFReportGenerator:
         # Add CSV summaries and charts with improved structure
         if csv_files:
             self.section_counter += 1
-            story.append(HRFlowable(width="100%", thickness=2, color=colors.HexColor('#2c5aa0'), spaceAfter=10))
             story.append(Paragraph(f"{self.section_counter}. Monitoring Logs Summary", self.styles['CustomTitle']))
             self.current_section_title = "Monitoring Logs"
             story.append(Spacer(1, 20))
 
             for idx, csv_file in enumerate(csv_files, 1):
                 csv_name = os.path.basename(csv_file).replace('_', ' ').replace('.csv', '')
-                story.append(HRFlowable(width="80%", thickness=1, color=colors.HexColor('#d0d0d0'), spaceAfter=6))
                 story.append(Paragraph(
                     f"{self.section_counter}.{idx} {csv_name}",
                     self.styles['SectionHeader']
@@ -1119,8 +1290,8 @@ class PDFReportGenerator:
 
                 story.append(PageBreak())
 
-        # Build PDF
-        doc.build(story, onFirstPage=self._create_header_footer, onLaterPages=self._create_header_footer)
+        # Build PDF with page numbers
+        self._build_with_page_numbers(doc, story)
 
         print(f"✓ Generated combined PDF report: {combined_pdf_file}")
         return combined_pdf_file
