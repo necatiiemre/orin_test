@@ -717,6 +717,26 @@ fi
 
 log_info "VPU results saved: PASS=$VPU_PASS, FAIL=$VPU_FAIL, STATUS=$VPU_STATUS"
 
+# Log VPU performance to unified log
+log_phase_header "PHASE 1: VPU (VIDEO PROCESSING UNIT)"
+
+if [ -f "$REPORT_DIR/gpu_vpu_results.txt" ]; then
+    source "$REPORT_DIR/gpu_vpu_results.txt"
+
+    # VPU Success Rate (percentage)
+    if [ "$VPU_TOTAL" -gt 0 ]; then
+        VPU_SUCCESS_RATE=$(echo "scale=2; ($VPU_PASS * 100) / $VPU_TOTAL" | bc)
+        EXPECTED_VPU_SUCCESS_RATE=95.00  # Expected: 95% success rate
+
+        # Convert to "per second" format for consistency (using success rate directly)
+        log_metric "Video Encoding Success Rate %" "$EXPECTED_VPU_SUCCESS_RATE" "$VPU_SUCCESS_RATE"
+    fi
+
+    log_info "VPU test completed: $VPU_PASS passed, $VPU_FAIL failed"
+else
+    log_error "VPU test results not available"
+fi
+
 ################################################################################
 # PHASE 2: GPU CUDA STRESS TEST (SAME AS v1.6)
 ################################################################################
@@ -1159,6 +1179,23 @@ fi
 
 log_info "CUDA results saved: PASS=$CUDA_PASS, FAIL=$CUDA_FAIL, STATUS=$CUDA_STATUS"
 
+# Log CUDA performance to unified log
+log_phase_header "PHASE 2: CUDA (COMPUTE)"
+
+if [ -f "$REPORT_DIR/gpu_cuda_results.txt" ]; then
+    source "$REPORT_DIR/gpu_cuda_results.txt"
+
+    # CUDA Test Success (binary: 1=success, 0=fail)
+    CUDA_SUCCESS_VALUE=$([ "$CUDA_PASS" -eq 1 ] && echo "1.00" || echo "0.00")
+    EXPECTED_CUDA_SUCCESS=1.00  # Expected: complete success
+
+    log_metric "CUDA Test Success" "$EXPECTED_CUDA_SUCCESS" "$CUDA_SUCCESS_VALUE"
+
+    log_info "CUDA test completed: status=$CUDA_STATUS"
+else
+    log_error "CUDA test results not available"
+fi
+
 ################################################################################
 # PHASE 3: GPU GRAPHICS STRESS TEST - JETSON HEADLESS OPTIMIZED (NEW v1.7!)
 ################################################################################
@@ -1539,6 +1576,25 @@ fi
 
 log_info "GFX results saved: PASS=$GFX_PASS, FAIL=$GFX_FAIL, STATUS=$GFX_STATUS"
 
+# Log Graphics performance to unified log
+log_phase_header "PHASE 3: GRAPHICS (GFX)"
+
+if [ -f "$REPORT_DIR/gpu_gfx_results.txt" ]; then
+    source "$REPORT_DIR/gpu_gfx_results.txt"
+
+    # GFX Success Rate (percentage)
+    if [ "$GFX_TOTAL" -gt 0 ]; then
+        GFX_SUCCESS_RATE=$(echo "scale=2; ($GFX_PASS * 100) / $GFX_TOTAL" | bc)
+        EXPECTED_GFX_SUCCESS_RATE=95.00  # Expected: 95% success rate
+
+        log_metric "Graphics Operations Success Rate %" "$EXPECTED_GFX_SUCCESS_RATE" "$GFX_SUCCESS_RATE"
+    fi
+
+    log_info "Graphics test completed: $GFX_PASS passed, $GFX_FAIL failed"
+else
+    log_error "Graphics test results not available"
+fi
+
 ################################################################################
 # PHASE 4: GPU COMBINED STRESS TEST (UPDATED FOR v1.7)
 ################################################################################
@@ -1662,6 +1718,25 @@ fi
 } > "$REPORT_DIR/gpu_combined_results.txt"
 
 log_info "Combined results saved: PASS=$COMBINED_PASS, FAIL=$COMBINED_FAIL, STATUS=$COMBINED_STATUS"
+
+# Log Combined performance to unified log
+log_phase_header "PHASE 4: COMBINED (ALL GPU COMPONENTS)"
+
+if [ -f "$REPORT_DIR/gpu_combined_results.txt" ]; then
+    source "$REPORT_DIR/gpu_combined_results.txt"
+
+    # Combined Success Rate (percentage)
+    if [ "$COMBINED_TOTAL" -gt 0 ]; then
+        COMBINED_SUCCESS_RATE=$(echo "scale=2; ($COMBINED_PASS * 100) / $COMBINED_TOTAL" | bc)
+        EXPECTED_COMBINED_SUCCESS_RATE=95.00  # Expected: 95% success rate
+
+        log_metric "Combined Operations Success Rate %" "$EXPECTED_COMBINED_SUCCESS_RATE" "$COMBINED_SUCCESS_RATE"
+    fi
+
+    log_info "Combined test completed: $COMBINED_PASS passed, $COMBINED_FAIL failed"
+else
+    log_error "Combined test results not available"
+fi
 
 ################################################################################
 # ENHANCED MONITORING DATA ANALYSIS (v2.0)
