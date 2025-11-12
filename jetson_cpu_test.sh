@@ -232,9 +232,9 @@ export EXPECTED_SINGLE_CORE_PRIMES=$EXPECTED_SINGLE_CORE_PRIMES
 export EXPECTED_MULTI_CORE_MATRIX_OPS=$EXPECTED_MULTI_CORE_MATRIX_OPS
 export EXPECTED_MEMORY_BANDWIDTH=$EXPECTED_MEMORY_BANDWIDTH
 export EXPECTED_L1_CACHE_BANDWIDTH=$EXPECTED_L1_CACHE_BANDWIDTH
-export TESTER_NAME
-export QUALITY_CHECKER_NAME
-export DEVICE_SERIAL
+export TESTER_NAME='$TESTER_NAME'
+export QUALITY_CHECKER_NAME='$QUALITY_CHECKER_NAME'
+export DEVICE_SERIAL='$DEVICE_SERIAL'
 bash -s" << 'REMOTE_ULTRA_CPU_TEST_START' | tee "$LOG_DIR/logs/ultra_cpu_stress.log"
 
 #!/bin/bash
@@ -1270,7 +1270,7 @@ log_phase_header "PHASE 3: PER-CORE INDIVIDUAL TESTING"
 
 # Expected values for per-core testing (using single-core expectations as baseline)
 EXPECTED_PRIME_RATE_PER_CORE=$(echo "scale=2; $EXPECTED_SINGLE_CORE_PRIMES / $PER_CORE_DURATION" | bc)
-EXPECTED_FLOPS_PER_CORE=35000000000  # 35 GFLOPS baseline for ARM Cortex-A78 cores
+EXPECTED_FLOPS_PER_CORE=100000000000  # 100 GFLOPS per ARM Cortex-A78AE core
 
 # Log each core's metrics
 for ((core=0; core<CPU_CORES; core++)); do
@@ -1520,15 +1520,15 @@ gcc -O2 -o "$REMOTE_TEST_DIR/branch_test" "$REMOTE_TEST_DIR/branch_test.c"
 log_phase_header "PHASE 4: CPU INSTRUCTION THROUGHPUT"
 
 # Expected values for instruction throughput (realistic for ARM Cortex-A78 single core)
-EXPECTED_INT_ADD_MOPS=1500     # 1.5 GOPS for integer add
-EXPECTED_INT_MUL_MOPS=750      # 750 MOPS for integer multiply
-EXPECTED_INT_DIV_MOPS=150      # 150 MOPS for integer divide
-EXPECTED_FP_ADD_MOPS=750       # 750 MOPS for FP add
-EXPECTED_FP_MUL_MOPS=750       # 750 MOPS for FP multiply
-EXPECTED_FP_DIV_MOPS=300       # 300 MOPS for FP divide
-EXPECTED_FP_SQRT_MOPS=75       # 75 MOPS for FP sqrt
-EXPECTED_PRED_BRANCH_MOPS=2000 # 2 GOPS for predictable branches
-EXPECTED_UNPRED_BRANCH_MOPS=500 # 500 MOPS for unpredictable branches
+EXPECTED_INT_ADD_MOPS=10000     # 10 GOPS for integer add (per core)
+EXPECTED_INT_MUL_MOPS=5000      # 5 GOPS for integer multiply
+EXPECTED_INT_DIV_MOPS=500       # 500 MOPS for integer divide
+EXPECTED_FP_ADD_MOPS=5000       # 5 GOPS for FP add
+EXPECTED_FP_MUL_MOPS=5000       # 5 GOPS for FP multiply
+EXPECTED_FP_DIV_MOPS=1000       # 1 GOPS for FP divide
+EXPECTED_FP_SQRT_MOPS=250       # 250 MOPS for FP sqrt
+EXPECTED_PRED_BRANCH_MOPS=15000 # 15 GOPS for predictable branches
+EXPECTED_UNPRED_BRANCH_MOPS=3000 # 3 GOPS for unpredictable branches
 
 # Source integer throughput results
 if [ -f "/tmp/int_throughput_results.txt" ]; then
@@ -1760,14 +1760,14 @@ gcc -O2 -o "$REMOTE_TEST_DIR/cache_latency" "$REMOTE_TEST_DIR/cache_latency.c"
 log_phase_header "PHASE 5: ADVANCED MEMORY PATTERNS"
 
 # Expected values for memory patterns (realistic for Jetson Orin with LPDDR5)
-EXPECTED_SEQ_READ_BW=8000       # 8 GB/s sequential read bandwidth
-EXPECTED_RAND_READ_BW=500       # 500 MB/s random read bandwidth
-EXPECTED_STRIDE_READ_BW=2000    # 2 GB/s strided read bandwidth
+EXPECTED_SEQ_READ_BW=40000      # 40 GB/s sequential (matches LPDDR5)
+EXPECTED_RAND_READ_BW=2000      # 2 GB/s random read bandwidth
+EXPECTED_STRIDE_READ_BW=10000   # 10 GB/s strided read bandwidth
 
 # Expected cache latencies for ARM Cortex cores
-EXPECTED_L1_LATENCY=2.0         # ~2 ns for L1 cache
-EXPECTED_L2_LATENCY=10.0        # ~10 ns for L2 cache
-EXPECTED_MEMORY_LATENCY=100.0   # ~100 ns for main memory
+EXPECTED_L1_LATENCY=1           # 1 ns for L1 cache
+EXPECTED_L2_LATENCY=5           # 5 ns for L2 cache
+EXPECTED_MEMORY_LATENCY=50      # 50 ns for memory latency
 
 # Source memory pattern results
 if [ -f "/tmp/memory_pattern_results.txt" ]; then
@@ -2059,13 +2059,11 @@ printf "%-35s | Duration: %10d seconds\n" "Stress Test Duration" "$EXTENDED_DURA
 printf "%-35s | Violations: %8d\n" "Thermal Violations" "$THERMAL_VIOLATIONS" >> "$CPU_LOG_FILE"
 printf "%-35s | Peak Temp: %9d°C\n" "Peak Temperature" "$MAX_TEMP_DETECTED" >> "$CPU_LOG_FILE"
 
-# Determine thermal health status
-if [ "$THERMAL_VIOLATIONS" -eq 0 ]; then
-    printf "%-35s | Status: EXCELLENT\n" "Thermal Management" >> "$CPU_LOG_FILE"
-elif [ "$THERMAL_VIOLATIONS" -le 3 ]; then
-    printf "%-35s | Status: ACCEPTABLE\n" "Thermal Management" >> "$CPU_LOG_FILE"
+# Determine thermal health status (simple PASS/FAIL)
+if [ "$THERMAL_VIOLATIONS" -le 3 ]; then
+    printf "%-35s | Status: PASS\n" "Thermal Management" >> "$CPU_LOG_FILE"
 else
-    printf "%-35s | Status: CONCERNING\n" "Thermal Management" >> "$CPU_LOG_FILE"
+    printf "%-35s | Status: FAIL\n" "Thermal Management" >> "$CPU_LOG_FILE"
 fi
 
 log_info "Extended stress test completed: $THERMAL_VIOLATIONS thermal violations, ${MAX_TEMP_DETECTED}°C peak"

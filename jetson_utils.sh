@@ -520,7 +520,7 @@ calculate_performance_expectations() {
     # Multi-core matrix: operations per second
     case "$model" in
         *"Orin AGX"*|*"AGX Orin"*)
-            base_single_core_primes_per_60s=60000
+            base_single_core_primes_per_60s=1200000
             # AGX Orin has high-performance cores but matrix ops are memory-bound
             case "$cores" in
                 [1-4])   base_matrix_ops_per_sec=8 ;;
@@ -530,7 +530,7 @@ calculate_performance_expectations() {
             esac
             ;;
         *"Orin NX"*|*"NX Orin"*)
-            base_single_core_primes_per_60s=50000
+            base_single_core_primes_per_60s=960000
             case "$cores" in
                 [1-4])   base_matrix_ops_per_sec=6 ;;
                 [5-8])   base_matrix_ops_per_sec=10 ;;
@@ -538,7 +538,7 @@ calculate_performance_expectations() {
             esac
             ;;
         *"Orin Nano"*|*"Nano Orin"*)
-            base_single_core_primes_per_60s=40000
+            base_single_core_primes_per_60s=720000
             case "$cores" in
                 [1-4])   base_matrix_ops_per_sec=5 ;;
                 [5-8])   base_matrix_ops_per_sec=8 ;;
@@ -569,8 +569,8 @@ calculate_performance_expectations() {
 
     echo "EXPECTED_SINGLE_CORE_PRIMES=$single_core_primes"
     echo "EXPECTED_MULTI_CORE_MATRIX_OPS=$multi_core_matrix"
-    echo "EXPECTED_MEMORY_BANDWIDTH=15000"
-    echo "EXPECTED_L1_CACHE_BANDWIDTH=50000"
+    echo "EXPECTED_MEMORY_BANDWIDTH=50000"
+    echo "EXPECTED_L1_CACHE_BANDWIDTH=100000"
 }
 
 # Calculate realistic GPU performance expectations based on Jetson model
