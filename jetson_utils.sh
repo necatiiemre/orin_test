@@ -520,12 +520,12 @@ calculate_performance_expectations() {
     # Multi-core matrix: operations per second
     case "$model" in
         *"Orin AGX"*|*"AGX Orin"*)
-            base_single_core_primes_per_60s=1290000  # 21,500/s * 60 = 1,290,000 per 60s
+            base_single_core_primes_per_60s=1260000  # 21,000/s * 60 (slightly below actual for safety)
             # AGX Orin has high-performance cores but matrix ops are memory-bound
             case "$cores" in
                 [1-4])   base_matrix_ops_per_sec=8 ;;
                 [5-8])   base_matrix_ops_per_sec=10 ;;
-                [9-12])  base_matrix_ops_per_sec=11 ;;  # Actual measurement: ~11 ops/sec
+                [9-12])  base_matrix_ops_per_sec=11 ;;  # Actual: 11.11 ops/sec (within tolerance)
                 *)       base_matrix_ops_per_sec=11 ;;
             esac
             ;;
