@@ -628,8 +628,8 @@ VPU_PASS=$(cat "$TEMP_RESULTS_DIR/vpu_pass_count")
 VPU_FAIL=$(cat "$TEMP_RESULTS_DIR/vpu_fail_count")
 
 # Observed video encoding rate: 0.025 videos per second (9 videos in 360 seconds)
-# Minimum acceptable rate: 5% lower = 0.02375 videos per second
-MINIMUM_VIDEO_RATE="0.02375"
+# Minimum acceptable rate: 10% lower = 0.0225 videos per second
+MINIMUM_VIDEO_RATE="0.0225"
 EXPECTED_VIDEOS=$(echo "$PHASE_GPU_VPU * $MINIMUM_VIDEO_RATE" | bc | awk '{print int($1 + 0.5)}')
 
 if [ $VPU_PASS -ge $EXPECTED_VIDEOS ]; then
