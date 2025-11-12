@@ -975,6 +975,65 @@ class PDFReportGenerator:
         print(f"✓ Generated PDF from CPU log: {pdf_file}")
         return pdf_file
 
+    def convert_gpu_log_to_pdf(self, log_file: str, pdf_file: str = None) -> str:
+        """
+        Convert a unified GPU test log file to formatted PDF
+
+        Args:
+            log_file: Path to input GPU log file (gpu_test_results.log)
+            pdf_file: Path to output PDF file (optional)
+
+        Returns:
+            Path to generated PDF file
+        """
+        if not os.path.exists(log_file):
+            raise FileNotFoundError(f"GPU log file not found: {log_file}")
+
+        # Generate output filename if not provided
+        if pdf_file is None:
+            base_name = os.path.splitext(os.path.basename(log_file))[0]
+            pdf_file = os.path.join(self.output_dir, f"{base_name}.pdf")
+
+        # Parse the GPU log file
+        gpu_results = self.parse_unified_gpu_log(log_file)
+
+        # Create PDF document with enhanced margins
+        doc = SimpleDocTemplate(
+            pdf_file,
+            pagesize=letter,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=90,
+            bottomMargin=72
+        )
+
+        story = []
+
+        # Reset counters
+        self.section_counter = 0
+        self.figure_counter = 0
+        self.table_counter = 0
+
+        # Prepare metadata for cover page
+        title = "GPU Performance Test Results"
+        self.current_section_title = title
+
+        # Create cover page with test information
+        cover_metadata = gpu_results['header_info'].copy() if gpu_results['header_info'] else {}
+        cover_metadata['Test Status'] = gpu_results['overall_status']
+        cover_metadata['Test Type'] = 'GPU Performance Test'
+
+        story.extend(self._create_cover_page(title, cover_metadata))
+
+        # Add GPU test results content (reuse CPU method for now, as structure is same)
+        story.extend(self._create_cpu_test_pdf_content(gpu_results))
+
+        # Build PDF with page numbers
+        self._build_with_page_numbers(doc, story)
+
+        print(f"✓ Generated PDF from GPU log: {pdf_file}")
+        return pdf_file
+
     def convert_csv_to_pdf(self, csv_file: str, pdf_file: str = None, include_charts: bool = True) -> str:
         """
         Convert a CSV monitoring log to PDF with tables and charts using improved formatting
@@ -1189,6 +1248,105 @@ class PDFReportGenerator:
 
         except Exception as e:
             print(f"Warning: Error parsing CPU log file {log_file_path}: {e}")
+
+        return results
+
+    def parse_unified_gpu_log(self, log_file_path: str) -> Dict:
+        """
+        Parse the unified GPU test results log
+
+        Args:
+            log_file_path: Path to the unified GPU log file
+
+        Returns:
+            Dictionary containing parsed results with phases and overall status
+        """
+        results = {
+            'header_info': {},
+            'phases': [],
+            'overall_status': 'UNKNOWN'
+        }
+
+        current_phase = None
+        in_header = True
+
+        try:
+            with open(log_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    line = line.rstrip()
+                    stripped = line.strip()
+
+                    # Skip empty lines
+                    if not stripped:
+                        continue
+
+                    # Skip separator lines
+                    if stripped.startswith('==='):
+                        # Check if this is a phase header
+                        continue
+
+                    # Detect phase headers (line that comes after ===)
+                    if 'PHASE' in stripped and ':' in stripped:
+                        # We're past the header now
+                        in_header = False
+                        # Save previous phase if exists
+                        if current_phase:
+                            results['phases'].append(current_phase)
+                        # Start new phase
+                        current_phase = {
+                            'name': stripped,
+                            'metrics': []
+                        }
+                        continue
+
+                    # Parse header information (key: value pairs before first phase)
+                    if in_header and ':' in stripped and 'PHASE' not in stripped:
+                        if 'JETSON ORIN GPU' not in stripped and '===' not in stripped:
+                            parts = stripped.split(':', 1)
+                            if len(parts) == 2:
+                                key = parts[0].strip()
+                                value = parts[1].strip()
+                                results['header_info'][key] = value
+                        continue
+
+                    # If we see a metric line or phase, we're past the header
+                    if '|' in stripped or 'PHASE' in stripped:
+                        in_header = False
+
+                    # Parse metric lines: "Metric | Expected: X/s | Actual: Y/s | STATUS"
+                    if '|' in stripped and current_phase:
+                        parts = [p.strip() for p in stripped.split('|')]
+                        if len(parts) >= 4:
+                            metric_name = parts[0]
+                            expected = parts[1].replace('Expected:', '').strip()
+                            actual = parts[2].replace('Actual:', '').strip()
+                            status = parts[3]
+
+                            current_phase['metrics'].append({
+                                'name': metric_name,
+                                'expected': expected,
+                                'actual': actual,
+                                'status': status
+                            })
+
+                # Don't forget the last phase
+                if current_phase:
+                    results['phases'].append(current_phase)
+
+            # Determine overall status
+            all_metrics = []
+            for phase in results['phases']:
+                all_metrics.extend(phase['metrics'])
+
+            if all_metrics:
+                all_pass = all(
+                    'PASS' in metric['status'].upper()
+                    for metric in all_metrics
+                )
+                results['overall_status'] = 'PASS' if all_pass else 'FAIL'
+
+        except Exception as e:
+            print(f"Warning: Error parsing GPU log file {log_file_path}: {e}")
 
         return results
 

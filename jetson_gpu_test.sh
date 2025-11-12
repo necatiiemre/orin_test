@@ -205,7 +205,7 @@ echo ""
 # REMOTE TEST SCRIPT (EXECUTED ON JETSON ORIN)
 ################################################################################
 
-sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "export ORIN_PASS='$ORIN_PASS'; export TEST_DURATION=$TEST_DURATION; export PHASE_GPU_VPU=$PHASE_GPU_VPU; export PHASE_GPU_CUDA=$PHASE_GPU_CUDA; export PHASE_GPU_GFX=$PHASE_GPU_GFX; export PHASE_GPU_COMBINED=$PHASE_GPU_COMBINED; bash -s" << 'REMOTE_SCRIPT_START'
+sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR $ORIN_USER@$ORIN_IP "export ORIN_PASS='$ORIN_PASS'; export TEST_DURATION=$TEST_DURATION; export PHASE_GPU_VPU=$PHASE_GPU_VPU; export PHASE_GPU_CUDA=$PHASE_GPU_CUDA; export PHASE_GPU_GFX=$PHASE_GPU_GFX; export PHASE_GPU_COMBINED=$PHASE_GPU_COMBINED; export TESTER_NAME='$TESTER_NAME'; export QUALITY_CHECKER_NAME='$QUALITY_CHECKER_NAME'; export DEVICE_SERIAL='$DEVICE_SERIAL'; bash -s" << 'REMOTE_SCRIPT_START'
 #!/bin/bash
 
 ################################################################################
@@ -264,6 +264,67 @@ log_phase() {
     echo ""
 }
 
+# Unified log file
+GPU_LOG_FILE="/tmp/gpu_test_results.log"
+
+# Initialize log file with header
+init_gpu_log() {
+    cat > "$GPU_LOG_FILE" << EOF
+================================================================================
+JETSON ORIN GPU COMPREHENSIVE TEST RESULTS
+================================================================================
+Test Duration: ${TEST_DURATION}s
+Device Model: $(cat /proc/device-tree/model 2>/dev/null | tr -d '\0' || echo "Unknown")
+Test Date: $(date)
+Tester: ${TESTER_NAME:-N/A}
+Quality Checker: ${QUALITY_CHECKER_NAME:-N/A}
+Device Serial: ${DEVICE_SERIAL:-N/A}
+
+EOF
+}
+
+# Log phase header
+log_phase_header() {
+    local phase_name="$1"
+    cat >> "$GPU_LOG_FILE" << EOF
+
+================================================================================
+$phase_name
+================================================================================
+
+EOF
+}
+
+# Log a metric with pass/fail (better than expected = PASS)
+log_metric() {
+    local metric_name="$1"
+    local expected_per_sec="$2"
+    local actual_per_sec="$3"
+    local tolerance="${4:-10}"  # Default 10% tolerance
+
+    # Calculate percentage difference
+    local diff=$(echo "scale=2; (($actual_per_sec - $expected_per_sec) * 100 / $expected_per_sec)" | bc 2>/dev/null || echo "999")
+    local abs_diff=${diff#-}  # Absolute value
+
+    # Pass/Fail logic: Better than expected is PASS, worse than expected with tolerance is FAIL
+    local status
+    if (( $(echo "$actual_per_sec < $expected_per_sec" | bc -l) )); then
+        # Below expected - check if within tolerance
+        if (( $(echo "$abs_diff <= $tolerance" | bc -l) )); then
+            status="PASS"
+        else
+            status="FAIL (below expected)"
+        fi
+    else
+        # At or above expected - always PASS (better performance!)
+        status="PASS"
+    fi
+
+    # Format and write to log (aligned columns)
+    printf "%-35s | Expected: %10.2f/s | Actual: %10.2f/s | %s\n" \
+        "$metric_name" "$expected_per_sec" "$actual_per_sec" "$status" >> "$GPU_LOG_FILE"
+}
+
 # Calculate remote display duration
 if (( TEST_DURATION < 3600 )) && (( TEST_DURATION > 0 )); then
     REMOTE_DISPLAY_HOURS=$(echo "scale=2; $TEST_DURATION / 3600" | bc 2>/dev/null || echo "0.5")
@@ -272,6 +333,11 @@ else
 fi
 
 log_phase "JETSON ORIN DETAILED GPU STRESS TEST STARTED (v2.0)"
+
+# Initialize unified GPU log file
+log_info "Initializing unified GPU test results log..."
+init_gpu_log
+log_success "Unified log file initialized at $GPU_LOG_FILE"
 
 log_info "Remote Test Configuration:"
 echo "  • Test Duration: ${TEST_DURATION} seconds (${REMOTE_DISPLAY_HOURS} hours)"
@@ -2085,17 +2151,20 @@ if [ -n "$REMOTE_DIR" ]; then
     echo "Remote test directory: $REMOTE_DIR"
     echo ""
 
-    echo "[1/4] Copying logs..."
+    echo "[1/5] Copying logs..."
     # Use directory copying instead of wildcards for reliability
     sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/logs/" "$LOG_DIR/" 2>/dev/null && echo "[+] Logs copied" || echo "[!] Some logs may not have copied"
 
-    echo "[2/4] Copying reports..."
+    echo "[2/5] Copying reports..."
     sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/reports/" "$LOG_DIR/" 2>/dev/null && echo "[+] Reports copied" || echo "[!] Some reports may not have copied"
 
-    echo "[3/4] Copying monitoring data..."
+    echo "[3/5] Copying unified GPU test results log..."
+    sshpass -p "$ORIN_PASS" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:/tmp/gpu_test_results.log" "$LOG_DIR/gpu_test_results.log" 2>/dev/null && echo "[+] GPU test results log copied" || echo "[!] GPU test results log may not have copied"
+
+    echo "[4/5] Copying monitoring data..."
     sshpass -p "$ORIN_PASS" scp -r -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:$REMOTE_DIR/monitoring/" "$LOG_DIR/" 2>/dev/null && echo "[+] Monitoring data copied" || echo "[!] Some monitoring data may not have copied"
 
-    echo "[4/4] Copying sample 4K videos..."
+    echo "[5/5] Copying sample 4K videos..."
     # Copy videos directory if it exists
     VIDEO_COUNT=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "ls $REMOTE_DIR/videos/*.mp4 2>/dev/null | wc -l")
 
