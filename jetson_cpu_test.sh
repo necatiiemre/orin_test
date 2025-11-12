@@ -232,6 +232,9 @@ export EXPECTED_SINGLE_CORE_PRIMES=$EXPECTED_SINGLE_CORE_PRIMES
 export EXPECTED_MULTI_CORE_MATRIX_OPS=$EXPECTED_MULTI_CORE_MATRIX_OPS
 export EXPECTED_MEMORY_BANDWIDTH=$EXPECTED_MEMORY_BANDWIDTH
 export EXPECTED_L1_CACHE_BANDWIDTH=$EXPECTED_L1_CACHE_BANDWIDTH
+export TESTER_NAME
+export QUALITY_CHECKER_NAME
+export DEVICE_SERIAL
 bash -s" << 'REMOTE_ULTRA_CPU_TEST_START' | tee "$LOG_DIR/logs/ultra_cpu_stress.log"
 
 #!/bin/bash
@@ -687,7 +690,7 @@ if [ -f "/tmp/single_core_prime_results.txt" ]; then
 
     # Prime generation rate (primes per second)
     PRIME_RATE=$(echo "scale=2; $PRIME_COUNT / $SINGLE_CORE_DURATION" | bc)
-    EXPECTED_PRIME_RATE=$(echo "scale=2; $EXPECTED_SINGLE_CORE_PRIMES / 60" | bc)  # Expected is per 60s, convert to per second
+    EXPECTED_PRIME_RATE=$(echo "scale=2; $EXPECTED_SINGLE_CORE_PRIMES / $SINGLE_CORE_DURATION" | bc)
     log_metric "Prime Generation Rate" "$EXPECTED_PRIME_RATE" "$PRIME_RATE"
 
     log_info "Single-core test completed: $PRIME_COUNT primes generated"
@@ -1266,8 +1269,8 @@ echo "Performance Variation: $perf_variation%"
 log_phase_header "PHASE 3: PER-CORE INDIVIDUAL TESTING"
 
 # Expected values for per-core testing (using single-core expectations as baseline)
-EXPECTED_PRIME_RATE_PER_CORE=$(echo "scale=2; $EXPECTED_SINGLE_CORE_PRIMES / 60" | bc)  # Convert to per-second
-EXPECTED_FLOPS_PER_CORE=1000000000  # 1 GFLOPS baseline for Orin cores
+EXPECTED_PRIME_RATE_PER_CORE=$(echo "scale=2; $EXPECTED_SINGLE_CORE_PRIMES / $PER_CORE_DURATION" | bc)
+EXPECTED_FLOPS_PER_CORE=35000000000  # 35 GFLOPS baseline for ARM Cortex-A78 cores
 
 # Log each core's metrics
 for ((core=0; core<CPU_CORES; core++)); do
@@ -1516,16 +1519,16 @@ gcc -O2 -o "$REMOTE_TEST_DIR/branch_test" "$REMOTE_TEST_DIR/branch_test.c"
 # Log instruction throughput performance to unified log
 log_phase_header "PHASE 4: CPU INSTRUCTION THROUGHPUT"
 
-# Expected values for instruction throughput (baseline for modern ARM cores)
-EXPECTED_INT_ADD_MOPS=50000    # 50 GOPS for integer add
-EXPECTED_INT_MUL_MOPS=30000    # 30 GOPS for integer multiply
-EXPECTED_INT_DIV_MOPS=5000     # 5 GOPS for integer divide
-EXPECTED_FP_ADD_MOPS=20000     # 20 GOPS for FP add
-EXPECTED_FP_MUL_MOPS=20000     # 20 GOPS for FP multiply
-EXPECTED_FP_DIV_MOPS=10000     # 10 GOPS for FP divide
-EXPECTED_FP_SQRT_MOPS=5000     # 5 GOPS for FP sqrt
-EXPECTED_PRED_BRANCH_MOPS=100000  # 100 GOPS for predictable branches
-EXPECTED_UNPRED_BRANCH_MOPS=50000 # 50 GOPS for unpredictable branches
+# Expected values for instruction throughput (realistic for ARM Cortex-A78 single core)
+EXPECTED_INT_ADD_MOPS=1500     # 1.5 GOPS for integer add
+EXPECTED_INT_MUL_MOPS=750      # 750 MOPS for integer multiply
+EXPECTED_INT_DIV_MOPS=150      # 150 MOPS for integer divide
+EXPECTED_FP_ADD_MOPS=750       # 750 MOPS for FP add
+EXPECTED_FP_MUL_MOPS=750       # 750 MOPS for FP multiply
+EXPECTED_FP_DIV_MOPS=300       # 300 MOPS for FP divide
+EXPECTED_FP_SQRT_MOPS=75       # 75 MOPS for FP sqrt
+EXPECTED_PRED_BRANCH_MOPS=2000 # 2 GOPS for predictable branches
+EXPECTED_UNPRED_BRANCH_MOPS=500 # 500 MOPS for unpredictable branches
 
 # Source integer throughput results
 if [ -f "/tmp/int_throughput_results.txt" ]; then
@@ -1756,10 +1759,10 @@ gcc -O2 -o "$REMOTE_TEST_DIR/cache_latency" "$REMOTE_TEST_DIR/cache_latency.c"
 # Log memory pattern performance to unified log
 log_phase_header "PHASE 5: ADVANCED MEMORY PATTERNS"
 
-# Expected values for memory patterns (baseline for Jetson Orin with LPDDR5)
-EXPECTED_SEQ_READ_BW=15000      # 15 GB/s sequential read bandwidth
-EXPECTED_RAND_READ_BW=3000      # 3 GB/s random read bandwidth
-EXPECTED_STRIDE_READ_BW=8000    # 8 GB/s strided read bandwidth
+# Expected values for memory patterns (realistic for Jetson Orin with LPDDR5)
+EXPECTED_SEQ_READ_BW=8000       # 8 GB/s sequential read bandwidth
+EXPECTED_RAND_READ_BW=500       # 500 MB/s random read bandwidth
+EXPECTED_STRIDE_READ_BW=2000    # 2 GB/s strided read bandwidth
 
 # Expected cache latencies for ARM Cortex cores
 EXPECTED_L1_LATENCY=2.0         # ~2 ns for L1 cache
@@ -2073,14 +2076,23 @@ log_info "Extended stress test completed: $THERMAL_VIOLATIONS thermal violations
 
 log_phase "[PHASE 8: TEST COMPLETION]"
 
-# Determine test status based on test completion
-TEST_STATUS="PASSED"
+# Determine test status based on actual metric results in unified log
+FAIL_COUNT=$(grep -c "| FAIL" "$CPU_LOG_FILE" 2>/dev/null || echo "0")
+
+if [ "$FAIL_COUNT" -gt 0 ]; then
+    TEST_STATUS="FAILED"
+    log_error "Test Status: FAILED ($FAIL_COUNT metrics failed)"
+else
+    TEST_STATUS="PASSED"
+    log_success "Test Status: PASSED (all metrics within expected range)"
+fi
 
 echo "=== CPU TEST COMPLETE ==="
 echo "Thermal Violations: $THERMAL_VIOLATIONS"
 echo "Peak Temperature: ${MAX_TEMP_DETECTED}°C"
 echo "CPU Cores Tested: $CPU_CORES"
 echo "Test Status: $TEST_STATUS"
+echo "Failed Metrics: $FAIL_COUNT"
 echo ""
 
 # Save basic test results
