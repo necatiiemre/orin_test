@@ -321,7 +321,8 @@ log_metric() {
     fi
 
     # Format and write to log (aligned columns)
-    printf "%-35s | Expected: %10.2f/s | Actual: %10.2f/s | %s\n" \
+    # Note: Unit is included in metric_name, so no /s suffix needed
+    printf "%-45s | Expected: %12.2f | Actual: %12.2f | %s\n" \
         "$metric_name" "$expected_per_sec" "$actual_per_sec" "$status" >> "$GPU_LOG_FILE"
 }
 
@@ -726,15 +727,10 @@ if [ -f "$REPORT_DIR/gpu_vpu_results.txt" ]; then
     # VPU Success Rate (percentage)
     if [ "$VPU_TOTAL" -gt 0 ]; then
         VPU_SUCCESS_RATE=$(echo "scale=2; ($VPU_PASS * 100) / $VPU_TOTAL" | bc)
-        EXPECTED_VPU_SUCCESS_RATE=95.00  # Expected: 95% success rate
+        EXPECTED_VPU_SUCCESS_RATE=95.00
 
-        # Convert to "per second" format for consistency (using success rate directly)
-        log_metric "Video Encoding Success Rate %" "$EXPECTED_VPU_SUCCESS_RATE" "$VPU_SUCCESS_RATE"
+        log_metric "Video Encoding Success Rate (%)" "$EXPECTED_VPU_SUCCESS_RATE" "$VPU_SUCCESS_RATE"
     fi
-
-    log_info "VPU test completed: $VPU_PASS passed, $VPU_FAIL failed"
-else
-    log_error "VPU test results not available"
 fi
 
 ################################################################################
@@ -899,10 +895,23 @@ void test_memory_bandwidth(int duration_sec) {
     }
 
     double size_gb = size / (1024.0 * 1024.0 * 1024.0);
+    double h2d_bandwidth = (size_gb * iterations) / total_h2d_time;
+    double d2h_bandwidth = (size_gb * iterations) / total_d2h_time;
+    double d2d_bandwidth = (size_gb * iterations) / total_d2d_time;
+
     printf("Iterations: %d\n", iterations);
-    printf("Host to Device Bandwidth: %.2f GB/s\n", (size_gb * iterations) / total_h2d_time);
-    printf("Device to Host Bandwidth: %.2f GB/s\n", (size_gb * iterations) / total_d2h_time);
-    printf("Device to Device Bandwidth: %.2f GB/s\n", (size_gb * iterations) / total_d2d_time);
+    printf("Host to Device Bandwidth: %.2f GB/s\n", h2d_bandwidth);
+    printf("Device to Host Bandwidth: %.2f GB/s\n", d2h_bandwidth);
+    printf("Device to Device Bandwidth: %.2f GB/s\n", d2d_bandwidth);
+
+    // Save metrics to file
+    FILE *fp = fopen("/tmp/cuda_metrics.txt", "w");
+    if (fp) {
+        fprintf(fp, "H2D_BANDWIDTH=%.2f\n", h2d_bandwidth);
+        fprintf(fp, "D2H_BANDWIDTH=%.2f\n", d2h_bandwidth);
+        fprintf(fp, "D2D_BANDWIDTH=%.2f\n", d2d_bandwidth);
+        fclose(fp);
+    }
 
     cudaFree(d_data1);
     cudaFree(d_data2);
@@ -940,6 +949,13 @@ void test_fp32_compute(int duration_sec) {
     printf("Estimated GFLOPS: %.2f\n", gflops);
     printf("Average kernel time: %.3f ms\n", (total_time / operations) * 1000);
 
+    // Append metrics to file
+    FILE *fp = fopen("/tmp/cuda_metrics.txt", "a");
+    if (fp) {
+        fprintf(fp, "FP32_GFLOPS=%.2f\n", gflops);
+        fclose(fp);
+    }
+
     cudaFree(d_data);
 }
 
@@ -972,6 +988,13 @@ void test_fp64_compute(int duration_sec) {
     printf("FP64 Operations: %d\n", operations);
     printf("Estimated GFLOPS: %.2f\n", gflops);
     printf("Average kernel time: %.3f ms\n", (total_time / operations) * 1000);
+
+    // Append metrics to file
+    FILE *fp = fopen("/tmp/cuda_metrics.txt", "a");
+    if (fp) {
+        fprintf(fp, "FP64_GFLOPS=%.2f\n", gflops);
+        fclose(fp);
+    }
 
     cudaFree(d_data);
 }
@@ -1018,6 +1041,13 @@ void test_matrix_operations(int duration_sec) {
     printf("Matrix Size: %dx%d\n", matrix_size, matrix_size);
     printf("GFLOPS: %.2f\n", gflops);
     printf("Average operation time: %.3f ms\n", (total_time / operations) * 1000);
+
+    // Append metrics to file
+    FILE *fp = fopen("/tmp/cuda_metrics.txt", "a");
+    if (fp) {
+        fprintf(fp, "MATRIX_GFLOPS=%.2f\n", gflops);
+        fclose(fp);
+    }
 
     cublasDestroy(cublasHandle);
     cudaFree(d_matrix_a);
@@ -1182,18 +1212,27 @@ log_info "CUDA results saved: PASS=$CUDA_PASS, FAIL=$CUDA_FAIL, STATUS=$CUDA_STA
 # Log CUDA performance to unified log
 log_phase_header "PHASE 2: CUDA (COMPUTE)"
 
-if [ -f "$REPORT_DIR/gpu_cuda_results.txt" ]; then
-    source "$REPORT_DIR/gpu_cuda_results.txt"
+if [ -f "/tmp/cuda_metrics.txt" ]; then
+    source /tmp/cuda_metrics.txt
 
-    # CUDA Test Success (binary: 1=success, 0=fail)
-    CUDA_SUCCESS_VALUE=$([ "$CUDA_PASS" -eq 1 ] && echo "1.00" || echo "0.00")
-    EXPECTED_CUDA_SUCCESS=1.00  # Expected: complete success
+    # Expected values for Jetson AGX Orin GPU (2048 CUDA cores, Ampere architecture)
+    # Host-to-Device Bandwidth
+    log_metric "Host to Device Bandwidth (GB/s)" "25.00" "${H2D_BANDWIDTH:-0}"
 
-    log_metric "CUDA Test Success" "$EXPECTED_CUDA_SUCCESS" "$CUDA_SUCCESS_VALUE"
+    # Device-to-Host Bandwidth
+    log_metric "Device to Host Bandwidth (GB/s)" "25.00" "${D2H_BANDWIDTH:-0}"
 
-    log_info "CUDA test completed: status=$CUDA_STATUS"
-else
-    log_error "CUDA test results not available"
+    # Device-to-Device Bandwidth
+    log_metric "Device to Device Bandwidth (GB/s)" "180.00" "${D2D_BANDWIDTH:-0}"
+
+    # FP32 GFLOPS
+    log_metric "FP32 Compute (GFLOPS)" "5000.00" "${FP32_GFLOPS:-0}"
+
+    # FP64 GFLOPS
+    log_metric "FP64 Compute (GFLOPS)" "150.00" "${FP64_GFLOPS:-0}"
+
+    # Matrix Operations GFLOPS
+    log_metric "Matrix Operations (GFLOPS)" "4500.00" "${MATRIX_GFLOPS:-0}"
 fi
 
 ################################################################################
@@ -1585,14 +1624,10 @@ if [ -f "$REPORT_DIR/gpu_gfx_results.txt" ]; then
     # GFX Success Rate (percentage)
     if [ "$GFX_TOTAL" -gt 0 ]; then
         GFX_SUCCESS_RATE=$(echo "scale=2; ($GFX_PASS * 100) / $GFX_TOTAL" | bc)
-        EXPECTED_GFX_SUCCESS_RATE=95.00  # Expected: 95% success rate
+        EXPECTED_GFX_SUCCESS_RATE=95.00
 
-        log_metric "Graphics Operations Success Rate %" "$EXPECTED_GFX_SUCCESS_RATE" "$GFX_SUCCESS_RATE"
+        log_metric "Graphics Operations Success Rate (%)" "$EXPECTED_GFX_SUCCESS_RATE" "$GFX_SUCCESS_RATE"
     fi
-
-    log_info "Graphics test completed: $GFX_PASS passed, $GFX_FAIL failed"
-else
-    log_error "Graphics test results not available"
 fi
 
 ################################################################################
@@ -1728,14 +1763,10 @@ if [ -f "$REPORT_DIR/gpu_combined_results.txt" ]; then
     # Combined Success Rate (percentage)
     if [ "$COMBINED_TOTAL" -gt 0 ]; then
         COMBINED_SUCCESS_RATE=$(echo "scale=2; ($COMBINED_PASS * 100) / $COMBINED_TOTAL" | bc)
-        EXPECTED_COMBINED_SUCCESS_RATE=95.00  # Expected: 95% success rate
+        EXPECTED_COMBINED_SUCCESS_RATE=95.00
 
-        log_metric "Combined Operations Success Rate %" "$EXPECTED_COMBINED_SUCCESS_RATE" "$COMBINED_SUCCESS_RATE"
+        log_metric "Combined Operations Success Rate (%)" "$EXPECTED_COMBINED_SUCCESS_RATE" "$COMBINED_SUCCESS_RATE"
     fi
-
-    log_info "Combined test completed: $COMBINED_PASS passed, $COMBINED_FAIL failed"
-else
-    log_error "Combined test results not available"
 fi
 
 ################################################################################
