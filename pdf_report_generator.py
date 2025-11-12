@@ -916,6 +916,65 @@ class PDFReportGenerator:
         print(f"✓ Generated PDF report: {pdf_file}")
         return pdf_file
 
+    def convert_cpu_log_to_pdf(self, log_file: str, pdf_file: str = None) -> str:
+        """
+        Convert a unified CPU test log file to formatted PDF
+
+        Args:
+            log_file: Path to input CPU log file (cpu_test_results.log)
+            pdf_file: Path to output PDF file (optional)
+
+        Returns:
+            Path to generated PDF file
+        """
+        if not os.path.exists(log_file):
+            raise FileNotFoundError(f"CPU log file not found: {log_file}")
+
+        # Generate output filename if not provided
+        if pdf_file is None:
+            base_name = os.path.splitext(os.path.basename(log_file))[0]
+            pdf_file = os.path.join(self.output_dir, f"{base_name}.pdf")
+
+        # Parse the CPU log file
+        cpu_results = self.parse_unified_cpu_log(log_file)
+
+        # Create PDF document with enhanced margins
+        doc = SimpleDocTemplate(
+            pdf_file,
+            pagesize=letter,
+            rightMargin=72,
+            leftMargin=72,
+            topMargin=90,
+            bottomMargin=72
+        )
+
+        story = []
+
+        # Reset counters
+        self.section_counter = 0
+        self.figure_counter = 0
+        self.table_counter = 0
+
+        # Prepare metadata for cover page
+        title = "CPU Performance Test Results"
+        self.current_section_title = title
+
+        # Create cover page with test information
+        cover_metadata = cpu_results['header_info'].copy() if cpu_results['header_info'] else {}
+        cover_metadata['Test Status'] = cpu_results['overall_status']
+        cover_metadata['Test Type'] = 'CPU Performance Test'
+
+        story.extend(self._create_cover_page(title, cover_metadata))
+
+        # Add CPU test results content
+        story.extend(self._create_cpu_test_pdf_content(cpu_results))
+
+        # Build PDF with page numbers
+        self._build_with_page_numbers(doc, story)
+
+        print(f"✓ Generated PDF from CPU log: {pdf_file}")
+        return pdf_file
+
     def convert_csv_to_pdf(self, csv_file: str, pdf_file: str = None, include_charts: bool = True) -> str:
         """
         Convert a CSV monitoring log to PDF with tables and charts using improved formatting
@@ -1033,6 +1092,219 @@ class PDFReportGenerator:
 
         print(f"✓ Generated PDF from CSV: {pdf_file}")
         return pdf_file
+
+    def parse_unified_cpu_log(self, log_file_path: str) -> Dict:
+        """
+        Parse the unified CPU test results log
+
+        Args:
+            log_file_path: Path to the unified CPU log file
+
+        Returns:
+            Dictionary containing parsed results with phases and overall status
+        """
+        results = {
+            'header_info': {},
+            'phases': [],
+            'overall_status': 'UNKNOWN'
+        }
+
+        current_phase = None
+        in_header = True
+
+        try:
+            with open(log_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                for line in f:
+                    line = line.rstrip()
+                    stripped = line.strip()
+
+                    # Skip empty lines
+                    if not stripped:
+                        continue
+
+                    # Skip separator lines
+                    if stripped.startswith('==='):
+                        # Check if this is a phase header
+                        continue
+
+                    # Detect phase headers (line that comes after ===)
+                    if 'PHASE' in stripped and ':' in stripped:
+                        # We're past the header now
+                        in_header = False
+                        # Save previous phase if exists
+                        if current_phase:
+                            results['phases'].append(current_phase)
+                        # Start new phase
+                        current_phase = {
+                            'name': stripped,
+                            'metrics': []
+                        }
+                        continue
+
+                    # Parse header information (key: value pairs before first phase)
+                    if in_header and ':' in stripped and 'PHASE' not in stripped:
+                        if 'JETSON ORIN CPU' not in stripped and '===' not in stripped:
+                            parts = stripped.split(':', 1)
+                            if len(parts) == 2:
+                                key = parts[0].strip()
+                                value = parts[1].strip()
+                                results['header_info'][key] = value
+                        continue
+
+                    # If we see a metric line or phase, we're past the header
+                    if '|' in stripped or 'PHASE' in stripped:
+                        in_header = False
+
+                    # Parse metric lines: "Metric | Expected: X/s | Actual: Y/s | STATUS"
+                    if '|' in stripped and current_phase:
+                        parts = [p.strip() for p in stripped.split('|')]
+                        if len(parts) >= 4:
+                            metric_name = parts[0]
+                            expected = parts[1].replace('Expected:', '').strip()
+                            actual = parts[2].replace('Actual:', '').strip()
+                            status = parts[3]
+
+                            current_phase['metrics'].append({
+                                'name': metric_name,
+                                'expected': expected,
+                                'actual': actual,
+                                'status': status
+                            })
+
+                # Don't forget the last phase
+                if current_phase:
+                    results['phases'].append(current_phase)
+
+            # Determine overall status
+            all_metrics = []
+            for phase in results['phases']:
+                all_metrics.extend(phase['metrics'])
+
+            if all_metrics:
+                all_pass = all(
+                    'PASS' in metric['status'].upper()
+                    for metric in all_metrics
+                )
+                results['overall_status'] = 'PASS' if all_pass else 'FAIL'
+
+        except Exception as e:
+            print(f"Warning: Error parsing CPU log file {log_file_path}: {e}")
+
+        return results
+
+    def _create_cpu_test_pdf_content(self, cpu_results: Dict) -> List:
+        """
+        Create PDF content from parsed CPU test results
+
+        Args:
+            cpu_results: Parsed CPU test results dictionary
+
+        Returns:
+            List of flowables for the PDF
+        """
+        elements = []
+
+        # Add header information if available
+        if cpu_results['header_info']:
+            elements.append(Paragraph("Test Information", self.styles['SectionHeader']))
+            elements.append(Spacer(1, 12))
+
+            info_data = []
+            for key, value in cpu_results['header_info'].items():
+                info_data.append([
+                    Paragraph(f"<b>{key}:</b>", self.styles['ProductInfo']),
+                    Paragraph(str(value), self.styles['ProductInfo'])
+                ])
+
+            if info_data:
+                info_table = Table(info_data, colWidths=[2.5*inch, 4*inch])
+                info_table.setStyle(TableStyle([
+                    ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#1a1a1a')),
+                    ('ALIGN', (0, 0), (0, -1), 'RIGHT'),
+                    ('ALIGN', (1, 0), (1, -1), 'LEFT'),
+                    ('FONTNAME', (0, 0), (0, -1), 'Helvetica-Bold'),
+                    ('FONTNAME', (1, 0), (1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 10),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+                    ('TOPPADDING', (0, 0), (-1, -1), 6),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('LINEBELOW', (0, 0), (-1, -1), 0.5, colors.HexColor('#cccccc')),
+                ]))
+                elements.append(info_table)
+
+            elements.append(Spacer(1, 24))
+
+        # Add test results by phase
+        for phase_idx, phase in enumerate(cpu_results['phases'], 1):
+            # Phase header
+            elements.append(Paragraph(f"{phase_idx}. {phase['name']}", self.styles['SectionHeader']))
+            elements.append(Spacer(1, 12))
+
+            if phase['metrics']:
+                # Create table for metrics
+                table_data = [['Metric', 'Expected', 'Actual', 'Status']]
+
+                for metric in phase['metrics']:
+                    table_data.append([
+                        metric['name'],
+                        metric['expected'],
+                        metric['actual'],
+                        metric['status']
+                    ])
+
+                # Create table with styling
+                metric_table = Table(table_data, colWidths=[2.5*inch, 1.5*inch, 1.5*inch, 1.5*inch])
+
+                # Base table style
+                table_style = [
+                    # Header row styling
+                    ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#2c5aa0')),
+                    ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                    ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                    ('FONTSIZE', (0, 0), (-1, 0), 11),
+                    ('TOPPADDING', (0, 0), (-1, 0), 12),
+                    ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+
+                    # Data rows styling
+                    ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                    ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+                    ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                    ('FONTSIZE', (0, 1), (-1, -1), 9),
+                    ('TOPPADDING', (0, 1), (-1, -1), 8),
+                    ('BOTTOMPADDING', (0, 1), (-1, -1), 8),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 8),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+
+                    # Grid and borders
+                    ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#cccccc')),
+                    ('LINEBELOW', (0, 0), (-1, 0), 2, colors.HexColor('#2c5aa0')),
+
+                    # Alternating row colors
+                    ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f8f8f8')]),
+
+                    # Left align first column (metric names)
+                    ('ALIGN', (0, 1), (0, -1), 'LEFT'),
+                ]
+
+                # Color code status column based on PASS/FAIL
+                for row_idx, metric in enumerate(phase['metrics'], 1):
+                    if 'PASS' in metric['status'].upper():
+                        table_style.append(('TEXTCOLOR', (3, row_idx), (3, row_idx), colors.HexColor('#00AA00')))
+                        table_style.append(('FONTNAME', (3, row_idx), (3, row_idx), 'Helvetica-Bold'))
+                    elif 'FAIL' in metric['status'].upper():
+                        table_style.append(('TEXTCOLOR', (3, row_idx), (3, row_idx), colors.HexColor('#DD0000')))
+                        table_style.append(('FONTNAME', (3, row_idx), (3, row_idx), 'Helvetica-Bold'))
+
+                metric_table.setStyle(TableStyle(table_style))
+                elements.append(metric_table)
+
+            elements.append(Spacer(1, 20))
+
+        return elements
 
     def _create_csv_charts(self, csv_file: str, headers: List[str], data_rows: List[List[str]]) -> List[Optional[str]]:
         """
@@ -1337,7 +1609,7 @@ class PDFReportGenerator:
         print(f"   Input directory: {test_output_dir}")
         print(f"   PDF output directory: {pdf_output_dir}\n")
 
-        # Find and convert TXT reports
+        # Find and convert log and report files
         for root, dirs, files in os.walk(test_output_dir):
             # Skip the pdf_reports directory itself
             if 'pdf_reports' in root:
@@ -1347,7 +1619,12 @@ class PDFReportGenerator:
                 file_path = os.path.join(root, file)
 
                 try:
-                    if file.endswith('.txt') and any(keyword in file.upper() for keyword in ['REPORT', 'SUMMARY', 'RESULT']):
+                    # Check for unified CPU log file first (highest priority)
+                    if file == 'cpu_test_results.log':
+                        pdf_path = self.convert_cpu_log_to_pdf(file_path)
+                        generated_pdfs.append(pdf_path)
+
+                    elif file.endswith('.txt') and any(keyword in file.upper() for keyword in ['REPORT', 'SUMMARY', 'RESULT']):
                         pdf_path = self.convert_txt_report_to_pdf(file_path)
                         generated_pdfs.append(pdf_path)
 
@@ -1387,6 +1664,9 @@ Examples:
   # Convert a CSV log to PDF with charts
   %(prog)s --csv-log /path/to/temperature_power_log.csv
 
+  # Convert a CPU test results log to PDF
+  %(prog)s --cpu-log /path/to/cpu_test_results.log
+
   # Convert all reports and logs in a directory
   %(prog)s --batch /path/to/test_output_20250106_120000
 
@@ -1405,6 +1685,12 @@ Examples:
         '--csv-log',
         metavar='FILE',
         help='Convert a single CSV log file to PDF'
+    )
+
+    parser.add_argument(
+        '--cpu-log',
+        metavar='FILE',
+        help='Convert a CPU test results log file (cpu_test_results.log) to PDF'
     )
 
     parser.add_argument(
@@ -1468,7 +1754,7 @@ Examples:
     args = parser.parse_args()
 
     # Check if at least one input option is provided
-    if not any([args.txt_report, args.csv_log, args.batch, args.combined]):
+    if not any([args.txt_report, args.csv_log, args.cpu_log, args.batch, args.combined]):
         parser.print_help()
         sys.exit(1)
 
@@ -1489,6 +1775,11 @@ Examples:
         elif args.csv_log:
             include_charts = not args.no_charts
             pdf_file = generator.convert_csv_to_pdf(args.csv_log, args.output, include_charts)
+            print(f"\n✓ Success! PDF generated: {pdf_file}\n")
+
+        # Single CPU log conversion
+        elif args.cpu_log:
+            pdf_file = generator.convert_cpu_log_to_pdf(args.cpu_log, args.output)
             print(f"\n✓ Success! PDF generated: {pdf_file}\n")
 
         # Batch conversion
