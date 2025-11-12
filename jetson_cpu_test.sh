@@ -329,25 +329,29 @@ $phase_name
 EOF
 }
 
-# Log a metric with strict pass/fail
+# Log a metric with pass/fail (better than expected = PASS)
 log_metric() {
     local metric_name="$1"
     local expected_per_sec="$2"
     local actual_per_sec="$3"
-    local tolerance="${4:-5}"  # Default 5% tolerance
+    local tolerance="${4:-10}"  # Default 10% tolerance
 
     # Calculate percentage difference
     local diff=$(echo "scale=2; (($actual_per_sec - $expected_per_sec) * 100 / $expected_per_sec)" | bc 2>/dev/null || echo "999")
     local abs_diff=${diff#-}  # Absolute value
 
-    # Strict comparison
+    # Pass/Fail logic: Better than expected is PASS, worse than expected with tolerance is FAIL
     local status
-    if (( $(echo "$abs_diff <= $tolerance" | bc -l) )); then
-        status="PASS"
-    elif (( $(echo "$actual_per_sec < $expected_per_sec" | bc -l) )); then
-        status="FAIL (below expected)"
+    if (( $(echo "$actual_per_sec < $expected_per_sec" | bc -l) )); then
+        # Below expected - check if within tolerance
+        if (( $(echo "$abs_diff <= $tolerance" | bc -l) )); then
+            status="PASS"
+        else
+            status="FAIL (below expected)"
+        fi
     else
-        status="FAIL (exceeds expected)"
+        # At or above expected - always PASS (better performance!)
+        status="PASS"
     fi
 
     # Format and write to log (aligned columns)

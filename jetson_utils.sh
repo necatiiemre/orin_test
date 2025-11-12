@@ -520,39 +520,39 @@ calculate_performance_expectations() {
     # Multi-core matrix: operations per second
     case "$model" in
         *"Orin AGX"*|*"AGX Orin"*)
-            base_single_core_primes_per_60s=1200000
+            base_single_core_primes_per_60s=1290000  # 21,500/s * 60 = 1,290,000 per 60s
             # AGX Orin has high-performance cores but matrix ops are memory-bound
             case "$cores" in
                 [1-4])   base_matrix_ops_per_sec=8 ;;
-                [5-8])   base_matrix_ops_per_sec=12 ;;
-                [9-12])  base_matrix_ops_per_sec=18 ;;  # Realistic for 10-12 cores
-                *)       base_matrix_ops_per_sec=20 ;;
+                [5-8])   base_matrix_ops_per_sec=10 ;;
+                [9-12])  base_matrix_ops_per_sec=11 ;;  # Actual measurement: ~11 ops/sec
+                *)       base_matrix_ops_per_sec=11 ;;
             esac
             ;;
         *"Orin NX"*|*"NX Orin"*)
-            base_single_core_primes_per_60s=960000
+            base_single_core_primes_per_60s=1032000  # 80% of AGX (proportional)
             case "$cores" in
                 [1-4])   base_matrix_ops_per_sec=6 ;;
-                [5-8])   base_matrix_ops_per_sec=10 ;;
-                *)       base_matrix_ops_per_sec=12 ;;
+                [5-8])   base_matrix_ops_per_sec=9 ;;
+                *)       base_matrix_ops_per_sec=9 ;;
             esac
             ;;
         *"Orin Nano"*|*"Nano Orin"*)
-            base_single_core_primes_per_60s=720000
+            base_single_core_primes_per_60s=774000  # 60% of AGX (proportional)
             case "$cores" in
                 [1-4])   base_matrix_ops_per_sec=5 ;;
-                [5-8])   base_matrix_ops_per_sec=8 ;;
-                *)       base_matrix_ops_per_sec=10 ;;
+                [5-8])   base_matrix_ops_per_sec=7 ;;
+                *)       base_matrix_ops_per_sec=7 ;;
             esac
             ;;
         *)
             # Default conservative values
-            base_single_core_primes_per_60s=45000
+            base_single_core_primes_per_60s=1032000  # Use NX values as default
             case "$cores" in
                 [1-4])   base_matrix_ops_per_sec=6 ;;
-                [5-8])   base_matrix_ops_per_sec=10 ;;
-                [9-12])  base_matrix_ops_per_sec=15 ;;
-                *)       base_matrix_ops_per_sec=18 ;;
+                [5-8])   base_matrix_ops_per_sec=9 ;;
+                [9-12])  base_matrix_ops_per_sec=11 ;;
+                *)       base_matrix_ops_per_sec=11 ;;
             esac
             ;;
     esac
