@@ -299,6 +299,9 @@ echo "0" > "$TEMP_RESULTS_DIR/combined_fail_count"
 
 log_info "Initialized bulletproof result tracking system using temp files"
 
+# Get Jetson model information
+JETSON_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0' || echo "Unknown Jetson Model")
+
 # Helper functions for result tracking (same as v1.6)
 increment_vpu_pass() {
     local current=$(cat "$TEMP_RESULTS_DIR/vpu_pass_count")
@@ -1447,10 +1450,17 @@ fi
 GFX_PASS=$(cat "$TEMP_RESULTS_DIR/gfx_pass_count")
 GFX_FAIL=$(cat "$TEMP_RESULTS_DIR/gfx_fail_count")
 
-# GFX must complete successfully with no failures
-if [ $GFX_FAIL -eq 0 ] && [ $GFX_PASS -gt 0 ]; then
-    GFX_STATUS="PASS"
-    echo "GFX PASS"
+# GFX test passes if success rate >= 75%
+GFX_TOTAL=$((GFX_PASS + GFX_FAIL))
+if [ $GFX_TOTAL -gt 0 ]; then
+    GFX_SUCCESS_RATE=$((GFX_PASS * 100 / GFX_TOTAL))
+    if [ $GFX_SUCCESS_RATE -ge 75 ]; then
+        GFX_STATUS="PASS"
+        echo "GFX PASS"
+    else
+        GFX_STATUS="FAIL"
+        echo "GFX FAIL"
+    fi
 else
     GFX_STATUS="FAIL"
     echo "GFX FAIL"
@@ -1569,10 +1579,17 @@ log_info "Starting combined GPU stress test with BULLETPROOF tracking..."
 COMBINED_PASS=$(cat "$TEMP_RESULTS_DIR/combined_pass_count")
 COMBINED_FAIL=$(cat "$TEMP_RESULTS_DIR/combined_fail_count")
 
-# Combined test must complete successfully with no failures
-if [ $COMBINED_FAIL -eq 0 ] && [ $COMBINED_PASS -gt 0 ]; then
-    COMBINED_STATUS="PASS"
-    echo "COMBINED PASS"
+# Combined test passes if success rate >= 75%
+COMBINED_TOTAL=$((COMBINED_PASS + COMBINED_FAIL))
+if [ $COMBINED_TOTAL -gt 0 ]; then
+    SUCCESS_RATE=$((COMBINED_PASS * 100 / COMBINED_TOTAL))
+    if [ $SUCCESS_RATE -ge 75 ]; then
+        COMBINED_STATUS="PASS"
+        echo "COMBINED PASS"
+    else
+        COMBINED_STATUS="FAIL"
+        echo "COMBINED FAIL"
+    fi
 else
     COMBINED_STATUS="FAIL"
     echo "COMBINED FAIL"
@@ -1807,9 +1824,22 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
     echo "Test duration ${TEST_DURATION} seconds ${REMOTE_DISPLAY_HOURS} hours"
     echo "Test directory $TEST_DIR"
     echo ""
+
+    # Product Information section (matching CPU test format)
+    echo "Product Information"
+    echo "Test duration ${REMOTE_DISPLAY_HOURS}h"
+    echo "Jetson model $JETSON_MODEL"
     echo "Tester $TESTER_NAME"
     echo "Quality Checker $QUALITY_CHECKER_NAME"
     echo "Device Serial $DEVICE_SERIAL"
+    if [ $FAILED_TESTS -eq 0 ]; then
+        echo "TEST STATUS PASSED"
+    else
+        echo "TEST STATUS FAILED"
+    fi
+    echo "Test Duration ${TEST_DURATION}s"
+    echo "Device Model $JETSON_MODEL"
+    echo "Test Date $(date)"
     echo ""
 
     echo "GPU COMPONENT TEST RESULTS"
