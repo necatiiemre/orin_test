@@ -627,8 +627,7 @@ class PDFReportGenerator:
         """
         elements = []
 
-        # Add appropriately-sized logo at top (if available)
-        # For portrait logos (like 1330x1774), limit height to fit on page
+        # Add large logo at center of page (no title)
         if self.logo_path and os.path.exists(self.logo_path):
             try:
                 from PIL import Image as PILImage
@@ -636,33 +635,27 @@ class PDFReportGenerator:
                     img_width, img_height = img.size
                     aspect_ratio = img_width / img_height
 
-                    # Determine logo size based on aspect ratio
-                    # For portrait logos (height > width), limit by height
-                    # For landscape logos (width > height), limit by width
+                    # Large centered logo for cover page
                     if img_height > img_width:
-                        # Portrait orientation - limit height to 1.8 inches
-                        cover_logo_height = 1.8 * inch
+                        # Portrait orientation - limit height to 3.5 inches
+                        cover_logo_height = 3.5 * inch
                         cover_logo_width = cover_logo_height * aspect_ratio
                     else:
-                        # Landscape orientation - limit width to 2.5 inches
-                        cover_logo_width = 2.5 * inch
+                        # Landscape orientation - limit width to 4 inches
+                        cover_logo_width = 4.0 * inch
                         cover_logo_height = cover_logo_width / aspect_ratio
 
                     # Center the logo
                     logo_img = Image(self.logo_path, width=cover_logo_width, height=cover_logo_height)
                     logo_img.hAlign = 'CENTER'
-                    elements.append(Spacer(1, 0.3 * inch))
+                    elements.append(Spacer(1, 1.0 * inch))
                     elements.append(logo_img)
-                    elements.append(Spacer(1, 0.3 * inch))
+                    elements.append(Spacer(1, 0.6 * inch))
             except Exception as e:
                 print(f"Warning: Could not load logo for cover page: {e}")
-                elements.append(Spacer(1, 1.0 * inch))
+                elements.append(Spacer(1, 2.0 * inch))
         else:
-            elements.append(Spacer(1, 1.0 * inch))
-
-        # Report Title - Large and prominent
-        elements.append(Paragraph(title, self.styles['CustomTitle']))
-        elements.append(Spacer(1, 0.4 * inch))
+            elements.append(Spacer(1, 2.0 * inch))
 
         # Extract key information for cover page
         # Use case-insensitive lookup for flexibility
