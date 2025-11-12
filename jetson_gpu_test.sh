@@ -538,13 +538,13 @@ declare -a VIDEO_BITRATES=(
 )
 
 {
-    echo "=== GPU VPU (Video Processing Unit) DETAILED Stress Test (v2.0) ==="
-    echo "Start time: $(date)"
-    echo "Duration: ${PHASE_GPU_VPU} seconds"
-    echo "Video patterns: ${#VIDEO_PATTERNS[@]} different patterns"
-    echo "Codecs: H.264 and H.265 (alternating)"
-    echo "Resolution: 4K ONLY (3840x2160)"
-    echo "Bitrates: ${VIDEO_BITRATES[@]}"
+    echo "GPU VPU Video Processing Unit Stress Test"
+    echo "Start time $(date)"
+    echo "Duration ${PHASE_GPU_VPU} seconds"
+    echo "Video patterns ${#VIDEO_PATTERNS[@]} different patterns"
+    echo "Codecs H264 and H265 alternating"
+    echo "Resolution 4K ONLY 3840x2160"
+    echo "Bitrates ${VIDEO_BITRATES[@]}"
     echo ""
 
     vpu_end_time=$(($(date +%s) + PHASE_GPU_VPU))
@@ -577,12 +577,12 @@ declare -a VIDEO_BITRATES=(
             video_file="$VIDEO_DIR/vpu_test_${video_count}_${pattern}_4K_H265.mp4"
         fi
 
-        echo "Encoding video $video_count:"
-        echo "  Pattern: $pattern"
-        echo "  Codec: ${codec^^}"
-        echo "  Resolution: $resolution (4K)"
-        echo "  Bitrate: $bitrate bps"
-        echo "  File: $(basename $video_file)"
+        echo "Encoding video $video_count"
+        echo "Pattern $pattern"
+        echo "Codec ${codec^^}"
+        echo "Resolution $resolution 4K"
+        echo "Bitrate $bitrate bps"
+        echo "File $(basename $video_file)"
 
         # Generate and encode using GStreamer with hardware acceleration
         if gst-launch-1.0 videotestsrc num-buffers=150 pattern="$pattern" ! \
@@ -593,10 +593,10 @@ declare -a VIDEO_BITRATES=(
            qtmux ! \
            filesink location="$video_file" >/dev/null 2>&1; then
 
-            echo "[+] Video $video_count (${codec^^}) encoded successfully"
+            echo "Video $video_count ${codec^^} encoded successfully"
             increment_vpu_pass  # BULLETPROOF tracking
         else
-            echo "[-] Video $video_count (${codec^^}) encoding failed"
+            echo "Video $video_count ${codec^^} encoding failed"
             increment_vpu_fail  # BULLETPROOF tracking
         fi
 
@@ -609,33 +609,34 @@ declare -a VIDEO_BITRATES=(
     VPU_FAIL=$(cat "$TEMP_RESULTS_DIR/vpu_fail_count")
 
     echo ""
-    echo "=== VPU DETAILED Test Results (v2.0) ==="
-    echo "Total 4K videos attempted: $((VPU_PASS + VPU_FAIL))"
-    echo "Successful encodings: $VPU_PASS"
-    echo "Failed encodings: $VPU_FAIL"
-    echo "H.264 encodings: $h264_count"
-    echo "H.265 encodings: $h265_count"
-    echo "Video patterns: ${#VIDEO_PATTERNS[@]} different patterns"
-    echo "Resolution: 4K ONLY (3840x2160)"
-    echo "Bitrates: ${#VIDEO_BITRATES[@]} different bitrates"
-    echo "Codecs tested: H.264 and H.265"
-    echo "End time: $(date)"
-    
+    echo "VPU Test Results"
+    echo "Total 4K videos attempted $((VPU_PASS + VPU_FAIL))"
+    echo "Successful encodings $VPU_PASS"
+    echo "Failed encodings $VPU_FAIL"
+    echo "H264 encodings $h264_count"
+    echo "H265 encodings $h265_count"
+    echo "Video patterns ${#VIDEO_PATTERNS[@]} different patterns"
+    echo "Resolution 4K ONLY 3840x2160"
+    echo "Bitrates ${#VIDEO_BITRATES[@]} different bitrates"
+    echo "Codecs tested H264 and H265"
+    echo "End time $(date)"
+
 } 2>&1 | tee "$LOG_DIR/01_gpu_vpu_stress.log"
 
-# VPU evaluation (same as v1.6)
+# VPU evaluation - metric-based PASS/FAIL
 VPU_PASS=$(cat "$TEMP_RESULTS_DIR/vpu_pass_count")
 VPU_FAIL=$(cat "$TEMP_RESULTS_DIR/vpu_fail_count")
 
-if [ $VPU_FAIL -eq 0 ] && [ $VPU_PASS -gt 0 ]; then
+# Expected video encoding rate: 0.45 videos per second
+EXPECTED_VIDEO_RATE="0.45"
+EXPECTED_VIDEOS=$(echo "$PHASE_GPU_VPU * $EXPECTED_VIDEO_RATE" | bc | awk '{print int($1)}')
+
+if [ $VPU_PASS -ge $EXPECTED_VIDEOS ]; then
     VPU_STATUS="PASS"
-    log_success "VPU stress test: PASSED ($VPU_PASS successful 4K encodings)"
-elif [ $VPU_PASS -gt $VPU_FAIL ] && [ $VPU_PASS -gt 0 ]; then
-    VPU_STATUS="PASS_WITH_WARNINGS"
-    log_warning "VPU stress test: PASSED with warnings ($VPU_PASS successful, $VPU_FAIL failed)"
+    echo "VPU PASS"
 else
     VPU_STATUS="FAIL"
-    log_error "VPU stress test: FAILED ($VPU_PASS successful, $VPU_FAIL failed)"
+    echo "VPU FAIL"
 fi
 
 # Save VPU results
@@ -647,9 +648,8 @@ fi
     echo "VPU_PATTERNS_USED=${#VIDEO_PATTERNS[@]}"
     echo "VPU_RESOLUTION=4K_ONLY"
     echo "VPU_BITRATES_USED=${#VIDEO_BITRATES[@]}"
+    echo "VPU_EXPECTED_VIDEOS=$EXPECTED_VIDEOS"
 } > "$REPORT_DIR/gpu_vpu_results.txt"
-
-log_info "VPU results saved: PASS=$VPU_PASS, FAIL=$VPU_FAIL, STATUS=$VPU_STATUS"
 
 ################################################################################
 # PHASE 2: GPU CUDA STRESS TEST (SAME AS v1.6)
@@ -1042,45 +1042,43 @@ if [ $CUDA_COMPILE_SUCCESS -eq 1 ]; then
     log_info "Running enhanced CUDA stress test for ${PHASE_GPU_CUDA} seconds..."
 
     {
-        echo "=== GPU CUDA DETAILED Stress Test (v2.0) ==="
-        echo "Start time: $(date)"
-        echo "Duration: ${PHASE_GPU_CUDA} seconds"
-        echo "Tests: Memory Bandwidth, FP32/FP64 Compute, Matrix Ops, Concurrent Execution"
+        echo "GPU CUDA Stress Test"
+        echo "Start time $(date)"
+        echo "Duration ${PHASE_GPU_CUDA} seconds"
+        echo "Tests Memory Bandwidth FP32 FP64 Compute Matrix Ops Concurrent Execution"
         echo ""
 
         cd "$CUDA_APP_DIR"
         if ./cuda_stress_detailed $PHASE_GPU_CUDA; then
             echo ""
-            echo "[+] CUDA detailed stress test completed successfully"
+            echo "CUDA stress test completed successfully"
             increment_cuda_pass  # BULLETPROOF tracking
         else
             echo ""
-            echo "[-] CUDA detailed stress test failed"
+            echo "CUDA stress test failed"
             increment_cuda_fail  # BULLETPROOF tracking
         fi
 
-        echo "End time: $(date)"
+        echo "End time $(date)"
 
     } 2>&1 | tee "$LOG_DIR/02_gpu_cuda_stress.log"
-    
+
 else
-    log_error "CUDA compilation failed, skipping CUDA stress test"
+    echo "CUDA compilation failed skipping CUDA stress test"
     increment_cuda_fail
 fi
 
-# CUDA evaluation (same as v1.6)
+# CUDA evaluation - metric-based PASS/FAIL
 CUDA_PASS=$(cat "$TEMP_RESULTS_DIR/cuda_pass_count")
 CUDA_FAIL=$(cat "$TEMP_RESULTS_DIR/cuda_fail_count")
 
-if [ $CUDA_PASS -eq 1 ]; then
+# CUDA must complete successfully
+if [ $CUDA_PASS -eq 1 ] && [ $CUDA_COMPILE_SUCCESS -eq 1 ]; then
     CUDA_STATUS="PASS"
-    log_success "CUDA stress test: PASSED"
-elif [ $CUDA_COMPILE_SUCCESS -eq 0 ]; then
-    CUDA_STATUS="FAIL_COMPILE"
-    log_error "CUDA stress test: FAILED (compilation error)"
+    echo "CUDA PASS"
 else
     CUDA_STATUS="FAIL"
-    log_error "CUDA stress test: FAILED (runtime error)"
+    echo "CUDA FAIL"
 fi
 
 # Save CUDA results
@@ -1090,8 +1088,6 @@ fi
     echo "CUDA_FAIL=$CUDA_FAIL"
     echo "CUDA_COMPILE_SUCCESS=$CUDA_COMPILE_SUCCESS"
 } > "$REPORT_DIR/gpu_cuda_results.txt"
-
-log_info "CUDA results saved: PASS=$CUDA_PASS, FAIL=$CUDA_FAIL, STATUS=$CUDA_STATUS"
 
 ################################################################################
 # PHASE 3: GPU GRAPHICS STRESS TEST - JETSON HEADLESS OPTIMIZED (NEW v1.7!)
@@ -1346,42 +1342,42 @@ log_info "Compiling EGL graphics stress application..."
 } > "$LOG_DIR/03_gpu_gfx_compile.log" 2>&1
 
 if [ $GRAPHICS_COMPILE_SUCCESS -eq 1 ]; then
-    log_info "Running EGL graphics stress test for ${PHASE_GPU_GFX} seconds..."
-    
+    echo "Running EGL graphics stress test for ${PHASE_GPU_GFX} seconds"
+
     {
-        echo "=== GPU Graphics (EGL) Stress Test (ULTIMATE v1.7) ==="
-        echo "Start time: $(date)"
-        echo "Duration: ${PHASE_GPU_GFX} seconds"
-        echo "Method: EGL headless rendering (Jetson optimized)"
+        echo "GPU Graphics EGL Stress Test"
+        echo "Start time $(date)"
+        echo "Duration ${PHASE_GPU_GFX} seconds"
+        echo "Method EGL headless rendering Jetson optimized"
         echo ""
-        
+
         cd "$GRAPHICS_APP_DIR"
         if ./egl_graphics_stress $PHASE_GPU_GFX; then
             echo ""
-            echo "[+] EGL graphics stress test completed successfully"
+            echo "EGL graphics stress test completed successfully"
             increment_gfx_pass  # BULLETPROOF tracking
         else
             echo ""
-            echo "[-] EGL graphics stress test failed"
+            echo "EGL graphics stress test failed"
             increment_gfx_fail  # BULLETPROOF tracking
         fi
-        
-        echo "End time: $(date)"
-        
+
+        echo "End time $(date)"
+
     } 2>&1 | tee "$LOG_DIR/03_gpu_gfx_stress.log"
-    
+
 else
-    log_error "EGL graphics compilation failed, running fallback GPU memory test..."
+    echo "EGL graphics compilation failed running fallback GPU memory test"
     
     # Fallback: GPU memory bandwidth test using CUDA
     {
-        echo "=== GPU Graphics Fallback Test (CUDA Memory Bandwidth) ==="
-        echo "Start time: $(date)"
-        echo "Duration: ${PHASE_GPU_GFX} seconds"
+        echo "GPU Graphics Fallback Test CUDA Memory Bandwidth"
+        echo "Start time $(date)"
+        echo "Duration ${PHASE_GPU_GFX} seconds"
         echo ""
-        
+
         if command -v nvidia-smi >/dev/null 2>&1; then
-            echo "Running GPU memory bandwidth stress test..."
+            echo "Running GPU memory bandwidth stress test"
             
             # Create simple CUDA memory test
             cat > "$GRAPHICS_APP_DIR/gpu_memory_test.cu" << 'GPU_MEMORY_EOF'
@@ -1430,35 +1426,33 @@ GPU_MEMORY_EOF
             
             cd "$GRAPHICS_APP_DIR"
             if nvcc -o gpu_memory_test gpu_memory_test.cu 2>/dev/null && ./gpu_memory_test $PHASE_GPU_GFX; then
-                echo "[+] GPU memory bandwidth test completed successfully"
+                echo "GPU memory bandwidth test completed successfully"
                 increment_gfx_pass  # BULLETPROOF tracking
             else
-                echo "[-] GPU memory bandwidth test failed"
+                echo "GPU memory bandwidth test failed"
                 increment_gfx_fail  # BULLETPROOF tracking
             fi
         else
-            echo "[-] No GPU tools available for fallback test"
+            echo "No GPU tools available for fallback test"
             increment_gfx_fail
         fi
-        
-        echo "End time: $(date)"
+
+        echo "End time $(date)"
         
     } 2>&1 | tee -a "$LOG_DIR/03_gpu_gfx_stress.log"
 fi
 
-# GFX evaluation
+# GFX evaluation - metric-based PASS/FAIL
 GFX_PASS=$(cat "$TEMP_RESULTS_DIR/gfx_pass_count")
 GFX_FAIL=$(cat "$TEMP_RESULTS_DIR/gfx_fail_count")
 
+# GFX must complete successfully with no failures
 if [ $GFX_FAIL -eq 0 ] && [ $GFX_PASS -gt 0 ]; then
     GFX_STATUS="PASS"
-    log_success "Graphics stress test: PASSED ($GFX_PASS successful operations)"
-elif [ $GFX_PASS -gt 0 ]; then
-    GFX_STATUS="PASS_WITH_WARNINGS"
-    log_warning "Graphics stress test: PASSED with warnings ($GFX_PASS successful, $GFX_FAIL failed)"
+    echo "GFX PASS"
 else
     GFX_STATUS="FAIL"
-    log_error "Graphics stress test: FAILED ($GFX_PASS successful, $GFX_FAIL failed)"
+    echo "GFX FAIL"
 fi
 
 # Save GFX results
@@ -1471,8 +1465,6 @@ fi
     echo "GFX_COMPILE_SUCCESS=$GRAPHICS_COMPILE_SUCCESS"
 } > "$REPORT_DIR/gpu_gfx_results.txt"
 
-log_info "GFX results saved: PASS=$GFX_PASS, FAIL=$GFX_FAIL, STATUS=$GFX_STATUS"
-
 ################################################################################
 # PHASE 4: GPU COMBINED STRESS TEST (UPDATED FOR v1.7)
 ################################################################################
@@ -1482,15 +1474,15 @@ log_phase "PHASE 4: GPU COMBINED STRESS TEST - ${PHASE_GPU_COMBINED} seconds"
 log_info "Starting combined GPU stress test with BULLETPROOF tracking..."
 
 {
-    echo "=== GPU Combined Stress Test (ULTIMATE v1.7) ==="
-    echo "Start time: $(date)"
-    echo "Duration: ${PHASE_GPU_COMBINED} seconds"
-    echo "Components: VPU (4K) + CUDA + Graphics (EGL)"
+    echo "GPU Combined Stress Test"
+    echo "Start time $(date)"
+    echo "Duration ${PHASE_GPU_COMBINED} seconds"
+    echo "Components VPU 4K CUDA Graphics EGL"
     echo ""
-    
+
     combined_end_time=$(($(date +%s) + PHASE_GPU_COMBINED - 15))
-    
-    echo "Starting simultaneous GPU workloads..."
+
+    echo "Starting simultaneous GPU workloads"
     
     # Start VPU encoding in background (4K videos)
     {
@@ -1561,30 +1553,28 @@ log_info "Starting combined GPU stress test with BULLETPROOF tracking..."
     # Read final results from temp files (BULLETPROOF!)
     COMBINED_PASS=$(cat "$TEMP_RESULTS_DIR/combined_pass_count")
     COMBINED_FAIL=$(cat "$TEMP_RESULTS_DIR/combined_fail_count")
-    
+
     echo ""
-    echo "=== Combined Test Results (BULLETPROOF TRACKING v1.7) ==="
-    echo "Graphics operations attempted: $((COMBINED_PASS + COMBINED_FAIL))"
-    echo "Successful operations: $COMBINED_PASS"
-    echo "Failed operations: $COMBINED_FAIL"
-    echo "Background VPU (4K) and CUDA tasks completed"
-    echo "End time: $(date)"
-    
+    echo "Combined Test Results"
+    echo "Graphics operations attempted $((COMBINED_PASS + COMBINED_FAIL))"
+    echo "Successful operations $COMBINED_PASS"
+    echo "Failed operations $COMBINED_FAIL"
+    echo "Background VPU 4K and CUDA tasks completed"
+    echo "End time $(date)"
+
 } 2>&1 | tee "$LOG_DIR/04_gpu_combined_stress.log"
 
-# Combined evaluation
+# Combined evaluation - metric-based PASS/FAIL
 COMBINED_PASS=$(cat "$TEMP_RESULTS_DIR/combined_pass_count")
 COMBINED_FAIL=$(cat "$TEMP_RESULTS_DIR/combined_fail_count")
 
+# Combined test must complete successfully with no failures
 if [ $COMBINED_FAIL -eq 0 ] && [ $COMBINED_PASS -gt 0 ]; then
     COMBINED_STATUS="PASS"
-    log_success "Combined GPU stress test: PASSED ($COMBINED_PASS successful operations)"
-elif [ $COMBINED_PASS -gt 0 ]; then
-    COMBINED_STATUS="PASS_WITH_WARNINGS"
-    log_warning "Combined GPU stress test: PASSED with warnings ($COMBINED_PASS successful, $COMBINED_FAIL failed)"
+    echo "COMBINED PASS"
 else
     COMBINED_STATUS="FAIL"
-    log_error "Combined GPU stress test: FAILED ($COMBINED_PASS successful, $COMBINED_FAIL failed)"
+    echo "COMBINED FAIL"
 fi
 
 # Save combined results
@@ -1594,8 +1584,6 @@ fi
     echo "COMBINED_FAIL=$COMBINED_FAIL"
     echo "COMBINED_TOTAL=$((COMBINED_PASS + COMBINED_FAIL))"
 } > "$REPORT_DIR/gpu_combined_results.txt"
-
-log_info "Combined results saved: PASS=$COMBINED_PASS, FAIL=$COMBINED_FAIL, STATUS=$COMBINED_STATUS"
 
 ################################################################################
 # ENHANCED MONITORING DATA ANALYSIS (v2.0)
@@ -1779,7 +1767,7 @@ PASSED_TESTS=0
 FAILED_TESTS=0
 
 # VPU results
-if [ "$VPU_STATUS" = "PASS" ] || [ "$VPU_STATUS" = "PASS_WITH_WARNINGS" ]; then
+if [ "$VPU_STATUS" = "PASS" ]; then
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
     FAILED_TESTS=$((FAILED_TESTS + 1))
@@ -1795,7 +1783,7 @@ fi
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
 # GFX results
-if [ "$GFX_STATUS" = "PASS" ] || [ "$GFX_STATUS" = "PASS_WITH_WARNINGS" ]; then
+if [ "$GFX_STATUS" = "PASS" ]; then
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
     FAILED_TESTS=$((FAILED_TESTS + 1))
@@ -1803,220 +1791,162 @@ fi
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
 # Combined results
-if [ "$COMBINED_STATUS" = "PASS" ] || [ "$COMBINED_STATUS" = "PASS_WITH_WARNINGS" ]; then
+if [ "$COMBINED_STATUS" = "PASS" ]; then
     PASSED_TESTS=$((PASSED_TESTS + 1))
 else
     FAILED_TESTS=$((FAILED_TESTS + 1))
 fi
 TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
-log_info "Final calculations: TOTAL=$TOTAL_TESTS, PASSED=$PASSED_TESTS, FAILED=$FAILED_TESTS"
-
 # Generate final comprehensive report
 {
-    echo "================================================================================"
-    echo "  JETSON ORIN GPU STRESS TEST - DETAILED FINAL REPORT (v2.0)"
-    echo "================================================================================"
+    echo "JETSON ORIN GPU STRESS TEST FINAL REPORT"
     echo ""
-    echo "Test completed: $(date)"
-    echo "Test duration: ${TEST_DURATION} seconds (${REMOTE_DISPLAY_HOURS} hours)"
-    echo "Test directory: $TEST_DIR"
-    echo "Script version: v2.0 DETAILED (Enhanced with multi-codec, power, throttling)"
+    echo "Test completed $(date)"
+    echo "Test duration ${TEST_DURATION} seconds ${REMOTE_DISPLAY_HOURS} hours"
+    echo "Test directory $TEST_DIR"
     echo ""
-    echo "Tester: $TESTER_NAME"
-    echo "Quality Checker: $QUALITY_CHECKER_NAME"
-    echo "Device Serial: $DEVICE_SERIAL"
+    echo "Tester $TESTER_NAME"
+    echo "Quality Checker $QUALITY_CHECKER_NAME"
+    echo "Device Serial $DEVICE_SERIAL"
     echo ""
 
-    echo "================================================================================"
-    echo "  GPU COMPONENT TEST RESULTS (DETAILED v2.0)"
-    echo "================================================================================"
+    echo "GPU COMPONENT TEST RESULTS"
     echo ""
 
     # VPU Results
-    echo "=== GPU VPU (Video Processing Unit) Results ==="
+    echo "GPU VPU Video Processing Unit Results"
     case "$VPU_STATUS" in
         "PASS")
-            echo "Status: [+] PASSED"
-            echo "All multi-codec 4K video encoding operations completed successfully"
-            ;;
-        "PASS_WITH_WARNINGS")
-            echo "Status: [!] PASSED (with warnings)"
-            echo "Most multi-codec 4K video encoding operations succeeded"
+            echo "Status PASS"
             ;;
         "FAIL")
-            echo "Status: [-] FAILED"
-            echo "Multi-codec 4K video encoding operations failed"
+            echo "Status FAIL"
             ;;
     esac
-    echo "Successful encodings: $VPU_PASS"
-    echo "Failed encodings: $VPU_FAIL"
-    echo "Codecs tested: H.264 and H.265"
-    echo "Resolution: 4K (3840x2160)"
+    echo "Successful encodings $VPU_PASS"
+    echo "Failed encodings $VPU_FAIL"
+    echo "Expected encodings $EXPECTED_VIDEOS"
+    echo "Codecs tested H264 and H265"
+    echo "Resolution 4K 3840x2160"
     echo ""
     
     # CUDA Results
-    echo "=== GPU CUDA (Compute) DETAILED Results ==="
+    echo "GPU CUDA Compute Results"
     case "$CUDA_STATUS" in
         "PASS")
-            echo "Status: [+] PASSED"
-            echo "Comprehensive CUDA test suite completed successfully"
-            echo "Tests executed:"
-            echo "  • Memory bandwidth tests (H2D, D2H, D2D)"
-            echo "  • FP32 compute performance"
-            echo "  • FP64 compute performance"
-            echo "  • Matrix operations (cuBLAS SGEMM)"
-            echo "  • Concurrent kernel execution"
-            ;;
-        "FAIL_COMPILE")
-            echo "Status: [-] FAILED (Compilation Error)"
+            echo "Status PASS"
             ;;
         "FAIL")
-            echo "Status: [-] FAILED (Runtime Error)"
+            echo "Status FAIL"
             ;;
     esac
-    echo "Execution success: $CUDA_PASS"
+    echo "Execution success $CUDA_PASS"
     echo ""
-    
-    # GFX Results (NEW v1.7)
-    echo "=== GPU Graphics (EGL Headless) Results ==="
+
+    # GFX Results
+    echo "GPU Graphics EGL Headless Results"
     case "$GFX_STATUS" in
         "PASS")
-            echo "Status: [+] PASSED"
-            echo "EGL headless graphics tests completed successfully"
-            ;;
-        "PASS_WITH_WARNINGS")
-            echo "Status: [!] PASSED (with warnings)"
-            echo "Most EGL graphics tests succeeded"
+            echo "Status PASS"
             ;;
         "FAIL")
-            echo "Status: [-] FAILED"
-            echo "EGL graphics tests failed"
+            echo "Status FAIL"
             ;;
     esac
-    echo "Successful operations: $GFX_PASS"
-    echo "Failed operations: $GFX_FAIL"
-    echo "Method: EGL headless rendering (Jetson optimized)"
+    echo "Successful operations $GFX_PASS"
+    echo "Failed operations $GFX_FAIL"
+    echo "Method EGL headless rendering Jetson optimized"
     echo ""
-    
+
     # Combined Results
-    echo "=== GPU Combined (All Components) Results ==="
+    echo "GPU Combined All Components Results"
     case "$COMBINED_STATUS" in
         "PASS")
-            echo "Status: [+] PASSED"
-            echo "All GPU components operated successfully under combined load"
-            ;;
-        "PASS_WITH_WARNINGS")
-            echo "Status: [!] PASSED (with warnings)"
-            echo "GPU handled combined load mostly well"
+            echo "Status PASS"
             ;;
         "FAIL")
-            echo "Status: [-] FAILED"
-            echo "GPU struggled under combined component load"
+            echo "Status FAIL"
             ;;
     esac
-    echo "Successful operations: $COMBINED_PASS"
-    echo "Failed operations: $COMBINED_FAIL"
-    echo "Components: VPU (4K) + CUDA + Graphics (EGL)"
+    echo "Successful operations $COMBINED_PASS"
+    echo "Failed operations $COMBINED_FAIL"
+    echo "Components VPU 4K CUDA Graphics EGL"
     echo ""
     
-    # Temperature and Power Results (v2.0)
-    echo "=== Thermal and Power Performance (v2.0) ==="
+    # Temperature and Power Results
+    echo "Thermal and Power Performance"
     if [ -f "$REPORT_DIR/temperature_power_results.txt" ]; then
         source "$REPORT_DIR/temperature_power_results.txt"
-        echo "CPU Temperature Range: ${CPU_MIN}°C - ${CPU_MAX}°C (Avg: ${CPU_AVG}°C)"
-        echo "GPU Temperature Range: ${GPU_MIN}°C - ${GPU_MAX}°C (Avg: ${GPU_AVG}°C)"
+        echo "CPU Temperature Range ${CPU_MIN}C ${CPU_MAX}C Avg ${CPU_AVG}C"
+        echo "GPU Temperature Range ${GPU_MIN}C ${GPU_MAX}C Avg ${GPU_AVG}C"
 
         # Show power data if available
         if [ "$POWER_MIN" != "N/A" ] && [ "$POWER_MIN" != "0.0" ]; then
-            echo "GPU Power Draw Range: ${POWER_MIN}W - ${POWER_MAX}W (Avg: ${POWER_AVG}W)"
+            echo "GPU Power Draw Range ${POWER_MIN}W ${POWER_MAX}W Avg ${POWER_AVG}W"
         else
-            echo "GPU Power Draw: Monitoring data not available"
+            echo "GPU Power Draw Monitoring data not available"
         fi
 
         # Show clock data if available
         if [ "$CLOCK_MIN" != "N/A" ] && [ "$CLOCK_MIN" != "0" ]; then
-            echo "GPU Clock Speed Range: ${CLOCK_MIN}MHz - ${CLOCK_MAX}MHz (Avg: ${CLOCK_AVG}MHz)"
+            echo "GPU Clock Speed Range ${CLOCK_MIN}MHz ${CLOCK_MAX}MHz Avg ${CLOCK_AVG}MHz"
         else
-            echo "GPU Clock Speed: Monitoring data not available"
+            echo "GPU Clock Speed Monitoring data not available"
         fi
 
         if [ "$GPU_MAX" != "N/A" ]; then
             if [ "$GPU_MAX" -le 80 ]; then
-                echo "Thermal Status: [+] EXCELLENT (GPU stayed well within safe limits)"
+                echo "Thermal Status EXCELLENT"
             elif [ "$GPU_MAX" -le 95 ]; then
-                echo "Thermal Status: [!] ACCEPTABLE (GPU reached warning threshold)"
+                echo "Thermal Status ACCEPTABLE"
             else
-                echo "Thermal Status: [-] CRITICAL (GPU exceeded safe limits)"
+                echo "Thermal Status CRITICAL"
             fi
         fi
     fi
 
-    # Throttling Results (v2.0) - Non-critical monitoring
+    # Throttling Results - Non-critical monitoring
     if [ -f "$REPORT_DIR/throttling_results.txt" ]; then
         source "$REPORT_DIR/throttling_results.txt"
         echo ""
-        echo "=== Thermal Throttling Detection (v2.0) ==="
+        echo "Thermal Throttling Detection"
         case "$THROTTLE_STATUS" in
             "NONE")
-                echo "Throttling Status: [+] NO THROTTLING DETECTED"
-                echo "GPU maintained full performance throughout testing"
+                echo "Throttling Status NO THROTTLING DETECTED"
                 ;;
             "MINIMAL")
-                echo "Throttling Status: [!] MINIMAL THROTTLING ($THROTTLE_EVENTS events)"
-                echo "Acceptable performance variation detected"
+                echo "Throttling Status MINIMAL THROTTLING $THROTTLE_EVENTS events"
                 ;;
             "SIGNIFICANT")
-                echo "Throttling Status: [-] SIGNIFICANT THROTTLING ($THROTTLE_EVENTS events)"
-                echo "GPU performance was limited by thermal constraints"
+                echo "Throttling Status SIGNIFICANT THROTTLING $THROTTLE_EVENTS events"
                 ;;
             "NO_DATA")
-                echo "Throttling Status: [INFO] Monitoring data not available (non-critical)"
-                echo "GPU frequency monitoring may require additional permissions"
+                echo "Throttling Status Monitoring data not available"
                 ;;
         esac
     fi
     echo ""
-    echo "NOTE: Throttling detection is supplementary monitoring."
-    echo "      GPU component test results (VPU/CUDA/GFX) determine overall pass/fail."
-    echo ""
 
-    echo "================================================================================"
-    echo "  FINAL GPU TEST RESULT (DETAILED v2.0)"
-    echo "================================================================================"
+    echo "FINAL GPU TEST RESULT"
     echo ""
-    echo "Total GPU Component Tests: $TOTAL_TESTS"
-    echo "Passed: $PASSED_TESTS"
-    echo "Failed: $FAILED_TESTS"
+    echo "Total GPU Component Tests $TOTAL_TESTS"
+    echo "Passed $PASSED_TESTS"
+    echo "Failed $FAILED_TESTS"
 
     if [ $TOTAL_TESTS -gt 0 ]; then
         SUCCESS_RATE=$((PASSED_TESTS * 100 / TOTAL_TESTS))
-        echo "Overall Success Rate: ${SUCCESS_RATE}%"
+        echo "Overall Success Rate ${SUCCESS_RATE}%"
         echo ""
 
         if [ $FAILED_TESTS -eq 0 ]; then
-            echo "[+] RESULT: ALL GPU COMPONENT TESTS PASSED"
-            echo "   Your Jetson Orin's GPU is performing excellently!"
-            echo "   All enhanced tests passed:"
-            echo "   • VPU (Multi-codec H.264/H.265 4K encoding)"
-            echo "   • CUDA (Memory bandwidth, FP32/FP64, matrix ops, concurrency)"
-            echo "   • Graphics (EGL headless rendering)"
-            echo "   • Combined stress (All components simultaneously)"
-            echo "   [*] v2.0 DETAILED: Enhanced with comprehensive metrics!"
-        elif [ $SUCCESS_RATE -ge 80 ]; then
-            echo "[+] RESULT: ACCEPTABLE GPU PERFORMANCE"
-            echo "   Most GPU components passed detailed testing."
-            echo "   [*] v2.0 DETAILED: Comprehensive multi-test validation complete!"
+            echo "RESULT PASS"
         else
-            echo "[!] RESULT: GPU NEEDS ATTENTION"
-            echo "   Multiple GPU components failed detailed testing."
-            echo "   [*] v2.0 DETAILED: Review component-specific logs for details!"
+            echo "RESULT FAIL"
         fi
     fi
     echo ""
-    echo "================================================================================"
-    echo ""
-    echo "Report generated: $(date)"
+    echo "Report generated $(date)"
 
 } | tee "$REPORT_DIR/FINAL_GPU_REPORT.txt"
 
