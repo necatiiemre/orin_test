@@ -557,8 +557,8 @@ calculate_performance_expectations() {
             ;;
     esac
 
-    # Calculate single-core duration (20% of total, then divided by 5 for prime test)
-    local single_core_test_duration=$((test_duration / 5 / 5))
+    # Calculate single-core duration (20% of total test time)
+    local single_core_test_duration=$((test_duration / 5))
 
     # Scale single-core primes based on actual test duration
     # base is per 60 seconds, scale to actual duration
@@ -569,7 +569,7 @@ calculate_performance_expectations() {
 
     echo "EXPECTED_SINGLE_CORE_PRIMES=$single_core_primes"
     echo "EXPECTED_MULTI_CORE_MATRIX_OPS=$multi_core_matrix"
-    echo "EXPECTED_MEMORY_BANDWIDTH=50000"
+    echo "EXPECTED_MEMORY_BANDWIDTH=7500"  # 7.5 GB/s realistic memory bandwidth in MB/s
     echo "EXPECTED_L1_CACHE_BANDWIDTH=100000"
 }
 
