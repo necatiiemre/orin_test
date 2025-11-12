@@ -748,12 +748,30 @@ fi
 
 echo ""
 echo "================================================================================"
-echo "  CORRECTED RAM TEST COMPLETED"
+echo "  JETSON ORIN RAM TEST FINAL REPORT"
 echo "================================================================================"
 echo ""
+echo "Test completed: $(date)"
+echo "Test directory: $LOG_DIR"
+echo ""
+echo "================================================================================"
+echo "  Product Information"
+echo "================================================================================"
+echo "Test duration: ${TEST_DURATION_HOURS}h"
+echo "Jetson model: $(cat /proc/device-tree/model 2>/dev/null | tr -d '\0' || echo 'Unknown')"
 echo "Tester: $TESTER_NAME"
 echo "Quality Checker: $QUALITY_CHECKER_NAME"
 echo "Device Serial: $DEVICE_SERIAL"
+if [ $RAM_TEST_RESULT -eq 0 ]; then
+    echo "TEST STATUS: PASSED"
+else
+    echo "TEST STATUS: FAILED"
+fi
+echo "Test Date: $(date)"
+echo ""
+echo "================================================================================"
+echo "  RAM TEST RESULTS"
+echo "================================================================================"
 echo ""
 
 if [ $RAM_TEST_RESULT -eq 0 ]; then
