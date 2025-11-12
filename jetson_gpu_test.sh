@@ -1815,121 +1815,124 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
 
 # Generate final comprehensive report
 {
-    echo "JETSON ORIN GPU STRESS TEST FINAL REPORT"
+    echo "================================================================================"
+    echo "  JETSON ORIN GPU STRESS TEST FINAL REPORT"
+    echo "================================================================================"
     echo ""
-    echo "Test completed $(date)"
-    echo "Test duration ${TEST_DURATION} seconds ${REMOTE_DISPLAY_HOURS} hours"
-    echo "Test directory $TEST_DIR"
+    echo "Test completed: $(date)"
+    echo "Test duration: ${TEST_DURATION} seconds (${REMOTE_DISPLAY_HOURS} hours)"
+    echo "Test directory: $TEST_DIR"
     echo ""
-
-    # Product Information section (matching CPU test format)
-    echo "Product Information"
-    echo "Test duration ${REMOTE_DISPLAY_HOURS}h"
-    echo "Jetson model $JETSON_MODEL"
-    echo "Tester $TESTER_NAME"
-    echo "Quality Checker $QUALITY_CHECKER_NAME"
-    echo "Device Serial $DEVICE_SERIAL"
+    echo "================================================================================"
+    echo "  Product Information"
+    echo "================================================================================"
+    echo "Test duration: ${REMOTE_DISPLAY_HOURS}h"
+    echo "Jetson model: $JETSON_MODEL"
+    echo "Tester: $TESTER_NAME"
+    echo "Quality Checker: $QUALITY_CHECKER_NAME"
+    echo "Device Serial: $DEVICE_SERIAL"
     if [ $FAILED_TESTS -eq 0 ]; then
-        echo "TEST STATUS PASSED"
+        echo "TEST STATUS: PASSED"
     else
-        echo "TEST STATUS FAILED"
+        echo "TEST STATUS: FAILED"
     fi
-    echo "Test Duration ${TEST_DURATION}s"
-    echo "Device Model $JETSON_MODEL"
-    echo "Test Date $(date)"
+    echo "Test Duration: ${TEST_DURATION}s"
+    echo "Device Model: $JETSON_MODEL"
+    echo "Test Date: $(date)"
     echo ""
-
-    echo "GPU COMPONENT TEST RESULTS"
+    echo "================================================================================"
+    echo "  GPU COMPONENT TEST RESULTS"
+    echo "================================================================================"
     echo ""
 
     # VPU Results
-    echo "GPU VPU Video Processing Unit Results"
+    echo "[GPU VPU - Video Processing Unit Results]"
     case "$VPU_STATUS" in
         "PASS")
-            echo "Status PASS"
+            echo "Status: PASS"
             ;;
         "FAIL")
-            echo "Status FAIL"
+            echo "Status: FAIL"
             ;;
     esac
-    echo "Successful encodings $VPU_PASS"
-    echo "Failed encodings $VPU_FAIL"
-    echo "Expected encodings $EXPECTED_VIDEOS"
-    echo "Codecs tested H264 and H265"
-    echo "Resolution 4K 3840x2160"
+    echo "Successful encodings: $VPU_PASS"
+    echo "Failed encodings: $VPU_FAIL"
+    echo "Expected encodings: $EXPECTED_VIDEOS"
+    echo "Codecs tested: H.264 and H.265"
+    echo "Resolution: 4K (3840x2160)"
     echo ""
-    
+
     # CUDA Results
-    echo "GPU CUDA Compute Results"
+    echo "[GPU CUDA - Compute Results]"
     case "$CUDA_STATUS" in
         "PASS")
-            echo "Status PASS"
+            echo "Status: PASS"
             ;;
         "FAIL")
-            echo "Status FAIL"
+            echo "Status: FAIL"
             ;;
     esac
-    echo "Execution success $CUDA_PASS"
+    echo "Execution success: $CUDA_PASS"
     echo ""
 
     # GFX Results
-    echo "GPU Graphics EGL Headless Results"
+    echo "[GPU Graphics - EGL Headless Results]"
     case "$GFX_STATUS" in
         "PASS")
-            echo "Status PASS"
+            echo "Status: PASS"
             ;;
         "FAIL")
-            echo "Status FAIL"
+            echo "Status: FAIL"
             ;;
     esac
-    echo "Successful operations $GFX_PASS"
-    echo "Failed operations $GFX_FAIL"
-    echo "Method EGL headless rendering Jetson optimized"
+    echo "Successful operations: $GFX_PASS"
+    echo "Failed operations: $GFX_FAIL"
+    echo "Method: EGL headless rendering (Jetson optimized)"
     echo ""
 
     # Combined Results
-    echo "GPU Combined All Components Results"
+    echo "[GPU Combined - All Components Results]"
     case "$COMBINED_STATUS" in
         "PASS")
-            echo "Status PASS"
+            echo "Status: PASS"
             ;;
         "FAIL")
-            echo "Status FAIL"
+            echo "Status: FAIL"
             ;;
     esac
-    echo "Successful operations $COMBINED_PASS"
-    echo "Failed operations $COMBINED_FAIL"
-    echo "Components VPU 4K CUDA Graphics EGL"
+    echo "Successful operations: $COMBINED_PASS"
+    echo "Failed operations: $COMBINED_FAIL"
+    echo "Components: VPU (4K) + CUDA + Graphics (EGL)"
     echo ""
     
     # Temperature and Power Results
-    echo "Thermal and Power Performance"
+    echo "[Thermal and Power Performance]"
     if [ -f "$REPORT_DIR/temperature_power_results.txt" ]; then
         source "$REPORT_DIR/temperature_power_results.txt"
-        echo "CPU Temperature Range ${CPU_MIN}C ${CPU_MAX}C Avg ${CPU_AVG}C"
-        echo "GPU Temperature Range ${GPU_MIN}C ${GPU_MAX}C Avg ${GPU_AVG}C"
+        echo "CPU Temperature Range: ${CPU_MIN}°C - ${CPU_MAX}°C (Avg: ${CPU_AVG}°C)"
+        echo "GPU Temperature Range: ${GPU_MIN}°C - ${GPU_MAX}°C (Avg: ${GPU_AVG}°C)"
 
         # Show power data if available
         if [ "$POWER_MIN" != "N/A" ] && [ "$POWER_MIN" != "0.0" ]; then
-            echo "GPU Power Draw Range ${POWER_MIN}W ${POWER_MAX}W Avg ${POWER_AVG}W"
+            echo "GPU Power Draw Range: ${POWER_MIN}W - ${POWER_MAX}W (Avg: ${POWER_AVG}W)"
         else
-            echo "GPU Power Draw Monitoring data not available"
+            echo "GPU Power Draw: Monitoring data not available"
         fi
 
         # Show clock data if available
         if [ "$CLOCK_MIN" != "N/A" ] && [ "$CLOCK_MIN" != "0" ]; then
-            echo "GPU Clock Speed Range ${CLOCK_MIN}MHz ${CLOCK_MAX}MHz Avg ${CLOCK_AVG}MHz"
+            echo "GPU Clock Speed Range: ${CLOCK_MIN}MHz - ${CLOCK_MAX}MHz (Avg: ${CLOCK_AVG}MHz)"
         else
-            echo "GPU Clock Speed Monitoring data not available"
+            echo "GPU Clock Speed: Monitoring data not available"
         fi
 
         if [ "$GPU_MAX" != "N/A" ]; then
             if [ "$GPU_MAX" -le 80 ]; then
-                echo "Thermal Status EXCELLENT"
+                echo "Thermal Status: EXCELLENT"
             elif [ "$GPU_MAX" -le 95 ]; then
-                echo "Thermal Status ACCEPTABLE"
+                echo "Thermal Status: ACCEPTABLE"
             else
-                echo "Thermal Status CRITICAL"
+                echo "Thermal Status: CRITICAL"
             fi
         fi
     fi
@@ -1938,43 +1941,44 @@ TOTAL_TESTS=$((TOTAL_TESTS + 1))
     if [ -f "$REPORT_DIR/throttling_results.txt" ]; then
         source "$REPORT_DIR/throttling_results.txt"
         echo ""
-        echo "Thermal Throttling Detection"
+        echo "[Thermal Throttling Detection]"
         case "$THROTTLE_STATUS" in
             "NONE")
-                echo "Throttling Status NO THROTTLING DETECTED"
+                echo "Throttling Status: NO THROTTLING DETECTED"
                 ;;
             "MINIMAL")
-                echo "Throttling Status MINIMAL THROTTLING $THROTTLE_EVENTS events"
+                echo "Throttling Status: MINIMAL THROTTLING ($THROTTLE_EVENTS events)"
                 ;;
             "SIGNIFICANT")
-                echo "Throttling Status SIGNIFICANT THROTTLING $THROTTLE_EVENTS events"
+                echo "Throttling Status: SIGNIFICANT THROTTLING ($THROTTLE_EVENTS events)"
                 ;;
             "NO_DATA")
-                echo "Throttling Status Monitoring data not available"
+                echo "Throttling Status: Monitoring data not available"
                 ;;
         esac
     fi
     echo ""
-
-    echo "FINAL GPU TEST RESULT"
+    echo "================================================================================"
+    echo "  FINAL GPU TEST RESULT"
+    echo "================================================================================"
     echo ""
-    echo "Total GPU Component Tests $TOTAL_TESTS"
-    echo "Passed $PASSED_TESTS"
-    echo "Failed $FAILED_TESTS"
+    echo "Total GPU Component Tests: $TOTAL_TESTS"
+    echo "Passed: $PASSED_TESTS"
+    echo "Failed: $FAILED_TESTS"
 
     if [ $TOTAL_TESTS -gt 0 ]; then
         SUCCESS_RATE=$((PASSED_TESTS * 100 / TOTAL_TESTS))
-        echo "Overall Success Rate ${SUCCESS_RATE}%"
+        echo "Overall Success Rate: ${SUCCESS_RATE}%"
         echo ""
 
         if [ $FAILED_TESTS -eq 0 ]; then
-            echo "RESULT PASS"
+            echo "RESULT: PASS"
         else
-            echo "RESULT FAIL"
+            echo "RESULT: FAIL"
         fi
     fi
     echo ""
-    echo "Report generated $(date)"
+    echo "Report generated: $(date)"
 
 } | tee "$REPORT_DIR/FINAL_GPU_REPORT.txt"
 
