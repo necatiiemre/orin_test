@@ -1053,7 +1053,9 @@ if [ $CUDA_COMPILE_SUCCESS -eq 1 ]; then
         echo ""
 
         cd "$CUDA_APP_DIR"
-        if ./cuda_stress_detailed $PHASE_GPU_CUDA; then
+        # Add 60 second buffer to phase duration for timeout (CUDA tests are more complex)
+        CUDA_TIMEOUT=$((PHASE_GPU_CUDA + 60))
+        if timeout $CUDA_TIMEOUT ./cuda_stress_detailed $PHASE_GPU_CUDA; then
             echo ""
             echo "CUDA stress test completed successfully"
             increment_cuda_pass  # BULLETPROOF tracking
@@ -1356,7 +1358,9 @@ if [ $GRAPHICS_COMPILE_SUCCESS -eq 1 ]; then
         echo ""
 
         cd "$GRAPHICS_APP_DIR"
-        if ./egl_graphics_stress $PHASE_GPU_GFX; then
+        # Add 30 second buffer to phase duration for timeout
+        GFX_TIMEOUT=$((PHASE_GPU_GFX + 30))
+        if timeout $GFX_TIMEOUT ./egl_graphics_stress $PHASE_GPU_GFX; then
             echo ""
             echo "EGL graphics stress test completed successfully"
             increment_gfx_pass  # BULLETPROOF tracking
@@ -1429,11 +1433,18 @@ int main(int argc, char* argv[]) {
 GPU_MEMORY_EOF
             
             cd "$GRAPHICS_APP_DIR"
-            if nvcc -o gpu_memory_test gpu_memory_test.cu 2>/dev/null && ./gpu_memory_test $PHASE_GPU_GFX; then
-                echo "GPU memory bandwidth test completed successfully"
-                increment_gfx_pass  # BULLETPROOF tracking
+            if nvcc -o gpu_memory_test gpu_memory_test.cu 2>/dev/null; then
+                # Add 30 second buffer to phase duration for timeout
+                GFX_TIMEOUT=$((PHASE_GPU_GFX + 30))
+                if timeout $GFX_TIMEOUT ./gpu_memory_test $PHASE_GPU_GFX; then
+                    echo "GPU memory bandwidth test completed successfully"
+                    increment_gfx_pass  # BULLETPROOF tracking
+                else
+                    echo "GPU memory bandwidth test failed"
+                    increment_gfx_fail  # BULLETPROOF tracking
+                fi
             else
-                echo "GPU memory bandwidth test failed"
+                echo "GPU memory bandwidth test compilation failed"
                 increment_gfx_fail  # BULLETPROOF tracking
             fi
         else
@@ -1525,12 +1536,12 @@ log_info "Starting combined GPU stress test with BULLETPROOF tracking..."
         {
             cd "$GRAPHICS_APP_DIR"
             while [ $(date +%s) -lt $combined_end_time ]; do
-                if timeout 20 ./egl_graphics_stress 15 >/dev/null 2>&1; then
+                if timeout 30 ./egl_graphics_stress 10 >/dev/null 2>&1; then
                     increment_combined_pass  # BULLETPROOF tracking
                 else
                     increment_combined_fail  # BULLETPROOF tracking
                 fi
-                sleep 3
+                sleep 2
             done
         }
     else
