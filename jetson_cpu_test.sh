@@ -51,11 +51,11 @@ TEST_DURATION=$(echo "$TEST_DURATION_HOURS * 3600" | bc | cut -d'.' -f1)  # Conv
 LOG_DIR="${5:-./cpu_ultra_test_$(date +%Y%m%d_%H%M%S)}"
 
 # Dynamic CPU core detection - get REAL physical cores, not hyperthreads
-echo "[*] Detecting CPU cores..."
+echo "Detecting CPU cores..."
 CPU_CORES=$(get_physical_cores "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS")
 echo "  • Detected cores: $CPU_CORES"
 
-echo "[*] Detecting Jetson model..."
+echo "Detecting Jetson model..."
 JETSON_MODEL=$(detect_jetson_model "$ORIN_IP" "$ORIN_USER" "$ORIN_PASS")
 echo "  • Model: $JETSON_MODEL"
 
@@ -63,7 +63,7 @@ TEMP_THRESHOLD_WARNING=80
 TEMP_THRESHOLD_CRITICAL=95
 
 # Calculate realistic performance expectations based on detected system
-echo "[*] Calculating performance expectations..."
+echo "Calculating performance expectations..."
 eval $(calculate_performance_expectations "$CPU_CORES" "$JETSON_MODEL" "$TEST_DURATION")
 echo "  • Single-core target: $EXPECTED_SINGLE_CORE_PRIMES primes (scaled for test duration)"
 echo "  • Multi-core target: $EXPECTED_MULTI_CORE_MATRIX_OPS ops/sec"
@@ -169,7 +169,7 @@ fi
 
 log_phase "JETSON ORIN ULTRA COMPREHENSIVE CPU STRESS TEST"
 
-echo "[ULTRA CPU STRESS CONFIGURATION]"
+echo "ULTRA CPU STRESS CONFIGURATION"
 echo "  • Target Device: $ORIN_IP"
 echo "  • Jetson Model: $JETSON_MODEL"
 echo "  • Test Duration: $(format_duration $TEST_DURATION)"
@@ -2005,9 +2005,9 @@ get_cpu_temp() {
 check_thermal_throttling() {
     local current_temp=$(get_cpu_temp)
     if [ "$current_temp" != "N/A" ] && [ "$current_temp" -gt $TEMP_THRESHOLD_WARNING ]; then
-        echo "[!] WARNING: Temperature $current_temp°C exceeds warning threshold ($TEMP_THRESHOLD_WARNING°C)"
+        echo "WARNING: Temperature $current_temp°C exceeds warning threshold ($TEMP_THRESHOLD_WARNING°C)"
         if [ "$current_temp" -gt $TEMP_THRESHOLD_CRITICAL ]; then
-            echo "[!!] CRITICAL: Temperature $current_temp°C exceeds critical threshold ($TEMP_THRESHOLD_CRITICAL°C)"
+            echo "CRITICAL: Temperature $current_temp°C exceeds critical threshold ($TEMP_THRESHOLD_CRITICAL°C)"
             return 1
         fi
     fi
@@ -2185,14 +2185,14 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
         echo "  CPU TEST ASSESSMENT"
         echo "================================================================================"
         echo ""
-        echo "[*] TEST STATUS: $TEST_STATUS"
+        echo "TEST STATUS: $TEST_STATUS"
         echo ""
-        echo "[DETAILED METRICS]"
+        echo "DETAILED METRICS"
         echo "  • Peak Temperature: ${MAX_TEMP_DETECTED}°C"
         echo "  • Throttling Events: $THERMAL_VIOLATIONS"
         echo ""
     else
-        echo "[-] ERROR: Ultra CPU test results not available"
+        echo "ERROR: Ultra CPU test results not available"
         echo "Test may have failed or been interrupted"
     fi
 
@@ -2208,7 +2208,7 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
 
     if [ -f "$LOG_DIR/reports/cpu_temperature_results.txt" ]; then
         source "$LOG_DIR/reports/cpu_temperature_results.txt"
-        echo "[THERMAL ANALYSIS DURING TESTING]"
+        echo "THERMAL ANALYSIS DURING TESTING"
         echo "  • CPU Temperature Range: ${CPU_MIN}°C - ${CPU_MAX}°C (Avg: ${CPU_AVG}°C)"
         echo "  • GPU Temperature Range: ${GPU_MIN}°C - ${GPU_MAX}°C (Avg: ${GPU_AVG}°C)"
     fi
@@ -2218,7 +2218,7 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
     echo "  FILES AND REPORTS GENERATED"
     echo "================================================================================"
     echo ""
-    echo "[Main Reports]"
+    echo "Main Reports"
     echo "  • Ultra CPU Report: $LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
     echo "  • Unified CPU Test Results: $LOG_DIR/cpu_test_results.log"
     echo "  • Detailed Test Log: $LOG_DIR/logs/ultra_cpu_stress.log"
@@ -2241,13 +2241,13 @@ generate_temperature_analysis "$LOG_DIR/logs/cpu_temperature.csv" "$LOG_DIR/repo
 # COMPLETION
 ################################################################################
 
-log_success "[+] Ultra comprehensive CPU stress test completed successfully!"
+log_success "Ultra comprehensive CPU stress test completed successfully!"
 echo ""
-echo "[*] Results Directory: $LOG_DIR"
-echo "[*] Ultra Report: $LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
-echo "[*] Unified CPU Test Results: $LOG_DIR/cpu_test_results.log"
-echo "[*] Detailed Log: $LOG_DIR/logs/ultra_cpu_stress.log"
-echo "[*] Temperature Data: $LOG_DIR/logs/cpu_temperature.csv"
+echo "Results Directory: $LOG_DIR"
+echo "Ultra Report: $LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
+echo "Unified CPU Test Results: $LOG_DIR/cpu_test_results.log"
+echo "Detailed Log: $LOG_DIR/logs/ultra_cpu_stress.log"
+echo "Temperature Data: $LOG_DIR/logs/cpu_temperature.csv"
 echo ""
 
 # Display quick health summary
@@ -2257,13 +2257,13 @@ if [ -f "$LOG_DIR/reports/ultra_cpu_results.txt" ]; then
     echo "  QUICK TEST SUMMARY"
     echo "================================================================================"
     echo ""
-    echo "[*] TEST STATUS: $TEST_STATUS"
-    echo "[*] JETSON MODEL: $JETSON_MODEL"
-    echo "[*] Peak Temperature: ${MAX_TEMP_DETECTED}°C"
-    echo "[*] Physical CPU Cores Tested: $CPU_CORES"
+    echo "TEST STATUS: $TEST_STATUS"
+    echo "JETSON MODEL: $JETSON_MODEL"
+    echo "Peak Temperature: ${MAX_TEMP_DETECTED}°C"
+    echo "Physical CPU Cores Tested: $CPU_CORES"
     echo ""
-    echo "[*] View complete report: cat $LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
-    echo "[*] View CPU test results: cat $LOG_DIR/cpu_test_results.log"
+    echo "View complete report: cat $LOG_DIR/reports/ULTRA_CPU_FINAL_REPORT.txt"
+    echo "View CPU test results: cat $LOG_DIR/cpu_test_results.log"
 fi
 
 ################################################################################
@@ -2292,7 +2292,7 @@ fi
 if [ -f "$PDF_GENERATOR" ]; then
     if "$PDF_GENERATOR" --test-type cpu $LOGO_OPTS "$LOG_DIR" > /dev/null 2>&1; then
         log_success "PDF reports generated successfully"
-        echo "[*] PDF Reports: $LOG_DIR/pdf_reports/cpu/"
+        echo "PDF Reports: $LOG_DIR/pdf_reports/cpu/"
     else
         log_warning "PDF generation failed (test results still available)"
     fi
