@@ -291,7 +291,7 @@ if [ -f "$LOG_DIR/reports/comprehensive_results.txt" ]; then
     # Get Jetson model
     JETSON_MODEL=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "cat /proc/device-tree/model 2>/dev/null | tr -d '\0'" 2>/dev/null || echo "Unknown")
 
-    # Generate comprehensive report with cover page information
+    # Generate comprehensive report with cover page information and phase-by-phase results
     cat > "$LOG_DIR/reports/RAM_COMPREHENSIVE_TEST_REPORT.txt" << REPORT_EOF
 =========================================================================================
    COMPREHENSIVE RAM TEST REPORT
@@ -314,68 +314,111 @@ Total Memory Tested: ${MEMORY_MB:-0} MB
 Total Operations: ${TOTAL_OPERATIONS:-0}
 Total Errors Detected: ${TOTAL_ERRORS:-0}
 
------------------------------------------------------------------------------------------
-   TEST METHODS EXECUTED
------------------------------------------------------------------------------------------
-
-This comprehensive RAM test suite includes the following professional-grade methods:
-
-✓ ECC Error Monitoring
-  - Detects correctable and uncorrectable memory errors
-  - Monitors memory controller error counters
-
-✓ Address Line Testing
-  - Tests for stuck or shorted address lines
-  - Walking bit patterns across address space
-  - Errors Detected: ${ADDRESS_LINE_ERRORS:-0}
-
-✓ Row Hammer Detection
-  - Tests for bit flip vulnerabilities
-  - Rapid access patterns to stress DRAM rows
-  - Errors Detected: ${ROW_HAMMER_ERRORS:-0}
-
-✓ Memory Controller Bandwidth Stress
-  - Sequential read/write operations
-  - Random access patterns
-  - Errors Detected: ${BANDWIDTH_ERRORS:-0}
-
-✓ JEDEC Standard Patterns
-  - MATS+ (Modified Algorithm Test Sequence)
-  - March C- Algorithm
-  - Errors Detected: ${JEDEC_ERRORS:-0}
-
-✓ Walking Bit Patterns
-  - Detects stuck or weak bits
-  - Walking 1s and walking 0s patterns
-  - Errors Detected: ${WALKING_BITS_ERRORS:-0}
-
------------------------------------------------------------------------------------------
-   TEST RESULTS
------------------------------------------------------------------------------------------
-
-Test Method                    | Expected        | Actual          | Status
------------------------------------------------------------------------------------------
 $(if [ -n "$ECC_CORRECTABLE" ]; then
-    STATUS=$([ "${ECC_UNCORRECTABLE:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
-    echo "ECC Monitoring                     | 0 UE            | ${ECC_UNCORRECTABLE:-0} UE          | $STATUS"
+cat << ECC_PHASE
+================================================================================
+PHASE 0: ECC Error Monitoring
+================================================================================
+
+Test Details:
+- ECC support detected and monitored throughout all test phases
+- Monitors both correctable and uncorrectable memory errors
+- Real-time error counter tracking
+
+Test Results:
+Test Method                    | Expected        | Actual          | Status
+--------------------------------------------------------------------------------
+ECC Correctable Errors         | 0 errors        | ${ECC_CORRECTABLE:-0} errors        | $([ "${ECC_CORRECTABLE:-0}" -eq 0 ] && echo "PASS" || echo "INFO")
+ECC Uncorrectable Errors       | 0 errors        | ${ECC_UNCORRECTABLE:-0} errors      | $([ "${ECC_UNCORRECTABLE:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+
+ECC_PHASE
 fi)
-Address Line Test                  | 0 errors        | ${ADDRESS_LINE_ERRORS:-0} errors        | $([ "${ADDRESS_LINE_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
-Walking Bit Patterns               | 0 errors        | ${WALKING_BITS_ERRORS:-0} errors        | $([ "${WALKING_BITS_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
-JEDEC Patterns                     | 0 errors        | ${JEDEC_ERRORS:-0} errors        | $([ "${JEDEC_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
-Memory Bandwidth                   | Min 1000 MB/s   | ${BANDWIDTH_MBPS:-0} MB/s    | $([ "${BANDWIDTH_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
-Row Hammer Test                    | 0 bit flips     | ${ROW_HAMMER_ERRORS:-0} bit flips    | $([ "${ROW_HAMMER_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
------------------------------------------------------------------------------------------
 
-[DETAILED BANDWIDTH METRICS]
+================================================================================
+PHASE 1: Address Line Testing
+================================================================================
 
-Write Bandwidth:  ${WRITE_MBPS:-N/A} MB/s
-Read Bandwidth:   ${READ_MBPS:-N/A} MB/s
-Random Access:    ${RANDOM_MBPS:-N/A} MB/s
-Overall:          ${BANDWIDTH_MBPS:-N/A} MB/s
+Test Details:
+- Memory tested: 200 MB (or 25% of total, whichever is smaller)
+- Tests for stuck or shorted address lines
+- Walking 1s and walking 0s across address space
+- Verifies each address bit can be set and cleared independently
 
------------------------------------------------------------------------------------------
-   CONCLUSION
------------------------------------------------------------------------------------------
+Test Results:
+Test Method                    | Expected        | Actual          | Status
+--------------------------------------------------------------------------------
+Address Line Test              | 0 errors        | ${ADDRESS_LINE_ERRORS:-0} errors        | $([ "${ADDRESS_LINE_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+
+================================================================================
+PHASE 2: Walking Bit Patterns
+================================================================================
+
+Test Details:
+- Memory tested: 200 MB (or 25% of total, whichever is smaller)
+- 128 different bit patterns tested (64 walking 1s + 64 walking 0s)
+- Each bit position tested individually
+- Detects stuck or weak bits in memory cells
+
+Test Results:
+Test Method                    | Expected        | Actual          | Status
+--------------------------------------------------------------------------------
+Walking Bit Patterns           | 0 errors        | ${WALKING_BITS_ERRORS:-0} errors        | $([ "${WALKING_BITS_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+
+================================================================================
+PHASE 3: JEDEC Standard Patterns
+================================================================================
+
+Test Details:
+- Memory tested: 300 MB (or 33% of total, whichever is smaller)
+- MATS+ algorithm (Modified Algorithm Test Sequence)
+- March C- algorithm (industry standard)
+- Multiple read/write cycles with complementary data
+
+Test Results:
+Test Method                    | Expected        | Actual          | Status
+--------------------------------------------------------------------------------
+JEDEC Pattern Testing          | 0 errors        | ${JEDEC_ERRORS:-0} errors        | $([ "${JEDEC_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+
+================================================================================
+PHASE 4: Memory Controller Bandwidth
+================================================================================
+
+Test Details:
+- Memory tested: 500 MB (or 50% of total, whichever is smaller)
+- Sequential write/read operations
+- Random access patterns
+- Stresses memory controller under different access patterns
+
+Bandwidth Metrics:
+- Sequential Write: ${WRITE_MBPS:-N/A} MB/s
+- Sequential Read:  ${READ_MBPS:-N/A} MB/s
+- Random Access:    ${RANDOM_MBPS:-N/A} MB/s
+- Overall Average:  ${BANDWIDTH_MBPS:-N/A} MB/s
+
+Test Results:
+Test Method                    | Expected        | Actual          | Status
+--------------------------------------------------------------------------------
+Memory Bandwidth               | Min 1000 MB/s   | ${BANDWIDTH_MBPS:-0} MB/s    | $([ "${BANDWIDTH_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+Bandwidth Errors               | 0 errors        | ${BANDWIDTH_ERRORS:-0} errors        | $([ "${BANDWIDTH_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+
+================================================================================
+PHASE 5: Row Hammer Testing
+================================================================================
+
+Test Details:
+- Memory tested: 100 MB (or 12.5% of total, whichever is smaller)
+- 500,000 hammer iterations per row
+- Tests multiple row sizes (8KB, 16KB, 32KB)
+- Detects bit flip vulnerabilities (Rowhammer attack)
+
+Test Results:
+Test Method                    | Expected        | Actual          | Status
+--------------------------------------------------------------------------------
+Row Hammer Test                | 0 bit flips     | ${ROW_HAMMER_ERRORS:-0} bit flips    | $([ "${ROW_HAMMER_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+
+================================================================================
+CONCLUSION
+================================================================================
 
 $(if [ "$RESULT" = "PASSED" ]; then
 cat << PASS_MSG
@@ -385,13 +428,13 @@ All memory tests completed successfully
 Memory integrity verified across all test methods
 RAM is PRODUCTION READY
 
-Summary:
-  No memory errors detected across any test method
-  Address lines functioning correctly
-  No row hammer vulnerabilities detected
-  Memory controller operating within specifications
-  JEDEC standard patterns verified
-  All bits functioning correctly
+Summary of Results:
+- No memory errors detected across any test method
+- Address lines functioning correctly
+- No row hammer vulnerabilities detected
+- Memory controller operating within specifications
+- JEDEC standard patterns verified
+- All bits functioning correctly
 
 VERDICT: Memory meets PRODUCTION quality standards and is certified for use.
 PASS_MSG
@@ -400,35 +443,36 @@ cat << FAIL_MSG
 OVERALL RESULT: FAIL
 
 Memory reliability issues detected
-Total errors: ${TOTAL_ERRORS:-0}
+Total Errors: ${TOTAL_ERRORS:-0}
 Hardware investigation required
 
 Detected Issues:
-$([ "${ADDRESS_LINE_ERRORS:-0}" -gt 0 ] && echo "  Address line failures - possible connection issues")
-$([ "${ROW_HAMMER_ERRORS:-0}" -gt 0 ] && echo "  Row hammer vulnerability - memory susceptible to bit flips")
-$([ "${JEDEC_ERRORS:-0}" -gt 0 ] && echo "  JEDEC pattern failures - basic memory cell issues")
-$([ "${BANDWIDTH_ERRORS:-0}" -gt 0 ] && echo "  Memory controller errors under bandwidth stress")
-$([ "${WALKING_BITS_ERRORS:-0}" -gt 0 ] && echo "  Stuck or weak bits detected")
+$([ "${ADDRESS_LINE_ERRORS:-0}" -gt 0 ] && echo "- Address line failures (possible connection issues)")
+$([ "${ROW_HAMMER_ERRORS:-0}" -gt 0 ] && echo "- Row hammer vulnerability (memory susceptible to bit flips)")
+$([ "${JEDEC_ERRORS:-0}" -gt 0 ] && echo "- JEDEC pattern failures (basic memory cell issues)")
+$([ "${BANDWIDTH_ERRORS:-0}" -gt 0 ] && echo "- Memory controller errors under bandwidth stress")
+$([ "${WALKING_BITS_ERRORS:-0}" -gt 0 ] && echo "- Stuck or weak bits detected")
 
 VERDICT: Memory does NOT meet production standards. Hardware replacement recommended.
 FAIL_MSG
 fi)
 
------------------------------------------------------------------------------------------
-   TEST METHODOLOGY
------------------------------------------------------------------------------------------
+================================================================================
+TEST METHODOLOGY
+================================================================================
 
+Industry Standard Compliance:
 This test suite is equivalent to professional memory validation tools used in:
-  • Manufacturing quality control
-  • Production validation and certification
-  • Hardware reliability testing
-  • Failure analysis and diagnostics
+- Manufacturing quality control
+- Production validation and certification
+- Hardware reliability testing
+- Failure analysis and diagnostics
 
-The comprehensive test methods employed are based on industry standards:
-  • JEDEC memory testing standards (JESD79, JESD22)
-  • Row hammer vulnerability assessment (Google Project Zero research)
-  • ECC monitoring per memory controller specifications
-  • Address line testing (industry best practices)
+Standards and Best Practices:
+- JEDEC memory testing standards (JESD79, JESD22)
+- Row hammer vulnerability assessment (Google Project Zero research)
+- ECC monitoring per memory controller specifications
+- Address line testing (industry best practices)
 
 =========================================================================================
    END OF REPORT
