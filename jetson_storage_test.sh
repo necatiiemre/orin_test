@@ -1343,6 +1343,12 @@ generate_final_report() {
             # Method 4: Look in SECTOR TEST SUMMARY
             elif grep -A 5 "SECTOR TEST SUMMARY" "$LOG_DIR/sector_control_test.log" 2>/dev/null | grep -q "PASSED"; then
                 DATA_INTEGRITY="PASSED"
+            # Method 5: Look for "[✓] Read completed successfully" (actual log format)
+            elif grep -q "\[✓\].*Read completed successfully" "$LOG_DIR/sector_control_test.log" 2>/dev/null; then
+                DATA_INTEGRITY="PASSED"
+            # Method 6: Look for "no sector errors detected"
+            elif grep -q "no sector errors detected" "$LOG_DIR/sector_control_test.log" 2>/dev/null; then
+                DATA_INTEGRITY="PASSED"
             fi
 
             # If still empty, set defaults
