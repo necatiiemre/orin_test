@@ -779,7 +779,7 @@ else
     echo "[!] Remote test directory not found"
 fi
 
-# Generate comprehensive final report with product information
+# Generate comprehensive final report from actual test output
 echo "[3/3] Generating comprehensive final report..."
 
 # Source the results to get test data
@@ -789,8 +789,10 @@ if [ -f "$LOG_DIR/reports/ram_test_results.txt" ]; then
     # Get Jetson model
     JETSON_MODEL=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "cat /proc/device-tree/model 2>/dev/null | tr -d '\0'" 2>/dev/null || echo "Unknown")
 
-    # Generate comprehensive report with cover page information
-    cat > "$LOG_DIR/reports/RAM_STRESS_TEST_REPORT.txt" << REPORT_EOF
+    # Generate report: Cover page + actual test output
+    {
+        # Cover page
+        cat << COVER_EOF
 =========================================================================================
    RAM STRESS TEST REPORT
 =========================================================================================
@@ -803,136 +805,36 @@ Jetson Model: ${JETSON_MODEL}
 Test Duration: ${TEST_DURATION_HOURS} hours
 Status: ${RESULT:-UNKNOWN}
 
------------------------------------------------------------------------------------------
-   TEST SUMMARY
------------------------------------------------------------------------------------------
+COVER_EOF
 
-Overall Result: ${RESULT:-UNKNOWN}
-Total Memory Tested: ${MEMORY_MB:-0} MB
-Total Operations: ${OPERATIONS:-0}
-Total Errors Detected: ${ERRORS:-0}
+        echo ""
 
-================================================================================
-PHASE 1: Memory Allocation
-================================================================================
+        # Extract the actual test output (everything from "RAM STRESS TEST" onward)
+        # This contains the clean phase-based format from the Python script
+        if [ -f "$LOG_DIR/logs/ram_stress_test.log" ]; then
+            # Find the start of the actual RAM test output and extract it
+            sed -n '/^=*$/,$ {
+                /^RAM STRESS TEST$/,$ p
+            }' "$LOG_DIR/logs/ram_stress_test.log" | \
+            # Remove color codes
+            sed 's/\x1b\[[0-9;]*m//g' | \
+            # Remove any SSH/connection messages
+            grep -v "Pseudo-terminal will not be allocated" | \
+            grep -v "Warning: Permanently added" | \
+            grep -v "Connection to .* closed"
+        else
+            echo "ERROR: Test log file not found"
+        fi
 
-Test Details:
-- Target Memory: ${MEMORY_MB:-0} MB
-- Allocation Method: Block-based (25MB blocks)
-- Allocation Strategy: Conservative (75% of available + 500MB safety margin)
-- Block Count: $((${MEMORY_MB:-0} / 25)) blocks
+        echo ""
+        echo "========================================================================================="
+        echo "   END OF REPORT"
+        echo "========================================================================================="
+        echo ""
+        echo "Generated: $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "Test Directory: $LOG_DIR"
 
-Test Results:
-Test Method                    | Expected        | Actual          | Status
---------------------------------------------------------------------------------
-Memory Allocation              | Success         | Success         | PASS
-
-================================================================================
-PHASE 2: Pattern Testing
-================================================================================
-
-Test Details:
-- Memory Tested: ${MEMORY_MB:-0} MB
-- Patterns Used: 4 types (0x00, 0xFF, 0x55, 0xAA)
-- Verification: Immediate write-verify cycles
-- Integrity Check: MD5 checksum-based verification
-
-Test Results:
-Test Method                    | Expected        | Actual          | Status
---------------------------------------------------------------------------------
-Pattern Write/Verify           | 0 errors        | ${ERRORS:-0} errors        | $([ "${ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
-
-================================================================================
-PHASE 3: Multi-threaded Stress Testing
-================================================================================
-
-Test Details:
-- Memory Tested: ${MEMORY_MB:-0} MB
-- Worker Threads: 2 (conservative approach)
-- Test Duration: ${TEST_DURATION_HOURS} hours
-- Total Operations: ${OPERATIONS:-0}
-- Operations per Second: $(if [ -n "$OPERATIONS" ] && [ -n "$ACTUAL_DURATION" ] && [ "$ACTUAL_DURATION" != "0" ]; then echo "scale=0; $OPERATIONS / $ACTUAL_DURATION" | bc; else echo "N/A"; fi)
-
-Test Results:
-Test Method                    | Expected        | Actual          | Status
---------------------------------------------------------------------------------
-Concurrent Memory Access       | 0 errors        | ${ERRORS:-0} errors        | $([ "${ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
-Memory Integrity               | 100% match      | $(if [ "${ERRORS:-0}" -eq 0 ]; then echo "100%"; else echo "$((100 - (${ERRORS:-0} * 100 / ${OPERATIONS:-1})))%"; fi)  | $([ "${ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
-
-$(if [ -n "$OPERATIONS" ] && [ "$OPERATIONS" -gt 0 ]; then
-    ERROR_RATE=$(echo "scale=6; $ERRORS * 100 / $OPERATIONS" | bc)
-    echo "Error Rate: ${ERROR_RATE}%"
-fi)
-
-================================================================================
-CONCLUSION
-================================================================================
-
-$(if [ "$RESULT" = "PASSED" ]; then
-cat << PASS_MSG
-OVERALL RESULT: PASS
-
-Memory stress test completed successfully
-No memory errors detected
-All memory patterns verified correctly
-Memory integrity maintained throughout test
-
-Key Achievements:
-- Conservative allocation prevents false positives
-- Thread-safe operations ensure reliable results
-- Proper verification logic applied
-- No hardware issues detected
-
-VERDICT: Memory is functioning correctly and meets quality standards.
-PASS_MSG
-else
-cat << FAIL_MSG
-OVERALL RESULT: FAIL
-
-Memory stress test detected errors
-Total Errors: ${ERRORS:-0}
-Hardware investigation required
-
-$(if [ "${ERRORS:-0}" -gt 0 ]; then
-    echo "Note: Errors detected with conservative allocation and proper verification"
-    echo "logic suggest genuine hardware issues."
-fi)
-
-VERDICT: Memory may have reliability issues. Professional testing recommended.
-FAIL_MSG
-fi)
-
-================================================================================
-TEST METHODOLOGY
-================================================================================
-
-Conservative Memory Allocation:
-- Uses 75% of available memory with 500MB safety margin
-- Prevents system memory pressure
-- Avoids false positives from OOM conditions
-- Maintains system stability during testing
-
-Proper Verification Logic:
-- Checksum-based integrity verification (MD5)
-- Immediate write-verify cycles
-- Thread-safe operations with proper locking
-- No race conditions
-
-Realistic Stress Patterns:
-- Multiple test patterns (0x00, 0xFF, 0x55, 0xAA)
-- Sustained operations over test duration
-- Concurrent access from 2 worker threads
-
-This approach provides reliable results without overwhelming the system,
-distinguishing genuine hardware issues from test logic problems.
-
-=========================================================================================
-   END OF REPORT
-=========================================================================================
-
-Generated: $(date '+%Y-%m-%d %H:%M:%S')
-Test Directory: $LOG_DIR
-REPORT_EOF
+    } > "$LOG_DIR/reports/RAM_STRESS_TEST_REPORT.txt"
 
     echo "[+] Comprehensive final report generated"
 else
