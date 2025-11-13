@@ -304,7 +304,7 @@ CPU_LOG_FILE="/tmp/cpu_test_results.log"
 init_cpu_log() {
     cat > "$CPU_LOG_FILE" << EOF
 ================================================================================
-JETSON ORIN CPU COMPREHENSIVE TEST RESULTS
+CPU COMPREHENSIVE TEST RESULTS
 ================================================================================
 Test Duration: ${TEST_DURATION}s
 CPU Cores: ${CPU_CORES}
@@ -326,6 +326,8 @@ log_phase_header() {
 $phase_name
 ================================================================================
 
+Test Method                    | Expected        | Actual          | Status
+--------------------------------------------------------------------------------
 EOF
 }
 
@@ -347,16 +349,16 @@ log_metric() {
         if (( $(echo "$abs_diff <= $tolerance" | bc -l) )); then
             status="PASS"
         else
-            status="FAIL (below expected)"
+            status="FAIL"
         fi
     else
         # At or above expected - always PASS (better performance!)
         status="PASS"
     fi
 
-    # Format and write to log (aligned columns)
-    printf "%-35s | Expected: %10.2f/s | Actual: %10.2f/s | %s\n" \
-        "$metric_name" "$expected_per_sec" "$actual_per_sec" "$status" >> "$CPU_LOG_FILE"
+    # Format and write to log (clean table format)
+    printf "%-30s | %-15s | %-15s | %-8s\n" \
+        "$metric_name" "${expected_per_sec}/s" "${actual_per_sec}/s" "$status" >> "$CPU_LOG_FILE"
 }
 
 # Initialize performance tracking

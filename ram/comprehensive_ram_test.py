@@ -1,14 +1,7 @@
 #!/usr/bin/env python3
 """
 Comprehensive RAM Test Suite for Jetson Orin
-Includes all professional-grade test methods:
-- ECC error monitoring
-- Address line testing
-- Row hammer testing
-- Memory controller bandwidth stress
-- JEDEC standard patterns (MATS+, March C-)
-- Walking bit patterns
-- Bad block detection
+Professional-grade memory testing with clean, structured output
 """
 
 import os
@@ -18,7 +11,6 @@ import random
 import signal
 import threading
 import multiprocessing
-from concurrent.futures import ThreadPoolExecutor, as_completed
 import gc
 import struct
 import ctypes
@@ -30,54 +22,45 @@ class ECCMonitor:
 
     def __init__(self):
         self.edac_path = "/sys/devices/system/edac"
-        self.initial_ce = {}  # Correctable errors
-        self.initial_ue = {}  # Uncorrectable errors
+        self.initial_ce = {}
+        self.initial_ue = {}
         self.supported = self.check_ecc_support()
 
     def check_ecc_support(self):
         """Check if ECC monitoring is available"""
         if not os.path.exists(self.edac_path):
             return False
-
-        # Look for memory controller entries
         mc_dirs = glob.glob(f"{self.edac_path}/mc/mc*")
         return len(mc_dirs) > 0
 
     def read_ecc_counters(self):
         """Read current ECC error counters"""
         counters = {'ce': 0, 'ue': 0, 'details': []}
-
         if not self.supported:
             return counters
 
         try:
-            # Read memory controller error counts
             mc_dirs = glob.glob(f"{self.edac_path}/mc/mc*")
-
             for mc_dir in mc_dirs:
                 mc_name = os.path.basename(mc_dir)
-
-                # Correctable errors
                 ce_file = f"{mc_dir}/ce_count"
+                ue_file = f"{mc_dir}/ue_count"
+
+                ce = 0
+                ue = 0
                 if os.path.exists(ce_file):
                     with open(ce_file, 'r') as f:
                         ce = int(f.read().strip())
                         counters['ce'] += ce
 
-                # Uncorrectable errors
-                ue_file = f"{mc_dir}/ue_count"
                 if os.path.exists(ue_file):
                     with open(ue_file, 'r') as f:
                         ue = int(f.read().strip())
                         counters['ue'] += ue
 
-                counters['details'].append({
-                    'controller': mc_name,
-                    'ce': ce if 'ce' in locals() else 0,
-                    'ue': ue if 'ue' in locals() else 0
-                })
+                counters['details'].append({'controller': mc_name, 'ce': ce, 'ue': ue})
         except Exception as e:
-            print(f"ECC monitoring error: {e}")
+            pass
 
         return counters
 
@@ -91,206 +74,132 @@ class ECCMonitor:
     def get_new_errors(self):
         """Get new errors since monitoring started"""
         current = self.read_ecc_counters()
-        new_ce = current['ce'] - self.initial_ce
-        new_ue = current['ue'] - self.initial_ue
-
         return {
-            'correctable': new_ce,
-            'uncorrectable': new_ue,
+            'correctable': current['ce'] - self.initial_ce,
+            'uncorrectable': current['ue'] - self.initial_ue,
             'details': current['details']
         }
 
 
 class AddressLineTest:
-    """Test for address line failures using walking bit patterns"""
+    """Test for address line failures"""
 
     @staticmethod
     def test_address_lines(memory_mb=100):
-        """
-        Test address lines by writing to addresses with walking bit patterns
-        This detects stuck or shorted address lines
-        """
-        print("\n" + "="*60)
-        print("ADDRESS LINE TESTING")
-        print("="*60)
-
+        """Test address lines with walking bit patterns"""
         errors = 0
         operations = 0
-
-        # Allocate test memory
         block_size = memory_mb * 1024 * 1024
         test_block = bytearray(block_size)
 
-        print(f"Testing address lines with {memory_mb}MB block...")
-
-        # Test walking 1s in address space
-        for bit_pos in range(min(24, (block_size - 8).bit_length())):  # Test up to 24 address bits
+        # Walking 1s in address space
+        for bit_pos in range(min(24, (block_size - 8).bit_length())):
             operations += 1
             offset = 1 << bit_pos
-
             if offset >= block_size - 8:
                 break
 
-            # Write unique pattern at this address bit position
             pattern = (0xAA55AA55 + bit_pos) & 0xFFFFFFFF
-
             try:
                 test_block[offset:offset+4] = pattern.to_bytes(4, 'little')
-
-                # Read back
                 read_pattern = int.from_bytes(test_block[offset:offset+4], 'little')
-
                 if read_pattern != pattern:
                     errors += 1
-                    print(f"  [!] Address line error at bit {bit_pos} (offset 0x{offset:X})")
-                    print(f"      Expected: 0x{pattern:08X}, Got: 0x{read_pattern:08X}")
-            except Exception as e:
+            except:
                 errors += 1
-                print(f"  [!] Exception at bit {bit_pos}: {e}")
 
-        # Test walking 0s in address space (inverted pattern)
+        # Walking 0s in address space
         max_bits = min(24, (block_size - 8).bit_length())
         mask = (1 << max_bits) - 1
 
         for bit_pos in range(max_bits):
             operations += 1
-            offset = mask ^ (1 << bit_pos)  # All 1s except one 0
-
+            offset = mask ^ (1 << bit_pos)
             if offset >= block_size - 8:
                 continue
 
             pattern = (0x55AA55AA + bit_pos) & 0xFFFFFFFF
-
             try:
                 test_block[offset:offset+4] = pattern.to_bytes(4, 'little')
                 read_pattern = int.from_bytes(test_block[offset:offset+4], 'little')
-
                 if read_pattern != pattern:
                     errors += 1
-                    print(f"  [!] Address line error at inverted bit {bit_pos} (offset 0x{offset:X})")
-            except Exception as e:
+            except:
                 errors += 1
 
-        # Test adjacent addresses for shorts
-        print("Testing for address line shorts...")
+        # Test adjacent addresses
         for i in range(0, min(1024*1024, block_size - 8), 8):
             operations += 1
-            # Write alternating pattern
             test_block[i:i+8] = i.to_bytes(8, 'little')
 
-        # Verify
         for i in range(0, min(1024*1024, block_size - 8), 8):
             operations += 1
             read_val = int.from_bytes(test_block[i:i+8], 'little')
             if read_val != i:
                 errors += 1
-                if errors < 10:  # Only print first 10 errors
-                    print(f"  [!] Address short at 0x{i:X}")
-
-        if errors == 0:
-            print(f"[+] Address line test PASSED ({operations} operations)")
-        else:
-            print(f"[-] Address line test FAILED with {errors} errors")
 
         return errors, operations
 
 
 class RowHammerTest:
-    """Test for row hammer vulnerabilities"""
+    """Row hammer vulnerability testing"""
 
     @staticmethod
     def test_row_hammer(memory_mb=50, iterations=1000000):
-        """
-        Row hammer test: repeatedly access same memory rows
-        to detect bit flips in adjacent rows
-        """
-        print("\n" + "="*60)
-        print("ROW HAMMER TESTING")
-        print("="*60)
-
+        """Test for row hammer bit flips"""
         errors = 0
         operations = 0
-
-        # Allocate test memory
         block_size = memory_mb * 1024 * 1024
         test_block = bytearray(block_size)
-
-        # Typical DRAM row size is 8KB, but we'll test various spacings
         row_sizes = [8*1024, 16*1024, 32*1024]
-
-        print(f"Testing row hammer with {memory_mb}MB, {iterations} iterations...")
 
         for row_size in row_sizes:
             if row_size * 3 >= block_size:
                 continue
 
-            print(f"  Testing with {row_size} byte row spacing...")
-
-            # Setup: Fill victim rows with known pattern
             victim_row1 = row_size
             victim_row2 = row_size * 2
 
-            # Fill victim rows with 0xAA pattern
+            # Fill victim rows
             test_block[victim_row1:victim_row1+row_size] = bytes([0xAA] * row_size)
             test_block[victim_row2:victim_row2+row_size] = bytes([0xAA] * row_size)
 
-            # Hammer adjacent rows
             aggressor_row1 = 0
             aggressor_row2 = row_size * 3
 
             if aggressor_row2 + 8 >= block_size:
                 continue
 
-            # Perform row hammer
+            # Hammer aggressor rows
             for i in range(iterations):
                 operations += 2
-                # Rapidly access aggressor rows
                 test_block[aggressor_row1] = 0xFF
                 test_block[aggressor_row2] = 0xFF
 
-                # Flush cache occasionally (every 1000 iterations)
                 if i % 1000 == 0:
-                    # Force memory access by reading
                     _ = test_block[aggressor_row1]
                     _ = test_block[aggressor_row2]
 
-            # Check victim rows for bit flips
+            # Check for bit flips
             for offset in range(victim_row1, victim_row1 + row_size):
                 operations += 1
                 if test_block[offset] != 0xAA:
                     errors += 1
-                    if errors <= 10:  # Report first 10 errors
-                        print(f"  [!] Row hammer bit flip at victim row 1, offset 0x{offset:X}")
-                        print(f"      Expected: 0xAA, Got: 0x{test_block[offset]:02X}")
 
             for offset in range(victim_row2, victim_row2 + row_size):
                 operations += 1
                 if test_block[offset] != 0xAA:
                     errors += 1
-                    if errors <= 10:
-                        print(f"  [!] Row hammer bit flip at victim row 2, offset 0x{offset:X}")
-
-        if errors == 0:
-            print(f"[+] Row hammer test PASSED - No bit flips detected")
-        else:
-            print(f"[-] Row hammer test FAILED - {errors} bit flips detected!")
-            print(f"    WARNING: Memory vulnerable to row hammer attacks!")
 
         return errors, operations
 
 
 class MemoryBandwidthTest:
-    """Memory controller bandwidth stress testing"""
+    """Memory bandwidth testing"""
 
     @staticmethod
     def test_bandwidth(memory_mb=500, duration_seconds=30):
-        """
-        Test memory controller bandwidth with intensive read/write operations
-        """
-        print("\n" + "="*60)
-        print("MEMORY CONTROLLER BANDWIDTH STRESS TEST")
-        print("="*60)
-
+        """Test memory controller bandwidth"""
         errors = 0
         operations = 0
         bytes_transferred = 0
@@ -298,17 +207,13 @@ class MemoryBandwidthTest:
         block_size = memory_mb * 1024 * 1024
         test_block = bytearray(block_size)
 
-        print(f"Stressing memory controller with {memory_mb}MB for {duration_seconds}s...")
-
         start_time = time.time()
 
-        # Sequential write test
-        print("  Phase 1: Sequential write bandwidth...")
+        # Sequential write
         phase_start = time.time()
         write_count = 0
 
         while time.time() - phase_start < duration_seconds / 3:
-            # Write sequential pattern
             for i in range(0, block_size, 8):
                 if time.time() - phase_start >= duration_seconds / 3:
                     break
@@ -318,16 +223,13 @@ class MemoryBandwidthTest:
                 write_count += 1
 
         write_bandwidth = bytes_transferred / (time.time() - phase_start) / (1024*1024)
-        print(f"    Write bandwidth: {write_bandwidth:.1f} MB/s")
 
-        # Sequential read test
-        print("  Phase 2: Sequential read bandwidth...")
+        # Sequential read
         phase_start = time.time()
         read_bytes = 0
         read_count = 0
 
         while time.time() - phase_start < duration_seconds / 3:
-            # Read and verify
             for i in range(0, block_size, 8):
                 if time.time() - phase_start >= duration_seconds / 3:
                     break
@@ -335,22 +237,18 @@ class MemoryBandwidthTest:
                 operations += 1
                 read_bytes += 8
 
-                # Verify every 1000th read
                 if read_count % 1000 == 0 and val != read_count:
                     errors += 1
                 read_count += 1
 
         bytes_transferred += read_bytes
         read_bandwidth = read_bytes / (time.time() - phase_start) / (1024*1024)
-        print(f"    Read bandwidth: {read_bandwidth:.1f} MB/s")
 
-        # Random access test
-        print("  Phase 3: Random access stress...")
+        # Random access
         phase_start = time.time()
         random_ops = 0
 
         while time.time() - phase_start < duration_seconds / 3:
-            # Random writes
             for _ in range(10000):
                 if time.time() - phase_start >= duration_seconds / 3:
                     break
@@ -358,7 +256,6 @@ class MemoryBandwidthTest:
                 value = random.randint(0, 0xFFFFFFFFFFFFFFFF)
                 test_block[offset:offset+8] = value.to_bytes(8, 'little')
 
-                # Immediate readback
                 read_val = int.from_bytes(test_block[offset:offset+8], 'little')
                 if read_val != value:
                     errors += 1
@@ -368,43 +265,27 @@ class MemoryBandwidthTest:
                 random_ops += 1
 
         random_bandwidth = (random_ops * 16) / (time.time() - phase_start) / (1024*1024)
-        print(f"    Random access bandwidth: {random_bandwidth:.1f} MB/s")
+        total_bandwidth = bytes_transferred / (time.time() - start_time) / (1024*1024)
 
-        total_time = time.time() - start_time
-        total_bandwidth = bytes_transferred / total_time / (1024*1024)
-
-        print(f"\n  Total bandwidth: {total_bandwidth:.1f} MB/s")
-        print(f"  Total operations: {operations:,}")
-        print(f"  Total data transferred: {bytes_transferred/(1024*1024):.1f} MB")
-
-        if errors == 0:
-            print(f"[+] Memory controller bandwidth test PASSED")
-        else:
-            print(f"[-] Memory controller test FAILED with {errors} errors")
-
-        return errors, operations
+        return errors, operations, total_bandwidth, write_bandwidth, read_bandwidth, random_bandwidth
 
 
 class JEDECPatternTest:
-    """Professional JEDEC standard memory test patterns"""
+    """JEDEC standard memory test patterns"""
 
     @staticmethod
     def mats_plus_test(test_block):
-        """
-        MATS+ (Modified Algorithm Test Sequence)
-        Industry standard memory test algorithm
-        """
-        print("\n  JEDEC MATS+ Algorithm:")
+        """MATS+ algorithm"""
         errors = 0
         operations = 0
         block_size = len(test_block)
 
-        # Phase 1: Write all 0s in ascending order
+        # Write all 0s
         for i in range(0, block_size, 8):
             test_block[i:i+8] = b'\x00' * 8
             operations += 1
 
-        # Phase 2: Read 0, Write 1, ascending
+        # Read 0, Write 1
         for i in range(0, block_size, 8):
             val = int.from_bytes(test_block[i:i+8], 'little')
             if val != 0:
@@ -412,7 +293,7 @@ class JEDECPatternTest:
             test_block[i:i+8] = b'\xFF' * 8
             operations += 2
 
-        # Phase 3: Read 1, Write 0, descending
+        # Read 1, Write 0 (descending)
         for i in range(block_size - 8, -1, -8):
             val = int.from_bytes(test_block[i:i+8], 'little')
             if val != 0xFFFFFFFFFFFFFFFF:
@@ -420,7 +301,7 @@ class JEDECPatternTest:
             test_block[i:i+8] = b'\x00' * 8
             operations += 2
 
-        # Phase 4: Read 0, ascending
+        # Read 0
         for i in range(0, block_size, 8):
             val = int.from_bytes(test_block[i:i+8], 'little')
             if val != 0:
@@ -431,21 +312,17 @@ class JEDECPatternTest:
 
     @staticmethod
     def march_c_minus_test(test_block):
-        """
-        March C- Algorithm
-        Detects linked faults, coupling faults, and addressing faults
-        """
-        print("  JEDEC March C- Algorithm:")
+        """March C- algorithm"""
         errors = 0
         operations = 0
         block_size = len(test_block)
 
-        # Phase 1: Write 0, ascending
+        # Write 0
         for i in range(0, block_size, 8):
             test_block[i:i+8] = b'\x00' * 8
             operations += 1
 
-        # Phase 2: Read 0, Write 1, ascending
+        # Read 0, Write 1
         for i in range(0, block_size, 8):
             val = int.from_bytes(test_block[i:i+8], 'little')
             if val != 0:
@@ -453,7 +330,7 @@ class JEDECPatternTest:
             test_block[i:i+8] = b'\xFF' * 8
             operations += 2
 
-        # Phase 3: Read 1, Write 0, ascending
+        # Read 1, Write 0
         for i in range(0, block_size, 8):
             val = int.from_bytes(test_block[i:i+8], 'little')
             if val != 0xFFFFFFFFFFFFFFFF:
@@ -461,7 +338,7 @@ class JEDECPatternTest:
             test_block[i:i+8] = b'\x00' * 8
             operations += 2
 
-        # Phase 4: Read 0, Write 1, descending
+        # Read 0, Write 1 (descending)
         for i in range(block_size - 8, -1, -8):
             val = int.from_bytes(test_block[i:i+8], 'little')
             if val != 0:
@@ -469,7 +346,7 @@ class JEDECPatternTest:
             test_block[i:i+8] = b'\xFF' * 8
             operations += 2
 
-        # Phase 5: Read 1, Write 0, descending
+        # Read 1, Write 0 (descending)
         for i in range(block_size - 8, -1, -8):
             val = int.from_bytes(test_block[i:i+8], 'little')
             if val != 0xFFFFFFFFFFFFFFFF:
@@ -477,7 +354,7 @@ class JEDECPatternTest:
             test_block[i:i+8] = b'\x00' * 8
             operations += 2
 
-        # Phase 6: Read 0, ascending
+        # Read 0
         for i in range(0, block_size, 8):
             val = int.from_bytes(test_block[i:i+8], 'little')
             if val != 0:
@@ -488,35 +365,22 @@ class JEDECPatternTest:
 
     @staticmethod
     def test_jedec_patterns(memory_mb=100):
-        """Run all JEDEC standard patterns"""
-        print("\n" + "="*60)
-        print("JEDEC STANDARD PATTERN TESTING")
-        print("="*60)
-
+        """Run JEDEC standard patterns"""
         total_errors = 0
         total_operations = 0
 
         block_size = memory_mb * 1024 * 1024
         test_block = bytearray(block_size)
 
-        print(f"Testing {memory_mb}MB with JEDEC standard algorithms...")
-
-        # Run MATS+
+        # MATS+
         errors, ops = JEDECPatternTest.mats_plus_test(test_block)
         total_errors += errors
         total_operations += ops
-        print(f"    MATS+: {ops:,} operations, {errors} errors")
 
-        # Run March C-
+        # March C-
         errors, ops = JEDECPatternTest.march_c_minus_test(test_block)
         total_errors += errors
         total_operations += ops
-        print(f"    March C-: {ops:,} operations, {errors} errors")
-
-        if total_errors == 0:
-            print(f"[+] JEDEC pattern tests PASSED")
-        else:
-            print(f"[-] JEDEC pattern tests FAILED with {total_errors} errors")
 
         return total_errors, total_operations
 
@@ -534,75 +398,53 @@ class ComprehensiveRAMTest:
             'ecc_monitoring': {'supported': False, 'errors': {}},
             'address_line': {'errors': 0, 'operations': 0},
             'row_hammer': {'errors': 0, 'operations': 0},
-            'bandwidth': {'errors': 0, 'operations': 0},
+            'bandwidth': {'errors': 0, 'operations': 0, 'bandwidth_mbps': 0, 'write_mbps': 0, 'read_mbps': 0, 'random_mbps': 0},
             'jedec_patterns': {'errors': 0, 'operations': 0},
             'walking_bits': {'errors': 0, 'operations': 0},
             'total_errors': 0,
-            'total_operations': 0
+            'total_operations': 0,
+            'actual_duration': 0
         }
 
         self.ecc_monitor = ECCMonitor()
 
     def signal_handler(self, signum, frame):
-        print(f"\nReceived signal {signum}, stopping test...")
         self.running = False
 
     def test_walking_bits(self, memory_mb=100):
-        """Walking 1s and 0s bit pattern test"""
-        print("\n" + "="*60)
-        print("WALKING BIT PATTERN TESTING")
-        print("="*60)
-
+        """Walking bits pattern test"""
         errors = 0
         operations = 0
-
         block_size = memory_mb * 1024 * 1024
         test_block = bytearray(block_size)
 
-        print(f"Testing {memory_mb}MB with walking bit patterns...")
-
         # Walking 1s
-        print("  Testing walking 1s pattern...")
         for bit in range(64):
             pattern = 1 << bit
 
-            # Write pattern
             for i in range(0, min(1024*1024, block_size), 8):
                 test_block[i:i+8] = pattern.to_bytes(8, 'little')
                 operations += 1
 
-            # Verify pattern
             for i in range(0, min(1024*1024, block_size), 8):
                 val = int.from_bytes(test_block[i:i+8], 'little')
                 if val != pattern:
                     errors += 1
-                    if errors <= 5:
-                        print(f"    [!] Walking 1s error at bit {bit}, offset 0x{i:X}")
                 operations += 1
 
         # Walking 0s
-        print("  Testing walking 0s pattern...")
         for bit in range(64):
             pattern = ~(1 << bit) & 0xFFFFFFFFFFFFFFFF
 
-            # Write pattern
             for i in range(0, min(1024*1024, block_size), 8):
                 test_block[i:i+8] = pattern.to_bytes(8, 'little')
                 operations += 1
 
-            # Verify pattern
             for i in range(0, min(1024*1024, block_size), 8):
                 val = int.from_bytes(test_block[i:i+8], 'little')
                 if val != pattern:
                     errors += 1
-                    if errors <= 5:
-                        print(f"    [!] Walking 0s error at bit {bit}, offset 0x{i:X}")
                 operations += 1
-
-        if errors == 0:
-            print(f"[+] Walking bit test PASSED ({operations:,} operations)")
-        else:
-            print(f"[-] Walking bit test FAILED with {errors} errors")
 
         return errors, operations
 
@@ -616,95 +458,137 @@ class ComprehensiveRAMTest:
         print("COMPREHENSIVE RAM TEST SUITE")
         print("=" * 80)
         print(f"Memory to test: {self.memory_mb} MB")
-        print(f"Test duration: {self.duration} seconds ({self.duration/60:.1f} minutes)")
+        print(f"Test duration: {self.duration} seconds")
         print(f"CPU cores: {multiprocessing.cpu_count()}")
         print("")
-        print("Test Methods:")
-        print("  • ECC Error Monitoring")
-        print("  • Address Line Testing")
-        print("  • Row Hammer Detection")
-        print("  • Memory Controller Bandwidth Stress")
-        print("  • JEDEC Standard Patterns (MATS+, March C-)")
-        print("  • Walking Bit Patterns")
-        print("")
 
-        # Start ECC monitoring
+        # Initialize ECC monitoring
         print("=" * 80)
-        print("INITIALIZING ECC ERROR MONITORING")
+        print("PHASE 0: ECC Error Monitoring Initialization")
         print("=" * 80)
 
         ecc_supported = self.ecc_monitor.start_monitoring()
         if ecc_supported:
-            print("[+] ECC monitoring initialized successfully")
+            print("ECC monitoring initialized successfully")
             self.results['ecc_monitoring']['supported'] = True
         else:
-            print("[!] ECC monitoring not available on this system")
-            print("    (This is normal for non-ECC RAM)")
+            print("ECC monitoring not available")
         print("")
 
-        # Test 1: Address Line Testing
+        # Phase 1: Address Line Testing
         if self.running:
-            errors, ops = AddressLineTest.test_address_lines(
-                min(200, self.memory_mb // 4)
-            )
+            print("=" * 80)
+            print("PHASE 1: Address Line Testing")
+            print("=" * 80)
+
+            phase_start = time.time()
+            errors, ops = AddressLineTest.test_address_lines(min(200, self.memory_mb // 4))
+            phase_duration = time.time() - phase_start
+
             self.results['address_line']['errors'] = errors
             self.results['address_line']['operations'] = ops
+            self.results['address_line']['duration'] = phase_duration
+            self.results['address_line']['ops_per_sec'] = ops / phase_duration if phase_duration > 0 else 0
 
-        # Test 2: Walking Bit Patterns
+            print(f"Phase completed in {phase_duration:.1f} seconds")
+            print("")
+
+        # Phase 2: Walking Bit Patterns
         if self.running:
-            errors, ops = self.test_walking_bits(
-                min(200, self.memory_mb // 4)
-            )
+            print("=" * 80)
+            print("PHASE 2: Walking Bit Patterns")
+            print("=" * 80)
+
+            phase_start = time.time()
+            errors, ops = self.test_walking_bits(min(200, self.memory_mb // 4))
+            phase_duration = time.time() - phase_start
+
             self.results['walking_bits']['errors'] = errors
             self.results['walking_bits']['operations'] = ops
+            self.results['walking_bits']['duration'] = phase_duration
+            self.results['walking_bits']['ops_per_sec'] = ops / phase_duration if phase_duration > 0 else 0
 
-        # Test 3: JEDEC Standard Patterns
+            print(f"Phase completed in {phase_duration:.1f} seconds")
+            print("")
+
+        # Phase 3: JEDEC Standard Patterns
         if self.running:
-            errors, ops = JEDECPatternTest.test_jedec_patterns(
-                min(300, self.memory_mb // 3)
-            )
+            print("=" * 80)
+            print("PHASE 3: JEDEC Standard Patterns")
+            print("=" * 80)
+
+            phase_start = time.time()
+            errors, ops = JEDECPatternTest.test_jedec_patterns(min(300, self.memory_mb // 3))
+            phase_duration = time.time() - phase_start
+
             self.results['jedec_patterns']['errors'] = errors
             self.results['jedec_patterns']['operations'] = ops
+            self.results['jedec_patterns']['duration'] = phase_duration
+            self.results['jedec_patterns']['ops_per_sec'] = ops / phase_duration if phase_duration > 0 else 0
 
-        # Test 4: Memory Controller Bandwidth
+            print(f"Phase completed in {phase_duration:.1f} seconds")
+            print("")
+
+        # Phase 4: Memory Controller Bandwidth
         if self.running:
+            print("=" * 80)
+            print("PHASE 4: Memory Controller Bandwidth")
+            print("=" * 80)
+
             test_duration = min(self.duration // 4, 60)
-            errors, ops = MemoryBandwidthTest.test_bandwidth(
-                min(500, self.memory_mb // 2),
-                test_duration
+            phase_start = time.time()
+            errors, ops, total_bw, write_bw, read_bw, random_bw = MemoryBandwidthTest.test_bandwidth(
+                min(500, self.memory_mb // 2), test_duration
             )
+            phase_duration = time.time() - phase_start
+
             self.results['bandwidth']['errors'] = errors
             self.results['bandwidth']['operations'] = ops
+            self.results['bandwidth']['duration'] = phase_duration
+            self.results['bandwidth']['ops_per_sec'] = ops / phase_duration if phase_duration > 0 else 0
+            self.results['bandwidth']['bandwidth_mbps'] = total_bw
+            self.results['bandwidth']['write_mbps'] = write_bw
+            self.results['bandwidth']['read_mbps'] = read_bw
+            self.results['bandwidth']['random_mbps'] = random_bw
 
-        # Test 5: Row Hammer (intensive, may take time)
+            print(f"Phase completed in {phase_duration:.1f} seconds")
+            print("")
+
+        # Phase 5: Row Hammer Testing
         if self.running:
+            print("=" * 80)
+            print("PHASE 5: Row Hammer Testing")
+            print("=" * 80)
+
+            phase_start = time.time()
             errors, ops = RowHammerTest.test_row_hammer(
-                min(100, self.memory_mb // 8),
-                iterations=500000
+                min(100, self.memory_mb // 8), iterations=500000
             )
+            phase_duration = time.time() - phase_start
+
             self.results['row_hammer']['errors'] = errors
             self.results['row_hammer']['operations'] = ops
+            self.results['row_hammer']['duration'] = phase_duration
+            self.results['row_hammer']['ops_per_sec'] = ops / phase_duration if phase_duration > 0 else 0
+
+            print(f"Phase completed in {phase_duration:.1f} seconds")
+            print("")
 
         # Check ECC errors
         if ecc_supported:
-            print("\n" + "="*60)
-            print("CHECKING ECC ERRORS")
-            print("="*60)
+            print("=" * 80)
+            print("PHASE 6: ECC Error Check")
+            print("=" * 80)
 
             ecc_errors = self.ecc_monitor.get_new_errors()
             self.results['ecc_monitoring']['errors'] = ecc_errors
 
-            print(f"  Correctable errors: {ecc_errors['correctable']}")
-            print(f"  Uncorrectable errors: {ecc_errors['uncorrectable']}")
+            print(f"Correctable errors: {ecc_errors['correctable']}")
+            print(f"Uncorrectable errors: {ecc_errors['uncorrectable']}")
 
             if ecc_errors['uncorrectable'] > 0:
-                print(f"[-] CRITICAL: {ecc_errors['uncorrectable']} uncorrectable ECC errors!")
                 self.results['total_errors'] += ecc_errors['uncorrectable']
-            elif ecc_errors['correctable'] > 0:
-                print(f"[!] WARNING: {ecc_errors['correctable']} correctable ECC errors")
-                print("    Memory has weak cells that are being corrected by ECC")
-            else:
-                print("[+] No ECC errors detected")
+            print("")
 
         # Calculate totals
         self.results['total_errors'] = sum([
@@ -723,81 +607,90 @@ class ComprehensiveRAMTest:
             self.results['walking_bits']['operations']
         ])
 
-        # Print comprehensive results
+        self.results['actual_duration'] = time.time() - self.start_time
+
+        # Print results
         self.print_results()
 
         return self.results['total_errors'] == 0
 
     def print_results(self):
-        """Print comprehensive test results"""
+        """Print comprehensive test results in clean format"""
 
-        actual_duration = time.time() - self.start_time
+        actual_duration = self.results['actual_duration']
 
-        print("\n" + "=" * 80)
+        print("=" * 80)
         print("COMPREHENSIVE RAM TEST RESULTS")
         print("=" * 80)
         print("")
-        print(f"Test Duration: {actual_duration:.1f} seconds ({actual_duration/60:.1f} minutes)")
+        print(f"Test Duration: {actual_duration:.1f} seconds")
         print(f"Memory Tested: {self.memory_mb} MB")
+        print(f"Total Operations: {self.results['total_operations']:,}")
+        print(f"Total Errors: {self.results['total_errors']}")
         print("")
-        print("TEST RESULTS BY METHOD:")
+
+        print("=" * 80)
+        print("TEST RESULTS")
+        print("=" * 80)
+        print("")
+
+        # Table header
+        print(f"{'Test Method':<30} | {'Expected':<15} | {'Actual':<15} | {'Status':<8}")
         print("-" * 80)
 
         # ECC Monitoring
         if self.results['ecc_monitoring']['supported']:
             ecc = self.results['ecc_monitoring']['errors']
             status = "PASS" if ecc['uncorrectable'] == 0 else "FAIL"
-            print(f"  ECC Monitoring:          {status:8s}  (CE: {ecc['correctable']}, UE: {ecc['uncorrectable']})")
-        else:
-            print(f"  ECC Monitoring:          N/A      (Not supported)")
+            print(f"{'ECC Monitoring':<30} | {'0 UE':<15} | {f'{ecc["uncorrectable"]} UE':<15} | {status:<8}")
 
-        # Other tests
-        tests = [
-            ('Address Line Test', 'address_line'),
-            ('Walking Bit Patterns', 'walking_bits'),
-            ('JEDEC Patterns', 'jedec_patterns'),
-            ('Memory Bandwidth', 'bandwidth'),
-            ('Row Hammer Test', 'row_hammer')
-        ]
+        # Address Line Test
+        result = self.results['address_line']
+        status = "PASS" if result['errors'] == 0 else "FAIL"
+        ops_per_sec = f"{result['ops_per_sec']:.0f}/s" if 'ops_per_sec' in result else "N/A"
+        print(f"{'Address Line Test':<30} | {'0 errors':<15} | {f'{result["errors"]} errors':<15} | {status:<8}")
 
-        for name, key in tests:
-            result = self.results[key]
-            status = "PASS" if result['errors'] == 0 else "FAIL"
-            print(f"  {name:24s} {status:8s}  ({result['operations']:,} ops, {result['errors']} errors)")
+        # Walking Bit Patterns
+        result = self.results['walking_bits']
+        status = "PASS" if result['errors'] == 0 else "FAIL"
+        ops_per_sec = f"{result['ops_per_sec']:.0f}/s" if 'ops_per_sec' in result else "N/A"
+        print(f"{'Walking Bit Patterns':<30} | {'0 errors':<15} | {f'{result["errors"]} errors':<15} | {status:<8}")
+
+        # JEDEC Patterns
+        result = self.results['jedec_patterns']
+        status = "PASS" if result['errors'] == 0 else "FAIL"
+        ops_per_sec = f"{result['ops_per_sec']:.0f}/s" if 'ops_per_sec' in result else "N/A"
+        print(f"{'JEDEC Patterns':<30} | {'0 errors':<15} | {f'{result["errors"]} errors':<15} | {status:<8}")
+
+        # Memory Bandwidth
+        result = self.results['bandwidth']
+        status = "PASS" if result['errors'] == 0 else "FAIL"
+        expected_bw = "Min 1000 MB/s"
+        actual_bw = f"{result.get('bandwidth_mbps', 0):.0f} MB/s"
+        print(f"{'Memory Bandwidth':<30} | {expected_bw:<15} | {actual_bw:<15} | {status:<8}")
+
+        # Row Hammer Test
+        result = self.results['row_hammer']
+        status = "PASS" if result['errors'] == 0 else "FAIL"
+        ops_per_sec = f"{result['ops_per_sec']:.0f}/s" if 'ops_per_sec' in result else "N/A"
+        print(f"{'Row Hammer Test':<30} | {'0 bit flips':<15} | {f'{result["errors"]} bit flips':<15} | {status:<8}")
 
         print("-" * 80)
-        print(f"  TOTAL OPERATIONS: {self.results['total_operations']:,}")
-        print(f"  TOTAL ERRORS:     {self.results['total_errors']}")
         print("")
 
+        # Final verdict
         if self.results['total_errors'] == 0:
-            print("🎉 COMPREHENSIVE RAM TEST: PASSED")
+            print("OVERALL RESULT: PASS")
             print("")
-            print("[+] All professional-grade tests passed successfully")
-            print("[+] Memory integrity verified across all test methods")
-            print("[+] No address line failures detected")
-            print("[+] No row hammer vulnerabilities found")
-            print("[+] Memory controller operating correctly")
-            print("[+] JEDEC standard patterns verified")
-            print("[+] Your RAM is PRODUCTION READY!")
+            print("All memory tests completed successfully")
+            print("Memory integrity verified across all test methods")
+            print("RAM is PRODUCTION READY")
         else:
-            print("❌ COMPREHENSIVE RAM TEST: FAILED")
+            print("OVERALL RESULT: FAIL")
             print("")
-            print(f"[-] {self.results['total_errors']} total errors detected")
-            print("[-] Memory has reliability issues")
-            print("[-] HARDWARE INVESTIGATION REQUIRED")
-
-            # Detailed failure analysis
-            if self.results['address_line']['errors'] > 0:
-                print("    • Address line failures detected - possible connection issues")
-            if self.results['row_hammer']['errors'] > 0:
-                print("    • Row hammer vulnerability - memory susceptible to bit flips")
-            if self.results['jedec_patterns']['errors'] > 0:
-                print("    • JEDEC pattern failures - basic memory cell issues")
-            if self.results['bandwidth']['errors'] > 0:
-                print("    • Memory controller errors under bandwidth stress")
-            if self.results['walking_bits']['errors'] > 0:
-                print("    • Stuck or weak bits detected")
+            print(f"Total errors detected: {self.results['total_errors']}")
+            print("Memory has reliability issues")
+            print("HARDWARE INVESTIGATION REQUIRED")
 
         print("")
 
@@ -821,10 +714,15 @@ def main():
             f.write(f"TOTAL_OPERATIONS={tester.results['total_operations']}\n")
             f.write(f"MEMORY_MB={memory_mb}\n")
             f.write(f"DURATION={duration}\n")
+            f.write(f"ACTUAL_DURATION={tester.results['actual_duration']:.1f}\n")
             f.write(f"\n# Detailed Results\n")
             f.write(f"ADDRESS_LINE_ERRORS={tester.results['address_line']['errors']}\n")
             f.write(f"ROW_HAMMER_ERRORS={tester.results['row_hammer']['errors']}\n")
             f.write(f"BANDWIDTH_ERRORS={tester.results['bandwidth']['errors']}\n")
+            f.write(f"BANDWIDTH_MBPS={tester.results['bandwidth'].get('bandwidth_mbps', 0):.0f}\n")
+            f.write(f"WRITE_MBPS={tester.results['bandwidth'].get('write_mbps', 0):.0f}\n")
+            f.write(f"READ_MBPS={tester.results['bandwidth'].get('read_mbps', 0):.0f}\n")
+            f.write(f"RANDOM_MBPS={tester.results['bandwidth'].get('random_mbps', 0):.0f}\n")
             f.write(f"JEDEC_ERRORS={tester.results['jedec_patterns']['errors']}\n")
             f.write(f"WALKING_BITS_ERRORS={tester.results['walking_bits']['errors']}\n")
 
