@@ -759,7 +759,7 @@ if [ -f "$LOG_DIR/reports/ram_test_results.txt" ]; then
     # Generate comprehensive report with cover page information
     cat > "$LOG_DIR/reports/RAM_STRESS_TEST_REPORT.txt" << REPORT_EOF
 =========================================================================================
-   RAM STRESS TEST REPORT - JETSON ORIN
+   RAM STRESS TEST REPORT
 =========================================================================================
 
 Test Date: $(date '+%Y-%m-%d %H:%M:%S')
@@ -767,7 +767,7 @@ Tester: ${TESTER_NAME}
 Quality Checker: ${QUALITY_CHECKER_NAME}
 Device Serial: ${DEVICE_SERIAL}
 Jetson Model: ${JETSON_MODEL}
-Test Duration: ${TEST_DURATION_HOURS} hours ($((TEST_DURATION / 60)) minutes)
+Test Duration: ${TEST_DURATION_HOURS} hours
 Status: ${RESULT:-UNKNOWN}
 
 -----------------------------------------------------------------------------------------
@@ -785,49 +785,42 @@ Total Errors Detected: ${ERRORS:-0}
 
 This RAM stress test uses conservative memory allocation and proper verification:
 
-✓ Conservative Memory Allocation
-  - Uses 75% of available memory with 500MB safety margin
-  - Prevents system memory pressure issues
-  - Block-based allocation for better reliability
+Conservative Memory Allocation:
+  Uses 75% of available memory with 500MB safety margin
+  Prevents system memory pressure issues
+  Block-based allocation (25MB blocks)
 
-✓ Pattern Testing
-  - Multiple test patterns (0x00, 0xFF, 0x55, 0xAA)
-  - Immediate write-verify cycles
-  - Checksum-based integrity verification
+Pattern Testing:
+  Multiple test patterns (0x00, 0xFF, 0x55, 0xAA)
+  Immediate write-verify cycles
+  Checksum-based integrity verification
 
-✓ Stress Testing
-  - Multi-threaded concurrent access
-  - Sustained memory operations over test duration
-  - Continuous integrity verification
+Stress Testing:
+  Multi-threaded concurrent access (2 workers)
+  Sustained memory operations over test duration
+  Continuous integrity verification
 
-✓ Thread-Safe Operations
-  - Proper locking mechanisms
-  - No race conditions
-  - Reliable error detection
+Thread-Safe Operations:
+  Proper locking mechanisms
+  No race conditions
+  Reliable error detection
 
 -----------------------------------------------------------------------------------------
-   DETAILED TEST RESULTS
+   TEST RESULTS
 -----------------------------------------------------------------------------------------
 
-[MEMORY ALLOCATION]
+Test Method                    | Expected        | Actual          | Status
+-----------------------------------------------------------------------------------------
+Memory Stress Test                 | 0 errors        | ${ERRORS:-0} errors        | $([ "${ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+Memory Operations                  | No failures     | ${OPERATIONS:-0} ops    | $([ "${ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+Pattern Verification               | 100% match      | $([ "${ERRORS:-0}" -eq 0 ] && echo "100% match" || echo "Errors found")  | $([ "${ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+-----------------------------------------------------------------------------------------
+
+[DETAILED METRICS]
 
 Target Memory: ${MEMORY_MB:-0} MB
-Allocation Method: Block-based (25MB blocks)
-Safety Margin: 500MB reserved for system
-
-[STRESS TEST EXECUTION]
-
-Test Duration: ${TEST_DURATION_HOURS} hours
 Total Operations: ${OPERATIONS:-0}
-Concurrent Workers: 2 (conservative approach)
-
-[ERROR ANALYSIS]
-
-Pattern Errors: 0 (if PASSED)
-Integrity Errors: 0 (if PASSED)
-Allocation Errors: 0 (if PASSED)
 Total Errors: ${ERRORS:-0}
-
 $(if [ -n "$OPERATIONS" ] && [ "$OPERATIONS" -gt 0 ]; then
     ERROR_RATE=$(echo "scale=6; $ERRORS * 100 / $OPERATIONS" | bc)
     echo "Error Rate: ${ERROR_RATE}%"
@@ -839,28 +832,31 @@ fi)
 
 $(if [ "$RESULT" = "PASSED" ]; then
 cat << PASS_MSG
-✓ RAM STRESS TEST: PASSED
+OVERALL RESULT: PASS
 
-Memory stress test completed successfully:
-  ✓ No memory errors detected
-  ✓ All memory patterns verified correctly
-  ✓ Memory integrity maintained throughout test
-  ✓ Conservative allocation prevents false positives
-  ✓ Thread-safe operations ensure reliable results
+Memory stress test completed successfully
+No memory errors detected
+All memory patterns verified correctly
+Memory integrity maintained throughout test
+
+Summary:
+  Conservative allocation prevents false positives
+  Thread-safe operations ensure reliable results
+  Proper verification logic applied
+  No hardware issues detected
 
 VERDICT: Memory is functioning correctly and meets quality standards.
 
-EXPLANATION:
-This corrected test uses proper memory allocation (75% with safety margin) and
+Note: This test uses proper memory allocation (75% with safety margin) and
 reliable verification logic to avoid false positives from system memory pressure.
 PASS_MSG
 else
 cat << FAIL_MSG
-✗ RAM STRESS TEST: FAILED
+OVERALL RESULT: FAIL
 
-Memory stress test detected errors:
-  ✗ Total Errors: ${ERRORS:-0}
-  ✗ Investigation required
+Memory stress test detected errors
+Total Errors: ${ERRORS:-0}
+Investigation required
 
 $(if [ "${ERRORS:-0}" -gt 0 ]; then
     echo "These errors were detected with conservative allocation and proper"

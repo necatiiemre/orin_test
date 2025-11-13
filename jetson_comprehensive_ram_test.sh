@@ -288,18 +288,21 @@ echo "[2/2] Generating comprehensive final report..."
 if [ -f "$LOG_DIR/reports/comprehensive_results.txt" ]; then
     source "$LOG_DIR/reports/comprehensive_results.txt"
 
+    # Get Jetson model
+    JETSON_MODEL=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "cat /proc/device-tree/model 2>/dev/null | tr -d '\0'" 2>/dev/null || echo "Unknown")
+
     # Generate comprehensive report with cover page information
     cat > "$LOG_DIR/reports/RAM_COMPREHENSIVE_TEST_REPORT.txt" << REPORT_EOF
 =========================================================================================
-   COMPREHENSIVE RAM TEST REPORT - JETSON ORIN
+   COMPREHENSIVE RAM TEST REPORT
 =========================================================================================
 
 Test Date: $(date '+%Y-%m-%d %H:%M:%S')
 Tester: ${TESTER_NAME:-N/A}
 Quality Checker: ${QUALITY_CHECKER_NAME:-N/A}
 Device Serial: ${DEVICE_SERIAL:-N/A}
-Jetson Model: $(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "cat /proc/device-tree/model 2>/dev/null | tr -d '\0'" 2>/dev/null || echo "Unknown")
-Test Duration: ${TEST_DURATION_HOURS} hours ($((TEST_DURATION / 60)) minutes)
+Jetson Model: ${JETSON_MODEL}
+Test Duration: ${TEST_DURATION_HOURS} hours
 Status: ${RESULT:-UNKNOWN}
 
 -----------------------------------------------------------------------------------------
@@ -347,37 +350,28 @@ This comprehensive RAM test suite includes the following professional-grade meth
   - Errors Detected: ${WALKING_BITS_ERRORS:-0}
 
 -----------------------------------------------------------------------------------------
-   DETAILED TEST RESULTS
+   TEST RESULTS
 -----------------------------------------------------------------------------------------
 
-[DETAILED METRICS]
-
-Address Line Testing:
-  • Operations: ${ADDRESS_LINE_ERRORS:-0} errors detected
-  • Status: $([ "${ADDRESS_LINE_ERRORS:-0}" -eq 0 ] && echo "PASS ✓" || echo "FAIL ✗")
-
-Row Hammer Testing:
-  • Operations: ${ROW_HAMMER_ERRORS:-0} errors detected
-  • Status: $([ "${ROW_HAMMER_ERRORS:-0}" -eq 0 ] && echo "PASS ✓" || echo "FAIL ✗")
-
-Memory Bandwidth Testing:
-  • Operations: ${BANDWIDTH_ERRORS:-0} errors detected
-  • Status: $([ "${BANDWIDTH_ERRORS:-0}" -eq 0 ] && echo "PASS ✓" || echo "FAIL ✗")
-
-JEDEC Pattern Testing:
-  • Operations: ${JEDEC_ERRORS:-0} errors detected
-  • Status: $([ "${JEDEC_ERRORS:-0}" -eq 0 ] && echo "PASS ✓" || echo "FAIL ✗")
-
-Walking Bit Testing:
-  • Operations: ${WALKING_BITS_ERRORS:-0} errors detected
-  • Status: $([ "${WALKING_BITS_ERRORS:-0}" -eq 0 ] && echo "PASS ✓" || echo "FAIL ✗")
-
+Test Method                    | Expected        | Actual          | Status
+-----------------------------------------------------------------------------------------
 $(if [ -n "$ECC_CORRECTABLE" ]; then
-echo "ECC Monitoring:"
-echo "  • Correctable Errors: ${ECC_CORRECTABLE:-0}"
-echo "  • Uncorrectable Errors: ${ECC_UNCORRECTABLE:-0}"
-echo "  • Status: $([ "${ECC_UNCORRECTABLE:-0}" -eq 0 ] && echo "PASS ✓" || echo "FAIL ✗")"
+    STATUS=$([ "${ECC_UNCORRECTABLE:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+    echo "ECC Monitoring                     | 0 UE            | ${ECC_UNCORRECTABLE:-0} UE          | $STATUS"
 fi)
+Address Line Test                  | 0 errors        | ${ADDRESS_LINE_ERRORS:-0} errors        | $([ "${ADDRESS_LINE_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+Walking Bit Patterns               | 0 errors        | ${WALKING_BITS_ERRORS:-0} errors        | $([ "${WALKING_BITS_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+JEDEC Patterns                     | 0 errors        | ${JEDEC_ERRORS:-0} errors        | $([ "${JEDEC_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+Memory Bandwidth                   | Min 1000 MB/s   | ${BANDWIDTH_MBPS:-0} MB/s    | $([ "${BANDWIDTH_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+Row Hammer Test                    | 0 bit flips     | ${ROW_HAMMER_ERRORS:-0} bit flips    | $([ "${ROW_HAMMER_ERRORS:-0}" -eq 0 ] && echo "PASS" || echo "FAIL")
+-----------------------------------------------------------------------------------------
+
+[DETAILED BANDWIDTH METRICS]
+
+Write Bandwidth:  ${WRITE_MBPS:-N/A} MB/s
+Read Bandwidth:   ${READ_MBPS:-N/A} MB/s
+Random Access:    ${RANDOM_MBPS:-N/A} MB/s
+Overall:          ${BANDWIDTH_MBPS:-N/A} MB/s
 
 -----------------------------------------------------------------------------------------
    CONCLUSION
@@ -385,31 +379,36 @@ fi)
 
 $(if [ "$RESULT" = "PASSED" ]; then
 cat << PASS_MSG
-✓ COMPREHENSIVE RAM TEST: PASSED
+OVERALL RESULT: PASS
 
-All professional-grade memory tests completed successfully:
-  ✓ No memory errors detected across any test method
-  ✓ Address lines functioning correctly
-  ✓ No row hammer vulnerabilities detected
-  ✓ Memory controller operating within specifications
-  ✓ JEDEC standard patterns verified
-  ✓ All bits functioning correctly
+All memory tests completed successfully
+Memory integrity verified across all test methods
+RAM is PRODUCTION READY
+
+Summary:
+  No memory errors detected across any test method
+  Address lines functioning correctly
+  No row hammer vulnerabilities detected
+  Memory controller operating within specifications
+  JEDEC standard patterns verified
+  All bits functioning correctly
 
 VERDICT: Memory meets PRODUCTION quality standards and is certified for use.
 PASS_MSG
 else
 cat << FAIL_MSG
-✗ COMPREHENSIVE RAM TEST: FAILED
+OVERALL RESULT: FAIL
 
-Memory reliability issues detected:
-  ✗ Total Errors: ${TOTAL_ERRORS:-0}
-  ✗ Hardware investigation required
+Memory reliability issues detected
+Total errors: ${TOTAL_ERRORS:-0}
+Hardware investigation required
 
-$([ "${ADDRESS_LINE_ERRORS:-0}" -gt 0 ] && echo "  • Address line failures - possible connection issues")
-$([ "${ROW_HAMMER_ERRORS:-0}" -gt 0 ] && echo "  • Row hammer vulnerability - memory susceptible to bit flips")
-$([ "${JEDEC_ERRORS:-0}" -gt 0 ] && echo "  • JEDEC pattern failures - basic memory cell issues")
-$([ "${BANDWIDTH_ERRORS:-0}" -gt 0 ] && echo "  • Memory controller errors under bandwidth stress")
-$([ "${WALKING_BITS_ERRORS:-0}" -gt 0 ] && echo "  • Stuck or weak bits detected")
+Detected Issues:
+$([ "${ADDRESS_LINE_ERRORS:-0}" -gt 0 ] && echo "  Address line failures - possible connection issues")
+$([ "${ROW_HAMMER_ERRORS:-0}" -gt 0 ] && echo "  Row hammer vulnerability - memory susceptible to bit flips")
+$([ "${JEDEC_ERRORS:-0}" -gt 0 ] && echo "  JEDEC pattern failures - basic memory cell issues")
+$([ "${BANDWIDTH_ERRORS:-0}" -gt 0 ] && echo "  Memory controller errors under bandwidth stress")
+$([ "${WALKING_BITS_ERRORS:-0}" -gt 0 ] && echo "  Stuck or weak bits detected")
 
 VERDICT: Memory does NOT meet production standards. Hardware replacement recommended.
 FAIL_MSG
