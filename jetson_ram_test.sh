@@ -261,38 +261,34 @@ class CorrectedRAMTest:
         block_size_mb = 25  # 25MB blocks instead of 50MB
         blocks_needed = self.memory_mb // block_size_mb
 
-        print(f"Allocating {blocks_needed} blocks of {block_size_mb}MB each...")
-        print("")
-
         allocated_count = 0
         total_allocated_mb = 0
-        
+
         for i in range(blocks_needed):
             if not self.running:
                 break
-                
+
             # Check available memory before each allocation
             available_mb, free_mb = self.get_memory_info()
-            
+
             if available_mb < (block_size_mb + 200):  # Need 200MB headroom
-                print(f"Stopping allocation - insufficient memory (available: {available_mb}MB)")
                 break
-                
+
             try:
                 block_size = block_size_mb * 1024 * 1024
-                
+
                 # Allocate and initialize with known pattern
                 block = bytearray(block_size)
-                
+
                 # Fill with simple pattern
                 pattern_byte = 0x55  # Alternating pattern
                 for j in range(0, block_size, 4096):  # Page-by-page
                     end = min(j + 4096, block_size)
                     block[j:end] = bytes([pattern_byte] * (end - j))
-                
+
                 # Calculate checksum for verification
                 checksum = hashlib.md5(block).hexdigest()
-                
+
                 self.memory_blocks.append({
                     'data': block,
                     'size_mb': block_size_mb,
@@ -301,30 +297,21 @@ class CorrectedRAMTest:
                     'checksum': checksum,
                     'verified': True
                 })
-                
+
                 allocated_count += 1
                 total_allocated_mb += block_size_mb
                 self.stats['allocated_mb'] = total_allocated_mb
-
-                # Progress update
-                if allocated_count % 20 == 0:
-                    print(f"  Progress: {allocated_count}/{blocks_needed} blocks ({total_allocated_mb}MB)")
 
                 # Small delay to prevent overwhelming the system
                 if allocated_count % 50 == 0:
                     time.sleep(0.1)
 
             except MemoryError:
-                print(f"Memory allocation stopped at block {i} ({total_allocated_mb}MB allocated)")
                 self.stats['allocation_errors'] += 1
                 break
             except Exception as e:
-                print(f"Allocation error at block {i}: {e}")
                 self.stats['allocation_errors'] += 1
                 break
-
-        print(f"Successfully allocated {allocated_count} blocks ({total_allocated_mb}MB)")
-        print("")
 
         # Force garbage collection
         gc.collect()
@@ -387,12 +374,10 @@ class CorrectedRAMTest:
             
     def conservative_stress_worker(self, worker_id, worker_blocks):
         """Conservative stress testing worker"""
-        
+
         worker_errors = 0
         worker_operations = 0
-        
-        print(f"Worker {worker_id}: Testing {len(worker_blocks)} blocks")
-        
+
         try:
             while self.running:
                 for block_info in worker_blocks:
@@ -410,8 +395,7 @@ class CorrectedRAMTest:
                                 worker_errors += errors
                                 with self.lock:
                                     self.errors += errors
-                                    print(f"Worker {worker_id}: {errors} pattern errors in block {block_info['id']}")
-                                    
+
                             worker_operations += 1
 
                             # Update global operations counter with lock
@@ -422,7 +406,6 @@ class CorrectedRAMTest:
                         if not self.verify_block_integrity(block_info):
                             worker_errors += 1
                             with self.lock:
-                                print(f"Worker {worker_id}: Integrity error in block {block_info['id']}")
                                 self.errors += 1
 
                         worker_operations += 1
@@ -430,31 +413,28 @@ class CorrectedRAMTest:
                         # Update global operations counter with lock
                         with self.lock:
                             self.operations += 1
-                        
+
                         # Yield control to prevent overwhelming system
                         time.sleep(0.01)
-                        
+
                     except Exception as e:
                         worker_errors += 1
-                        print(f"Worker {worker_id} error on block {block_info['id']}: {e}")
                         
                 # Small delay between cycles
                 time.sleep(0.1)
                 
         except Exception as e:
-            print(f"Worker {worker_id} critical error: {e}")
             worker_errors += 10
-            
-        print(f"Worker {worker_id} completed: {worker_operations} operations, {worker_errors} errors")
+
         return worker_operations, worker_errors
         
     def run_corrected_test(self):
         """Execute the corrected RAM stress test"""
-        
+
         # Setup signal handlers
         signal.signal(signal.SIGTERM, self.signal_handler)
         signal.signal(signal.SIGINT, self.signal_handler)
-        
+
         print("=" * 80)
         print("RAM STRESS TEST")
         print("=" * 80)
@@ -463,50 +443,34 @@ class CorrectedRAMTest:
         print("")
 
         # Phase 1: Safe Memory Allocation
-        print("")
         print("=" * 80)
-        print("PHASE 1: Memory Allocation")
+        print("PHASE 1: Memory Allocation Test")
         print("=" * 80)
         print("")
-        print("Test Details:")
-        print(f"- Target Memory: {self.memory_mb} MB")
-        print(f"- Allocation Method: Block-based (25MB blocks)")
-        print(f"- Allocation Strategy: Conservative (75% of available + 500MB safety margin)")
-        print("")
-        
+
         if not self.safe_allocate_memory():
-            print("CRITICAL: Memory allocation failed!")
+            print("Expected: Success")
+            print("Actual: Failed")
+            print("Status: FAIL")
+            print("")
             return False
 
         total_allocated_mb = sum(block['size_mb'] for block in self.memory_blocks)
 
-        print("Test Results:")
-        print(f"{'Test Method':<30} | {'Expected':<15} | {'Actual':<15} | {'Status':<8}")
-        print("-" * 80)
-        print(f"{'Memory Allocation':<30} | {'Success':<15} | {'Success':<15} | {'PASS':<8}")
-        print(f"{'Blocks Allocated':<30} | {'{} blocks'.format(len(self.memory_blocks)):<15} | {'{} blocks'.format(len(self.memory_blocks)):<15} | {'PASS':<8}")
-        print(f"{'Memory Allocated':<30} | {'{} MB'.format(self.memory_mb):<15} | {'{} MB'.format(total_allocated_mb):<15} | {'PASS':<8}")
+        print(f"Expected: Success (allocate {self.memory_mb} MB)")
+        print(f"Actual: Success (allocated {total_allocated_mb} MB)")
+        print("Status: PASS")
         print("")
 
-        # Phase 2: Conservative Stress Testing
-        print("")
+        # Phase 2: Pattern Testing
         print("=" * 80)
         print("PHASE 2: Pattern Testing")
         print("=" * 80)
         print("")
-        print("Test Details:")
-        print(f"- Memory Tested: {total_allocated_mb} MB")
-        print(f"- Patterns Used: 4 types (0x00, 0xFF, 0x55, 0xAA)")
-        print(f"- Verification: Immediate write-verify cycles")
-        print(f"- Integrity Check: MD5 checksum-based verification")
-        print("")
-        
+
         # Use fewer workers to reduce contention
         num_workers = min(2, len(self.memory_blocks))  # Max 2 workers
         blocks_per_worker = len(self.memory_blocks) // num_workers
-
-        print("Test in progress...")
-        print("")
 
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
             # Divide blocks among workers
@@ -528,90 +492,59 @@ class CorrectedRAMTest:
                 elapsed = time.time() - start_time
                 remaining = self.duration - elapsed
 
-                available_mb, free_mb = self.get_memory_info()
-
-                print(f"Progress: {elapsed:.0f}s elapsed, {remaining:.0f}s remaining")
-                print(f"  Operations: {self.operations:,}")
-                print(f"  Errors: {self.errors}")
-                print("")
-
                 if remaining <= 0:
                     break
 
             # Stop workers
-            print("Stopping test...")
             self.running = False
-            
+
             # Collect results
             total_worker_operations = 0
             total_worker_errors = 0
-            
+
             for i, future in enumerate(futures):
                 try:
                     operations, errors = future.result(timeout=30)
                     total_worker_operations += operations
                     total_worker_errors += errors
                 except Exception as e:
-                    print(f"Worker {i} error: {e}")
                     total_worker_errors += 1
 
         # Store pattern test errors before final verification
         pattern_errors = self.errors + total_worker_errors
 
-        print("")
-        print("Test Results:")
-        print(f"{'Test Method':<30} | {'Expected':<15} | {'Actual':<15} | {'Status':<8}")
-        print("-" * 80)
         status = "PASS" if pattern_errors == 0 else "FAIL"
-        print(f"{'Pattern Write/Verify':<30} | {'0 errors':<15} | {'{} errors'.format(pattern_errors):<15} | {status:<8}")
+        print(f"Expected: 0 errors")
+        print(f"Actual: {pattern_errors} errors")
+        print(f"Status: {status}")
         print("")
 
         # Phase 3: Multi-threaded Stress Testing
-        print("")
         print("=" * 80)
         print("PHASE 3: Multi-threaded Stress Testing")
         print("=" * 80)
         print("")
 
-        actual_duration = time.time() - self.start_time
-        ops_per_sec = self.operations / actual_duration if actual_duration > 0 else 0
-
-        print("Test Details:")
-        print(f"- Memory Tested: {total_allocated_mb} MB")
-        print(f"- Worker Threads: {num_workers}")
-        print(f"- Test Duration: {actual_duration:.1f} seconds ({actual_duration/60:.1f} minutes)")
-        print(f"- Total Operations: {self.operations:,}")
-        print(f"- Operations per Second: {ops_per_sec:.0f}")
-        print("")
-
         # Final Verification
-        print("Running final integrity verification...")
-        print("")
-
         final_errors = 0
         for i, block_info in enumerate(self.memory_blocks):
             if not self.verify_block_integrity(block_info):
                 final_errors += 1
-        
+
         # Results
         total_errors = self.errors + total_worker_errors + final_errors
         total_operations = self.operations + total_worker_operations
         actual_duration = time.time() - self.start_time
 
-        print("Test Results:")
-        print(f"{'Test Method':<30} | {'Expected':<15} | {'Actual':<15} | {'Status':<8}")
-        print("-" * 80)
-
-        status1 = "PASS" if total_errors == 0 else "FAIL"
-        print(f"{'Concurrent Memory Access':<30} | {'0 errors':<15} | {'{} errors'.format(total_errors):<15} | {status1:<8}")
-
+        status = "PASS" if total_errors == 0 else "FAIL"
         integrity_pct = 100 if total_errors == 0 else max(0, 100 - int((total_errors * 100 / total_operations)))
-        status2 = "PASS" if total_errors == 0 else "FAIL"
-        print(f"{'Memory Integrity':<30} | {'100%':<15} | {'{}%'.format(integrity_pct):<15} | {status2:<8}")
+
+        print(f"Expected: 0 errors, 100% integrity")
+        print(f"Actual: {total_errors} errors, {integrity_pct}% integrity")
+        print(f"Status: {status}")
 
         if total_operations > 0:
             error_rate = (total_errors / total_operations) * 100
-            print("")
             print(f"Error Rate: {error_rate:.6f}%")
 
         print("")
