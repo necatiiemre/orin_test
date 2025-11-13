@@ -204,6 +204,9 @@ sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/d
 
 set -e
 
+# Record start time
+START_TIME=$(date +%s)
+
 # Test directory
 TEST_DIR="/tmp/jetson_disk_stress_$(date +%Y%m%d_%H%M%S)"
 LOG_DIR="$TEST_DIR/logs"
@@ -1458,10 +1461,39 @@ echo "==========================================================================
 echo "  DISK STRESS TEST EXECUTION COMPLETE"
 echo "================================================================================"
 echo ""
+
+# Calculate test duration
+TEST_DURATION_ACTUAL=$(($(date +%s) - START_TIME))
+JETSON_MODEL=$(cat /proc/device-tree/model 2>/dev/null | tr -d '\0' || echo 'Unknown')
+
+echo "================================================================================"
+echo "  Product Information"
+echo "================================================================================"
+echo "Test duration: ${TEST_DURATION_HOURS}h"
+echo "Jetson model: $JETSON_MODEL"
 echo "Tester: $TESTER_NAME"
 echo "Quality Checker: $QUALITY_CHECKER_NAME"
 echo "Device Serial: $DEVICE_SERIAL"
+
+# Determine TEST STATUS based on health status
+STORAGE_TEST_RESULT=0
+if [ -f "$REPORT_DIR/test_summary.txt" ]; then
+    HEALTH_STATUS=$(grep "HEALTH_STATUS=" "$REPORT_DIR/test_summary.txt" | cut -d= -f2)
+    if [ "$HEALTH_STATUS" = "Critical" ] || [ "$HEALTH_STATUS" = "Warning" ]; then
+        STORAGE_TEST_RESULT=1
+    fi
+fi
+
+if [ $STORAGE_TEST_RESULT -eq 0 ]; then
+    echo "TEST STATUS: PASSED"
+else
+    echo "TEST STATUS: FAILED"
+fi
+echo "Test Duration: ${TEST_DURATION_ACTUAL}s"
+echo "Device Model: $JETSON_MODEL"
+echo "Test Date: $(date)"
 echo ""
+
 echo "Test directory: $TEST_DIR"
 echo "Main report: $REPORT_DIR/DISK_PERFORMANCE_REPORT.txt"
 echo "Summary: $REPORT_DIR/test_summary.txt"
