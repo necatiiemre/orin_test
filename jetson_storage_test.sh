@@ -1417,6 +1417,19 @@ generate_final_report() {
         [ "${PHASE8_STATUS:-FAIL}" = "PASS" ] && PASSED_PHASES=$((PASSED_PHASES + 1))
         [ "${PHASE9_STATUS:-FAIL}" = "PASS" ] && PASSED_PHASES=$((PASSED_PHASES + 1))
 
+        # Display phase-by-phase results
+        echo "Phase Results Summary:"
+        echo "  Phase 1 (Storage System Analysis):        ${PHASE1_STATUS:-FAIL}"
+        echo "  Phase 2 (Sequential I/O Performance):     ${PHASE2_STATUS:-FAIL}"
+        echo "  Phase 3 (Random I/O Performance):         ${PHASE3_STATUS:-FAIL}"
+        echo "  Phase 4 (Sustained I/O Stress Test):      ${PHASE4_STATUS:-FAIL}"
+        echo "  Phase 5 (Filesystem Metadata Stress):     ${PHASE5_STATUS:-FAIL}"
+        echo "  Phase 6 (Storage Health Analysis):        ${PHASE6_STATUS:-FAIL}"
+        echo "  Phase 7 (Extended SMART Test):            ${PHASE7_STATUS:-FAIL}"
+        echo "  Phase 8 (Disk Sector Control Test):       ${PHASE8_STATUS:-FAIL}"
+        echo "  Phase 9 (Temperature Monitoring):         ${PHASE9_STATUS:-FAIL}"
+        echo ""
+
         if [ "$PASSED_PHASES" -eq "$TOTAL_PHASES" ]; then
             echo "OVERALL RESULT: PASS"
             echo ""
