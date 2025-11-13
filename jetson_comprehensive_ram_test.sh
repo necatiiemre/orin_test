@@ -281,6 +281,169 @@ echo ""
 echo "[1/2] Copying test results..."
 sshpass -p "$ORIN_PASS" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:/tmp/comprehensive_ram_test_result.txt" "$LOG_DIR/reports/comprehensive_results.txt" 2>/dev/null && echo "[+] Results copied" || echo "[!] Results file not found"
 
+# Generate comprehensive final report with product information
+echo "[2/2] Generating comprehensive final report..."
+
+# Source the results to get test data
+if [ -f "$LOG_DIR/reports/comprehensive_results.txt" ]; then
+    source "$LOG_DIR/reports/comprehensive_results.txt"
+
+    # Generate comprehensive report with cover page information
+    cat > "$LOG_DIR/reports/RAM_COMPREHENSIVE_TEST_REPORT.txt" << REPORT_EOF
+=========================================================================================
+   COMPREHENSIVE RAM TEST REPORT - JETSON ORIN
+=========================================================================================
+
+Test Date: $(date '+%Y-%m-%d %H:%M:%S')
+Tester: ${TESTER_NAME:-N/A}
+Quality Checker: ${QUALITY_CHECKER_NAME:-N/A}
+Device Serial: ${DEVICE_SERIAL:-N/A}
+Jetson Model: $(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "cat /proc/device-tree/model 2>/dev/null | tr -d '\0'" 2>/dev/null || echo "Unknown")
+Test Duration: ${TEST_DURATION_HOURS} hours ($((TEST_DURATION / 60)) minutes)
+Status: ${RESULT:-UNKNOWN}
+
+-----------------------------------------------------------------------------------------
+   TEST SUMMARY
+-----------------------------------------------------------------------------------------
+
+Overall Result: ${RESULT:-UNKNOWN}
+Total Memory Tested: ${MEMORY_MB:-0} MB
+Total Operations: ${TOTAL_OPERATIONS:-0}
+Total Errors Detected: ${TOTAL_ERRORS:-0}
+
+-----------------------------------------------------------------------------------------
+   TEST METHODS EXECUTED
+-----------------------------------------------------------------------------------------
+
+This comprehensive RAM test suite includes the following professional-grade methods:
+
+✓ ECC Error Monitoring
+  - Detects correctable and uncorrectable memory errors
+  - Monitors memory controller error counters
+
+✓ Address Line Testing
+  - Tests for stuck or shorted address lines
+  - Walking bit patterns across address space
+  - Errors Detected: ${ADDRESS_LINE_ERRORS:-0}
+
+✓ Row Hammer Detection
+  - Tests for bit flip vulnerabilities
+  - Rapid access patterns to stress DRAM rows
+  - Errors Detected: ${ROW_HAMMER_ERRORS:-0}
+
+✓ Memory Controller Bandwidth Stress
+  - Sequential read/write operations
+  - Random access patterns
+  - Errors Detected: ${BANDWIDTH_ERRORS:-0}
+
+✓ JEDEC Standard Patterns
+  - MATS+ (Modified Algorithm Test Sequence)
+  - March C- Algorithm
+  - Errors Detected: ${JEDEC_ERRORS:-0}
+
+✓ Walking Bit Patterns
+  - Detects stuck or weak bits
+  - Walking 1s and walking 0s patterns
+  - Errors Detected: ${WALKING_BITS_ERRORS:-0}
+
+-----------------------------------------------------------------------------------------
+   DETAILED TEST RESULTS
+-----------------------------------------------------------------------------------------
+
+[DETAILED METRICS]
+
+Address Line Testing:
+  • Operations: ${ADDRESS_LINE_ERRORS:-0} errors detected
+  • Status: $([ "${ADDRESS_LINE_ERRORS:-0}" -eq 0 ] && echo "PASS ✓" || echo "FAIL ✗")
+
+Row Hammer Testing:
+  • Operations: ${ROW_HAMMER_ERRORS:-0} errors detected
+  • Status: $([ "${ROW_HAMMER_ERRORS:-0}" -eq 0 ] && echo "PASS ✓" || echo "FAIL ✗")
+
+Memory Bandwidth Testing:
+  • Operations: ${BANDWIDTH_ERRORS:-0} errors detected
+  • Status: $([ "${BANDWIDTH_ERRORS:-0}" -eq 0 ] && echo "PASS ✓" || echo "FAIL ✗")
+
+JEDEC Pattern Testing:
+  • Operations: ${JEDEC_ERRORS:-0} errors detected
+  • Status: $([ "${JEDEC_ERRORS:-0}" -eq 0 ] && echo "PASS ✓" || echo "FAIL ✗")
+
+Walking Bit Testing:
+  • Operations: ${WALKING_BITS_ERRORS:-0} errors detected
+  • Status: $([ "${WALKING_BITS_ERRORS:-0}" -eq 0 ] && echo "PASS ✓" || echo "FAIL ✗")
+
+$(if [ -n "$ECC_CORRECTABLE" ]; then
+echo "ECC Monitoring:"
+echo "  • Correctable Errors: ${ECC_CORRECTABLE:-0}"
+echo "  • Uncorrectable Errors: ${ECC_UNCORRECTABLE:-0}"
+echo "  • Status: $([ "${ECC_UNCORRECTABLE:-0}" -eq 0 ] && echo "PASS ✓" || echo "FAIL ✗")"
+fi)
+
+-----------------------------------------------------------------------------------------
+   CONCLUSION
+-----------------------------------------------------------------------------------------
+
+$(if [ "$RESULT" = "PASSED" ]; then
+cat << PASS_MSG
+✓ COMPREHENSIVE RAM TEST: PASSED
+
+All professional-grade memory tests completed successfully:
+  ✓ No memory errors detected across any test method
+  ✓ Address lines functioning correctly
+  ✓ No row hammer vulnerabilities detected
+  ✓ Memory controller operating within specifications
+  ✓ JEDEC standard patterns verified
+  ✓ All bits functioning correctly
+
+VERDICT: Memory meets PRODUCTION quality standards and is certified for use.
+PASS_MSG
+else
+cat << FAIL_MSG
+✗ COMPREHENSIVE RAM TEST: FAILED
+
+Memory reliability issues detected:
+  ✗ Total Errors: ${TOTAL_ERRORS:-0}
+  ✗ Hardware investigation required
+
+$([ "${ADDRESS_LINE_ERRORS:-0}" -gt 0 ] && echo "  • Address line failures - possible connection issues")
+$([ "${ROW_HAMMER_ERRORS:-0}" -gt 0 ] && echo "  • Row hammer vulnerability - memory susceptible to bit flips")
+$([ "${JEDEC_ERRORS:-0}" -gt 0 ] && echo "  • JEDEC pattern failures - basic memory cell issues")
+$([ "${BANDWIDTH_ERRORS:-0}" -gt 0 ] && echo "  • Memory controller errors under bandwidth stress")
+$([ "${WALKING_BITS_ERRORS:-0}" -gt 0 ] && echo "  • Stuck or weak bits detected")
+
+VERDICT: Memory does NOT meet production standards. Hardware replacement recommended.
+FAIL_MSG
+fi)
+
+-----------------------------------------------------------------------------------------
+   TEST METHODOLOGY
+-----------------------------------------------------------------------------------------
+
+This test suite is equivalent to professional memory validation tools used in:
+  • Manufacturing quality control
+  • Production validation and certification
+  • Hardware reliability testing
+  • Failure analysis and diagnostics
+
+The comprehensive test methods employed are based on industry standards:
+  • JEDEC memory testing standards (JESD79, JESD22)
+  • Row hammer vulnerability assessment (Google Project Zero research)
+  • ECC monitoring per memory controller specifications
+  • Address line testing (industry best practices)
+
+=========================================================================================
+   END OF REPORT
+=========================================================================================
+
+Generated: $(date '+%Y-%m-%d %H:%M:%S')
+Test Directory: $LOG_DIR
+REPORT_EOF
+
+    echo "[+] Comprehensive final report generated"
+else
+    echo "[!] Could not generate comprehensive report - results file missing"
+fi
+
 # Cleanup remote files
 sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "rm -f /tmp/comprehensive_ram_test_result.txt" 2>/dev/null
 

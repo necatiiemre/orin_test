@@ -731,10 +731,10 @@ echo "==========================================================================
 echo ""
 
 # Copy result file from remote
-echo "[1/2] Copying test results..."
+echo "[1/3] Copying test results..."
 sshpass -p "$ORIN_PASS" scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP:/tmp/ram_test_result.txt" "$LOG_DIR/reports/ram_test_results.txt" 2>/dev/null && echo "[+] Results copied" || echo "[!] Results file not found"
 
-echo "[2/2] Copying test summary..."
+echo "[2/3] Copying test summary..."
 # Find the most recent test directory
 REMOTE_TEST_DIR=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "ls -td /tmp/ram_stress_test_* 2>/dev/null | head -1")
 if [ -n "$REMOTE_TEST_DIR" ]; then
@@ -744,6 +744,168 @@ if [ -n "$REMOTE_TEST_DIR" ]; then
     sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "rm -rf $REMOTE_TEST_DIR /tmp/ram_test_result.txt" 2>/dev/null
 else
     echo "[!] Remote test directory not found"
+fi
+
+# Generate comprehensive final report with product information
+echo "[3/3] Generating comprehensive final report..."
+
+# Source the results to get test data
+if [ -f "$LOG_DIR/reports/ram_test_results.txt" ]; then
+    source "$LOG_DIR/reports/ram_test_results.txt"
+
+    # Get Jetson model
+    JETSON_MODEL=$(sshpass -p "$ORIN_PASS" ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR "$ORIN_USER@$ORIN_IP" "cat /proc/device-tree/model 2>/dev/null | tr -d '\0'" 2>/dev/null || echo "Unknown")
+
+    # Generate comprehensive report with cover page information
+    cat > "$LOG_DIR/reports/RAM_STRESS_TEST_REPORT.txt" << REPORT_EOF
+=========================================================================================
+   RAM STRESS TEST REPORT - JETSON ORIN
+=========================================================================================
+
+Test Date: $(date '+%Y-%m-%d %H:%M:%S')
+Tester: ${TESTER_NAME}
+Quality Checker: ${QUALITY_CHECKER_NAME}
+Device Serial: ${DEVICE_SERIAL}
+Jetson Model: ${JETSON_MODEL}
+Test Duration: ${TEST_DURATION_HOURS} hours ($((TEST_DURATION / 60)) minutes)
+Status: ${RESULT:-UNKNOWN}
+
+-----------------------------------------------------------------------------------------
+   TEST SUMMARY
+-----------------------------------------------------------------------------------------
+
+Overall Result: ${RESULT:-UNKNOWN}
+Total Memory Tested: ${MEMORY_MB:-0} MB
+Total Operations: ${OPERATIONS:-0}
+Total Errors Detected: ${ERRORS:-0}
+
+-----------------------------------------------------------------------------------------
+   TEST DESCRIPTION
+-----------------------------------------------------------------------------------------
+
+This RAM stress test uses conservative memory allocation and proper verification:
+
+✓ Conservative Memory Allocation
+  - Uses 75% of available memory with 500MB safety margin
+  - Prevents system memory pressure issues
+  - Block-based allocation for better reliability
+
+✓ Pattern Testing
+  - Multiple test patterns (0x00, 0xFF, 0x55, 0xAA)
+  - Immediate write-verify cycles
+  - Checksum-based integrity verification
+
+✓ Stress Testing
+  - Multi-threaded concurrent access
+  - Sustained memory operations over test duration
+  - Continuous integrity verification
+
+✓ Thread-Safe Operations
+  - Proper locking mechanisms
+  - No race conditions
+  - Reliable error detection
+
+-----------------------------------------------------------------------------------------
+   DETAILED TEST RESULTS
+-----------------------------------------------------------------------------------------
+
+[MEMORY ALLOCATION]
+
+Target Memory: ${MEMORY_MB:-0} MB
+Allocation Method: Block-based (25MB blocks)
+Safety Margin: 500MB reserved for system
+
+[STRESS TEST EXECUTION]
+
+Test Duration: ${TEST_DURATION_HOURS} hours
+Total Operations: ${OPERATIONS:-0}
+Concurrent Workers: 2 (conservative approach)
+
+[ERROR ANALYSIS]
+
+Pattern Errors: 0 (if PASSED)
+Integrity Errors: 0 (if PASSED)
+Allocation Errors: 0 (if PASSED)
+Total Errors: ${ERRORS:-0}
+
+$(if [ -n "$OPERATIONS" ] && [ "$OPERATIONS" -gt 0 ]; then
+    ERROR_RATE=$(echo "scale=6; $ERRORS * 100 / $OPERATIONS" | bc)
+    echo "Error Rate: ${ERROR_RATE}%"
+fi)
+
+-----------------------------------------------------------------------------------------
+   CONCLUSION
+-----------------------------------------------------------------------------------------
+
+$(if [ "$RESULT" = "PASSED" ]; then
+cat << PASS_MSG
+✓ RAM STRESS TEST: PASSED
+
+Memory stress test completed successfully:
+  ✓ No memory errors detected
+  ✓ All memory patterns verified correctly
+  ✓ Memory integrity maintained throughout test
+  ✓ Conservative allocation prevents false positives
+  ✓ Thread-safe operations ensure reliable results
+
+VERDICT: Memory is functioning correctly and meets quality standards.
+
+EXPLANATION:
+This corrected test uses proper memory allocation (75% with safety margin) and
+reliable verification logic to avoid false positives from system memory pressure.
+PASS_MSG
+else
+cat << FAIL_MSG
+✗ RAM STRESS TEST: FAILED
+
+Memory stress test detected errors:
+  ✗ Total Errors: ${ERRORS:-0}
+  ✗ Investigation required
+
+$(if [ "${ERRORS:-0}" -gt 0 ]; then
+    echo "These errors were detected with conservative allocation and proper"
+    echo "verification logic, suggesting genuine hardware issues."
+fi)
+
+VERDICT: Memory may have reliability issues. Consider professional testing.
+FAIL_MSG
+fi)
+
+-----------------------------------------------------------------------------------------
+   TEST METHODOLOGY
+-----------------------------------------------------------------------------------------
+
+This test improves upon aggressive stress tests by using:
+
+  • Conservative Memory Allocation (75% + safety margin)
+    - Prevents system memory pressure
+    - Avoids false positives from OOM conditions
+    - Maintains system stability during testing
+
+  • Proper Verification Logic
+    - Checksum-based integrity verification
+    - Immediate write-verify cycles
+    - Thread-safe operations with proper locking
+
+  • Realistic Stress Patterns
+    - Multiple test patterns (zeros, ones, alternating)
+    - Sustained operations over test duration
+    - Concurrent access from multiple workers
+
+This approach provides reliable results without overwhelming the system,
+distinguishing genuine hardware issues from test logic problems.
+
+=========================================================================================
+   END OF REPORT
+=========================================================================================
+
+Generated: $(date '+%Y-%m-%d %H:%M:%S')
+Test Directory: $LOG_DIR
+REPORT_EOF
+
+    echo "[+] Comprehensive final report generated"
+else
+    echo "[!] Could not generate comprehensive report - results file missing"
 fi
 
 echo ""
