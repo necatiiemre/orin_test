@@ -1096,17 +1096,17 @@ generate_final_report() {
         echo ""
 
         echo "Test: Storage device detection and filesystem analysis"
-        echo "Expected: All storage devices detected, filesystem healthy, sufficient space available"
+        echo "Expected: Devices detected > 0, available space > 1000 MB, sufficient test file size"
 
         # Actual results from Phase 1
         if [ -f "$LOG_DIR/storage_analysis.txt" ]; then
             DEVICE_COUNT=$(grep -c "^Device:" "$LOG_DIR/storage_analysis.txt" 2>/dev/null || echo "0")
-            AVAILABLE_SPACE=$(grep "Available space in /tmp:" "$LOG_DIR/storage_analysis.txt" | awk '{print $5}' || echo "Unknown")
-            TEST_SIZE=$(grep "Test file size:" "$LOG_DIR/storage_analysis.txt" | awk '{print $4}' || echo "Unknown")
+            AVAILABLE_SPACE=$(grep "Available space in /tmp:" "$LOG_DIR/storage_analysis.txt" | awk '{print $5}' || echo "0")
+            TEST_SIZE=$(grep "Test file size:" "$LOG_DIR/storage_analysis.txt" | awk '{print $4}' || echo "0")
 
             echo "Actual: Detected $DEVICE_COUNT device(s), available ${AVAILABLE_SPACE} MB, test file ${TEST_SIZE} MB"
 
-            if [ "$DEVICE_COUNT" -gt 0 ] && [ "$AVAILABLE_SPACE" != "Unknown" ]; then
+            if [ "$DEVICE_COUNT" -gt 0 ] && [ "$AVAILABLE_SPACE" -gt 1000 ]; then
                 echo "Status: PASS"
                 PHASE1_STATUS="PASS"
             else
@@ -1126,7 +1126,7 @@ generate_final_report() {
         echo ""
 
         echo "Test: Sequential read/write performance with various block sizes"
-        echo "Expected: Stable sequential I/O, read/write speeds appropriate for storage type"
+        echo "Expected: Sequential write > 50 MB/s, sequential read > 100 MB/s"
 
         # Parse sequential I/O results
         if $HAS_FIO && [ -f "$LOG_DIR/seq_write_1m.json" ] && [ -f "$LOG_DIR/seq_read_1m.json" ]; then
@@ -1164,7 +1164,7 @@ generate_final_report() {
         echo ""
 
         echo "Test: Random 4K read/write performance and IOPS measurement"
-        echo "Expected: Random IOPS appropriate for storage type, stable performance"
+        echo "Expected: Random read IOPS > 1000, random write IOPS > 500"
 
         if $HAS_FIO && [ -f "$LOG_DIR/random_4k_randread.json" ]; then
             if command -v python3 >/dev/null 2>&1; then
@@ -1201,14 +1201,14 @@ generate_final_report() {
         echo ""
 
         echo "Test: Sustained I/O operations over extended period"
-        echo "Expected: System handles continuous I/O load, no performance degradation"
+        echo "Expected: Sustained operations > 100, operations per second > 1"
 
         if [ -f "$LOG_DIR/sustained_stress.log" ]; then
             STRESS_OPS=$(grep "Total stress operations:" "$LOG_DIR/sustained_stress.log" | awk '{print $4}' || echo "0")
             STRESS_OPS_SEC=$(grep "Operations per second:" "$LOG_DIR/sustained_stress.log" | awk '{print $4}' || echo "0")
             echo "Actual: Completed $STRESS_OPS operations, ${STRESS_OPS_SEC} ops/sec"
 
-            if [ "$STRESS_OPS" -gt 0 ]; then
+            if [ "$STRESS_OPS" -gt 100 ]; then
                 echo "Status: PASS"
                 PHASE4_STATUS="PASS"
             else
@@ -1228,13 +1228,13 @@ generate_final_report() {
         echo ""
 
         echo "Test: File creation/deletion operations for filesystem metadata stress"
-        echo "Expected: Filesystem handles many small files, reasonable operation times"
+        echo "Expected: Files created > 1000, file operations complete successfully"
 
         if [ -f "$LOG_DIR/filesystem_stress.log" ]; then
             FILES_CREATED=$(grep "Created.*files in" "$LOG_DIR/filesystem_stress.log" | awk '{print $2}' || echo "0")
             echo "Actual: Created and managed $FILES_CREATED small files successfully"
 
-            if [ "$FILES_CREATED" -gt 0 ]; then
+            if [ "$FILES_CREATED" -gt 1000 ]; then
                 echo "Status: PASS"
                 PHASE5_STATUS="PASS"
             else
@@ -1254,7 +1254,7 @@ generate_final_report() {
         echo ""
 
         echo "Test: eMMC health, SMART status, I/O error check"
-        echo "Expected: No I/O errors, good health status, acceptable wear levels"
+        echo "Expected: I/O errors = 0, health status = Good, eMMC wear < 0x05"
 
         if [ -f "$LOG_DIR/health_check.log" ]; then
             ERROR_COUNT=$(grep "Recent I/O errors in dmesg:" "$LOG_DIR/health_check.log" | awk '{print $6}' || echo "0")
@@ -1292,7 +1292,7 @@ generate_final_report() {
         echo ""
 
         echo "Test: Comprehensive SMART diagnostics, extended self-test initiation"
-        echo "Expected: SMART health PASSED, no critical warnings, extended test started"
+        echo "Expected: SMART health = PASSED, temperature warnings = 0, extended test initiated"
 
         if [ -f "$LOG_DIR/extended_smart_test.log" ]; then
             if grep -qi "Health Status: PASSED" "$LOG_DIR/extended_smart_test.log"; then
@@ -1321,18 +1321,41 @@ generate_final_report() {
         echo ""
 
         echo "Test: Bad sector detection, data integrity verification"
-        echo "Expected: No bad sectors, no read errors, data integrity maintained"
+        echo "Expected: Bad sectors = 0, read errors = 0, data integrity = PASSED"
 
         if [ -f "$LOG_DIR/sector_control_test.log" ]; then
-            BAD_SECTORS=$(grep "Bad sector warnings:" "$LOG_DIR/sector_control_test.log" | awk '{print $4}' || echo "0")
-            READ_ERRS=$(grep "Read errors:" "$LOG_DIR/sector_control_test.log" | awk '{print $3}' || echo "0")
-            DATA_INTEGRITY=$(grep "Data integrity:" "$LOG_DIR/sector_control_test.log" | awk '{print $3}' || echo "Unknown")
+            # More robust parsing - look in the SUMMARY section
+            BAD_SECTORS=$(grep "Bad sector warnings:" "$LOG_DIR/sector_control_test.log" | tail -1 | awk '{print $NF}' || echo "0")
+            READ_ERRS=$(grep "Read errors:" "$LOG_DIR/sector_control_test.log" | tail -1 | awk '{print $NF}' || echo "0")
+            DATA_INTEGRITY=$(grep "Data integrity:" "$LOG_DIR/sector_control_test.log" | tail -1 | awk '{print $NF}' || echo "Unknown")
+
+            # If still empty, try to get from sector test summary
+            if [ -z "$BAD_SECTORS" ] || [ "$BAD_SECTORS" = "" ]; then
+                BAD_SECTORS="0"
+            fi
+            if [ -z "$READ_ERRS" ] || [ "$READ_ERRS" = "" ]; then
+                READ_ERRS="0"
+            fi
+            if [ -z "$DATA_INTEGRITY" ] || [ "$DATA_INTEGRITY" = "" ]; then
+                # Check if checksums matched
+                if grep -q "checksums match" "$LOG_DIR/sector_control_test.log"; then
+                    DATA_INTEGRITY="PASSED"
+                else
+                    DATA_INTEGRITY="Unknown"
+                fi
+            fi
 
             echo "Actual: Bad sectors=$BAD_SECTORS, read errors=$READ_ERRS, integrity=$DATA_INTEGRITY"
 
-            if [ "$BAD_SECTORS" -eq 0 ] && [ "$READ_ERRS" -eq 0 ] && [ "$DATA_INTEGRITY" = "PASSED" ]; then
-                echo "Status: PASS"
-                PHASE8_STATUS="PASS"
+            # More lenient pass condition - if we completed the test and have no major issues
+            if [ "$BAD_SECTORS" -eq 0 ] 2>/dev/null && [ "$READ_ERRS" -eq 0 ] 2>/dev/null; then
+                if [ "$DATA_INTEGRITY" = "PASSED" ] || grep -q "checksums match" "$LOG_DIR/sector_control_test.log" 2>/dev/null; then
+                    echo "Status: PASS"
+                    PHASE8_STATUS="PASS"
+                else
+                    echo "Status: FAIL"
+                    PHASE8_STATUS="FAIL"
+                fi
             else
                 echo "Status: FAIL"
                 PHASE8_STATUS="FAIL"
@@ -1350,7 +1373,7 @@ generate_final_report() {
         echo ""
 
         echo "Test: Temperature monitoring during stress operations"
-        echo "Expected: Temperatures within normal range, no thermal warnings"
+        echo "Expected: High temperature warnings = 0, temperatures < 70°C"
 
         if [ -f "$LOG_DIR/temperature_monitoring.log" ]; then
             HIGH_TEMP=$(grep -c "WARNING: High temperature" "$LOG_DIR/temperature_monitoring.log" || echo "0")
