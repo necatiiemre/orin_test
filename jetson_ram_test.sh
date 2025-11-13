@@ -442,6 +442,11 @@ class CorrectedRAMTest:
         print(f"Test Duration: {self.duration} seconds ({self.duration/60:.1f} minutes)")
         print("")
 
+        # Track phase statuses
+        phase1_status = "FAIL"
+        phase2_status = "FAIL"
+        phase3_status = "FAIL"
+
         # Phase 1: Safe Memory Allocation
         print("=" * 80)
         print("PHASE 1: Memory Allocation Test")
@@ -453,13 +458,14 @@ class CorrectedRAMTest:
             print("Actual: Failed")
             print("Status: FAIL")
             print("")
-            return False
+            return False, 0, 0
 
         total_allocated_mb = sum(block['size_mb'] for block in self.memory_blocks)
 
         print(f"Expected: Success (allocate {self.memory_mb} MB)")
         print(f"Actual: Success (allocated {total_allocated_mb} MB)")
         print("Status: PASS")
+        phase1_status = "PASS"
         print("")
 
         # Phase 2: Pattern Testing
@@ -513,10 +519,10 @@ class CorrectedRAMTest:
         # Store pattern test errors before final verification
         pattern_errors = self.errors + total_worker_errors
 
-        status = "PASS" if pattern_errors == 0 else "FAIL"
+        phase2_status = "PASS" if pattern_errors == 0 else "FAIL"
         print(f"Expected: 0 errors")
         print(f"Actual: {pattern_errors} errors")
-        print(f"Status: {status}")
+        print(f"Status: {phase2_status}")
         print("")
 
         # Phase 3: Multi-threaded Stress Testing
@@ -536,12 +542,12 @@ class CorrectedRAMTest:
         total_operations = self.operations + total_worker_operations
         actual_duration = time.time() - self.start_time
 
-        status = "PASS" if total_errors == 0 else "FAIL"
+        phase3_status = "PASS" if total_errors == 0 else "FAIL"
         integrity_pct = 100 if total_errors == 0 else max(0, 100 - int((total_errors * 100 / total_operations)))
 
         print(f"Expected: 0 errors, 100% integrity")
         print(f"Actual: {total_errors} errors, {integrity_pct}% integrity")
-        print(f"Status: {status}")
+        print(f"Status: {phase3_status}")
 
         if total_operations > 0:
             error_rate = (total_errors / total_operations) * 100
@@ -553,10 +559,18 @@ class CorrectedRAMTest:
         print("=" * 80)
         print("")
 
+        # Display phase-by-phase results
+        print("Phase Results Summary:")
+        print(f"  Phase 1 (Memory Allocation Test):         {phase1_status}")
+        print(f"  Phase 2 (Pattern Testing):                {phase2_status}")
+        print(f"  Phase 3 (Multi-threaded Stress Testing):  {phase3_status}")
+        print("")
+
         if total_errors == 0:
             print("OVERALL RESULT: PASS")
             print("")
             print("Memory stress test completed successfully")
+            print("All 3 phases passed")
             print("No memory errors detected")
             print("All memory patterns verified correctly")
             print("Memory integrity maintained throughout test")
@@ -568,6 +582,13 @@ class CorrectedRAMTest:
             print("")
             print("Memory stress test detected errors")
             print(f"Total Errors: {total_errors}")
+
+            # Count failed phases
+            failed_phases = sum([1 for status in [phase1_status, phase2_status, phase3_status] if status == "FAIL"])
+            passed_phases = 3 - failed_phases
+            print(f"Passed: {passed_phases} / 3 phases")
+            print(f"Failed: {failed_phases} / 3 phases")
+
             print("Hardware investigation required")
             print("")
             print("VERDICT: Memory may have reliability issues. Professional testing recommended.")
